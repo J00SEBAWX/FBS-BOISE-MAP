@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FBS Boise Remodel Viewer</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <h1>Franklin Building Supply &mdash; Boise Store Remodel Viewer</h1>
+      <button id="add-aisle-btn" type="button">+ Add Aisle</button>
+    </header>
+
+    <div id="layout">
+      <div id="viewport"></div>
+
+      <aside id="panel">
+        <p id="panel-empty" class="hint">Click an aisle in the 3D view to edit it, or add a new one.</p>
+
+        <div id="panel-form" hidden>
+          <label>
+            Name
+            <input id="f-name" type="text" maxlength="60" />
+          </label>
+          <div class="row">
+            <label>
+              Width (ft)
+              <input id="f-width" type="number" min="1" max="200" step="0.5" />
+            </label>
+            <label>
+              Depth (ft)
+              <input id="f-depth" type="number" min="1" max="200" step="0.5" />
+            </label>
+            <label>
+              Height (ft)
+              <input id="f-height" type="number" min="1" max="40" step="0.5" />
+            </label>
+          </div>
+          <label>
+            Color
+            <input id="f-color" type="color" />
+          </label>
+
+          <button id="delete-aisle-btn" type="button" class="danger">Delete Aisle</button>
+
+          <hr />
+
+          <h2>Generate 3D Model</h2>
+          <p class="hint">Describe the fixture or layout for this aisle and generate a 3D model with Meshy AI.</p>
+          <label>
+            Prompt
+            <textarea id="f-prompt" rows="3" maxlength="600" placeholder="e.g. heavy-duty steel warehouse shelving, 4 tiers, industrial"></textarea>
+          </label>
+          <button id="generate-btn" type="button">Generate 3D Model</button>
+          <p id="generate-status" class="hint" aria-live="polite"></p>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
