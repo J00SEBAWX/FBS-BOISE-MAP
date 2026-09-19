@@ -1,0 +1,8 @@
+# Copy this file to .dev.vars for local development with `npm run dev`.
+# .dev.vars is gitignored — never commit real keys.
+#
+# For production, set this as a secret on the Cloudflare Pages project
+# instead (Pages dashboard -> Settings -> Environment variables -> add
+# MESHY_API_KEY as "Encrypted", or `wrangler pages secret put MESHY_API_KEY`).
+
+MESHY_API_KEY=msy_your_key_here
