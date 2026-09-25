@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "description": "3D aisle/remodel planning viewer for the Franklin Building Supply Boise store, deployed on Cloudflare Pages.",
   "scripts": {
-    "dev": "wrangler pages dev .",
-    "deploy": "wrangler pages deploy ."
+    "dev": "wrangler pages dev public",
+    "deploy": "wrangler pages deploy public"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

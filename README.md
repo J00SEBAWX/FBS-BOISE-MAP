@@ -25,6 +25,11 @@ small serverless backend, built to deploy on Cloudflare Pages.
 - Per aisle, generate a 3D model from a text description via Meshy AI and
   drop it into the scene in place of the placeholder box.
 
+The actual served site lives in `public/` (`wrangler.toml` points
+`pages_build_output_dir` there) — repo files like `package.json`,
+`docs/`, and `wrangler.toml` itself stay outside it, so they can't end up
+published as part of the live website.
+
 ## Local development
 
 ```bash
@@ -33,8 +38,8 @@ cp .dev.vars.example .dev.vars   # fill in your real MESHY_API_KEY, not committe
 npm run dev
 ```
 
-`npm run dev` runs `wrangler pages dev`, which serves the static files and
-the `functions/api/meshy/*` routes together, same as production.
+`npm run dev` runs `wrangler pages dev`, which serves `public/` and the
+`functions/api/meshy/*` routes together, same as production.
 
 ## Deploying to Cloudflare Pages
 
@@ -43,10 +48,16 @@ the `functions/api/meshy/*` routes together, same as production.
 2. Set the `MESHY_API_KEY` secret on the Pages project (Pages dashboard ->
    Settings -> Environment variables -> Encrypted, or
    `wrangler pages secret put MESHY_API_KEY`). Never commit this key.
-3. If this needs to be restricted to store staff only (rather than public),
-   put it behind [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/)
-   in the Cloudflare dashboard — that's account-level configuration, not
-   something in this repo.
+3. **Before making the site public**, do one of these — right now there is
+   no login, so anyone with the URL could trigger Meshy generations and
+   spend your paid credits:
+   - Set a `SITE_ACCESS_CODE` secret (`wrangler pages secret put
+     SITE_ACCESS_CODE`). The site will prompt for it once and remember it.
+     This is a shared-secret speed bump, not real per-user auth.
+   - Or, for real access control, put the whole site behind
+     [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/)
+     in the Cloudflare dashboard — that's account-level configuration, not
+     something in this repo, but it's the stronger option.
 
 ## Using the Meshy MCP server while developing
 
@@ -65,3 +76,5 @@ config reads it from the environment and never stores it in the repo.
   including a caveat that the exact Meshy REST shape used here wasn't
   verified against live docs (network-restricted environment) and should be
   double-checked before heavy production use.
+- The app itself has no login yet — see the `SITE_ACCESS_CODE` / Cloudflare
+  Access note above before deploying somewhere reachable by the public.
