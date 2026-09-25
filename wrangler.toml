@@ -1,3 +1,10 @@
 name = "fbs-boise-map"
+main = "src/worker.js"
 compatibility_date = "2026-09-19"
-pages_build_output_dir = "public"
+
+[assets]
+directory = "public"
+binding = "ASSETS"
+# Only /api/* invokes the Worker (src/worker.js); everything else is
+# served directly from public/ without running any Worker code.
+run_worker_first = ["/api/*"]

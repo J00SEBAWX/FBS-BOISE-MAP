@@ -7,19 +7,19 @@
    this project (e.g. "generate a model of a steel shelving unit and check
    it"). Requires `MESHY_API_KEY` to be set in your shell/environment before
    opening this project — it is never stored in the repo.
-2. **Cloudflare Pages Functions (`functions/api/meshy/`)** — the server-side
-   proxy the deployed *website itself* calls when a user clicks "Generate 3D
-   Model" in the browser. The key here is a Cloudflare Pages secret, set
-   with `wrangler pages secret put MESHY_API_KEY` (or via the Pages
-   dashboard), and is likewise never in the repo or sent to the browser.
+2. **The Cloudflare Worker (`src/worker.js`, `src/meshy.js`)** — the
+   server-side proxy the deployed *website itself* calls when a user
+   clicks "Generate 3D Model" in the browser. The key here is a secret on
+   the Worker, set with `wrangler secret put MESHY_API_KEY` (or via the
+   Cloudflare dashboard), and is likewise never in the repo or sent to
+   the browser.
 
 Both call Meshy's `POST/GET https://api.meshy.ai/openapi/v2/text-to-3d`
 endpoints directly (preview mode, polling for status).
 
 ## Verification caveat
 
-The Functions code in this repo (`functions/api/meshy/generate.js` and
-`functions/api/meshy/status/[id].js`) was written from general knowledge of
+The proxy code in this repo (`src/meshy.js`) was written from general knowledge of
 Meshy's v2 Text-to-3D REST API shape (endpoint paths, `mode`/`art_style`
 params, polling response fields like `status`/`progress`/`model_urls.glb`).
 I was not able to fetch `https://docs.meshy.ai/llms.txt` or the live API
