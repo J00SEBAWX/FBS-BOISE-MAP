@@ -27,6 +27,9 @@ const fPrompt = document.getElementById("f-prompt");
 const deleteBtn = document.getElementById("delete-aisle-btn");
 const generateBtn = document.getElementById("generate-btn");
 const generateStatus = document.getElementById("generate-status");
+const fModelPath = document.getElementById("f-model-path");
+const loadModelBtn = document.getElementById("load-model-btn");
+const loadModelStatus = document.getElementById("load-model-status");
 
 let aisles = loadAisles();
 let selectedId = null;
@@ -204,6 +207,8 @@ function selectAisle(id) {
   fPrompt.value = "";
   generateStatus.textContent = "";
   generateBtn.disabled = false;
+  fModelPath.value = "";
+  loadModelStatus.textContent = "";
 }
 
 function updateSelectedAisle(patch) {
@@ -281,6 +286,31 @@ generateBtn.addEventListener("click", async () => {
     generateStatus.textContent = `Failed: ${err.message}`;
   } finally {
     generateBtn.disabled = false;
+  }
+});
+
+loadModelBtn.addEventListener("click", async () => {
+  const aisle = getAisle(selectedId);
+  const path = fModelPath.value.trim();
+  if (!aisle || !path) {
+    loadModelStatus.textContent = "Enter a model path first.";
+    return;
+  }
+
+  loadModelBtn.disabled = true;
+  loadModelStatus.textContent = "Checking file…";
+
+  try {
+    const res = await fetch(path, { method: "HEAD" });
+    if (!res.ok) {
+      throw new Error(`File not found (${res.status}). Check it's in public/ and the path is right.`);
+    }
+    updateSelectedAisle({ modelUrl: path });
+    loadModelStatus.textContent = "Model loaded.";
+  } catch (err) {
+    loadModelStatus.textContent = `Failed: ${err.message}`;
+  } finally {
+    loadModelBtn.disabled = false;
   }
 });
 

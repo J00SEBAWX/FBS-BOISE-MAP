@@ -63,6 +63,17 @@
           </label>
           <button id="generate-btn" type="button">Generate 3D Model</button>
           <p id="generate-status" class="hint" aria-live="polite"></p>
+
+          <hr />
+
+          <h2>Or Load a Local Model</h2>
+          <p class="hint">Made one in Blender? Export it as .glb, drop it in public/models/, and type its path here.</p>
+          <label>
+            Model path
+            <input id="f-model-path" type="text" placeholder="models/end-cap-shelf.glb" />
+          </label>
+          <button id="load-model-btn" type="button">Load Model</button>
+          <p id="load-model-status" class="hint" aria-live="polite"></p>
         </div>
       </aside>
     </div>
