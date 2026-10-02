@@ -1,93 +1,67 @@
-# FBS Boise Remodel Viewer
+# FBS Boise Store Planner
 
-A 3D viewer for the Franklin Building Supply Boise store, used to lay out
-and manipulate store aisles while planning the remodel. Static frontend
-plus a small Cloudflare Worker backend.
+A private, sign-in-only planner for the Franklin Building Supply Boise store reset. Team members walk the
+store as Jerry, drag the 10 department areas into place, move fixtures and walls, and submit their build.
+AJ approves who gets in, reviews every build, and is the only one who can share one person's builds with
+someone else.
 
-## Stack
+Runs on one Cloudflare Worker (`fbs-boise-map`) with a D1 database. No build step and no third-party
+scripts: Three.js and the fonts are self-hosted in `public/`.
 
-- Plain HTML/CSS/JS frontend, [Three.js](https://threejs.org) for the 3D
-  scene (loaded via CDN, no build step needed), served as static assets
-  from `public/`.
-- A single [Cloudflare Worker](https://developers.cloudflare.com/workers/)
-  (`src/worker.js`) as a thin server-side proxy to the
-  [Meshy AI](https://www.meshy.ai) API, so the Meshy API key never reaches
-  the browser. Only `/api/*` requests reach this Worker — everything else
-  is served directly from `public/` (`wrangler.toml`'s
-  `assets.run_worker_first`).
-- `.mcp.json` wires up the official Meshy MCP server for interactive use
-  while developing in Claude Code (separate from the production proxy
-  above — see `docs/meshy-api-notes.md`).
+## How sign-in works
 
-This is deployed as a **Worker**, not a Pages project — the Cloudflare
-resource behind this repo's Git integration is a Workers service
-(`workers/services/view/fbs-boise-map`), so `wrangler.toml` uses `main` +
-`[assets]` rather than Pages' `pages_build_output_dir`. Mixing the two
-config styles is what caused the first build to fail (`wrangler deploy`
-refuses to run against a Pages-style config).
+1. Someone opens the site and asks for access with their first name, work area and mobile number.
+2. AJ gets a push alert (ntfy). Alerts never include phone numbers.
+3. AJ approves them in the dashboard (`/admin/`), which makes a random 6-digit code. AJ texts it from his
+   own phone with one tap.
+4. They sign in with phone + code. The code works once, expires in 3 days and locks after 5 wrong tries.
 
-## What it does
+AJ's own account is made once with a one-time setup code, and has 8 recovery codes as a backup.
 
-- Renders the store floor as a 3D scene with aisles you can click to
-  select, drag to reposition, and resize/recolor from the side panel.
-- Add/delete aisles; layout persists in the browser (`localStorage`) — no
-  database required for a single-user planning tool.
-- Per aisle, generate a 3D model from a text description via Meshy AI and
-  drop it into the scene in place of the placeholder box.
+## Security model
 
-The actual served site lives in `public/` — repo files like
-`package.json`, `docs/`, and `wrangler.toml` itself stay outside it, so
-they can't end up published as part of the live website.
+- Every page, script and API route is behind sign-in and checked on the server. Only `/login` and its
+  assets are public. `/admin/` is a 404 for anyone who isn't AJ.
+- Builds are private to their owner. Shares are admin-only grants (all of a person's builds, or one build),
+  read-only, and taking one back works immediately. `npm run test:security` proves this end to end.
+- Phone numbers are AES-GCM encrypted at rest and looked up by HMAC. Codes, recovery codes and session
+  tokens are stored only as hashes. Sessions use a `__Host-` cookie (HttpOnly, Secure, SameSite=Strict).
+- Strict CSP (no inline script or style, nothing loaded from other sites), HSTS, no framing, no referrer,
+  `noindex` everywhere, CSRF header + same-origin checks on every write, rate limits on sign-in.
+- Store geometry lives only in D1, never in git. `seed/` is git-ignored.
 
-## Local development
+## Folders
+
+| Path | What |
+|---|---|
+| `src/` | The Worker: routing, auth, builds, admin, Meshy proxy (admin only) |
+| `src/shared/catalog.js` | The 10 department areas and advisor thresholds |
+| `migrations/` | D1 schema |
+| `public/login.*` | Sign-in and access requests |
+| `public/app/` | The planner (3D scene, Jerry, advisor, editing, HUD) |
+| `public/admin/` | AJ's dashboard: requests, team, builds and reviews, sharing, activity |
+| `scripts/` | `check.mjs` (pre-deploy checks), `assets.mjs` (Three.js + fonts), `go-live.ps1` |
+| `test/` | Unit tests and the end-to-end security suite |
+| `docs/`, `legacy/`, `store-walk/` | Older handoff material. Not deployed. |
+
+## Commands
 
 ```bash
-npm install
-cp .dev.vars.example .dev.vars   # fill in your real MESHY_API_KEY, not committed
-npm run dev
+npm ci
+npm run check          # syntax, CSP-safe markup, no unsafe DOM, no secrets or store data
+npm test               # unit tests (advisor, geometry, validation, crypto)
+npm run test:security  # starts a throwaway local Worker and runs the isolation/sharing/revoke tests
+npm run dev            # local Worker on http://127.0.0.1:8787 (needs .dev.vars, see .dev.vars.example)
+npm run go-live        # Windows: first deploy (database, secrets, deploy, smoke test)
+npm run deploy         # later deploys: checks + unit tests + wrangler deploy
 ```
 
-`npm run dev` runs `wrangler dev`, which serves `public/` and runs
-`src/worker.js` for `/api/*`, same as production.
+## Going live the first time (Windows)
 
-## Deploying to Cloudflare
+Run `npm run go-live` from this folder. It signs in to Cloudflare (one click in the browser), creates the
+D1 database, applies the schema, loads the store layout from `seed/`, sets any missing secrets with random
+values (never printed), deploys, makes a one-time admin setup code and checks that everything is locked.
+Your setup code and alert topic are written to `FBS-planner-setup.txt` on your Desktop.
 
-This repo is already connected to Cloudflare's Git integration
-(Workers Builds), so pushes to the deployed branch build and deploy
-automatically. If setting this up fresh instead:
-
-1. `npm run deploy` (needs `wrangler login` first), or connect the repo to
-   a Workers project in the Cloudflare dashboard.
-2. Set the `MESHY_API_KEY` secret on the Worker (dashboard -> Workers &
-   Pages -> fbs-boise-map -> Settings -> Variables and Secrets -> add as
-   "Secret", or `wrangler secret put MESHY_API_KEY`). Never commit this key.
-3. **Before making the site public**, do one of these — right now there is
-   no login, so anyone with the URL could trigger Meshy generations and
-   spend your paid credits:
-   - Set a `SITE_ACCESS_CODE` secret (`wrangler secret put
-     SITE_ACCESS_CODE`). The site will prompt for it once and remember it.
-     This is a shared-secret speed bump, not real per-user auth.
-   - Or, for real access control, put the whole site behind
-     [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/)
-     in the Cloudflare dashboard — that's account-level configuration, not
-     something in this repo, but it's the stronger option.
-
-## Using the Meshy MCP server while developing
-
-`.mcp.json` in this repo configures the official `@meshy-ai/meshy-mcp-server`
-for Claude Code. Set `MESHY_API_KEY` in your environment before opening this
-project (e.g. `export MESHY_API_KEY=msy_...` in your shell profile) — the
-config reads it from the environment and never stores it in the repo.
-
-## Security notes
-
-- The Meshy API key lives only in two places: your local `.dev.vars`
-  (gitignored) and the Worker's "Secret" binding on Cloudflare. It is
-  never in git, never sent to the browser, and `src/meshy.js` never echoes
-  upstream error bodies that could leak it.
-- `docs/meshy-api-notes.md` has more detail on the API integration,
-  including a caveat that the exact Meshy REST shape used here wasn't
-  verified against live docs (network-restricted environment) and should be
-  double-checked before heavy production use.
-- The app itself has no login yet — see the `SITE_ACCESS_CODE` / Cloudflare
-  Access note above before deploying somewhere reachable by the public.
+Never re-create `PEPPER` or `PHONE_KEY` once people have signed up: stored phone numbers and codes depend on
+them.

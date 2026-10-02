@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>FBS Store Planner</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/base.css">
+<link rel="stylesheet" href="/login.css">
+</head>
+<body>
+<main class="wrap">
+  <section class="card" aria-labelledby="title">
+    <header class="head">
+      <span class="eyebrow">FBS Boise · Store reset</span>
+      <h1 id="title">Store Planner</h1>
+      <p class="muted">A private planning tool for the Boise store team. Sign in with the 6-digit code AJ texts you.</p>
+    </header>
+
+    <div class="tabs" role="tablist" aria-label="Sign in">
+      <button type="button" role="tab" id="tab-code" aria-selected="true" aria-controls="panel-code">I have a code</button>
+      <button type="button" role="tab" id="tab-request" aria-selected="false" aria-controls="panel-request">Request access</button>
+    </div>
+
+    <div id="msg" class="notice" role="status" aria-live="polite" hidden></div>
+
+    <form id="panel-code" class="panel" role="tabpanel" aria-labelledby="tab-code" novalidate>
+      <div class="field">
+        <label for="code-phone">Mobile number</label>
+        <input class="input" id="code-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="(208) 555-0134" required>
+      </div>
+      <div class="field">
+        <label for="code-code">6-digit code</label>
+        <input class="input code" id="code-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="7" placeholder="123456" required>
+        <span class="hint">Codes work once. Ask AJ for a new one if yours expired.</span>
+      </div>
+      <button class="btn primary wide" type="submit" id="code-submit">Sign in</button>
+    </form>
+
+    <form id="panel-request" class="panel" role="tabpanel" aria-labelledby="tab-request" novalidate hidden>
+      <div class="field">
+        <label for="req-name">First name</label>
+        <input class="input" id="req-name" name="firstName" type="text" autocomplete="given-name" maxlength="30" required>
+      </div>
+      <div class="field">
+        <label for="req-area">Area you work in</label>
+        <select class="input" id="req-area" name="workArea" required>
+          <option value="">Choose one</option>
+        </select>
+      </div>
+      <div class="field" id="req-other-wrap" hidden>
+        <label for="req-other">Your area</label>
+        <input class="input" id="req-other" type="text" maxlength="40" placeholder="e.g. Millwork">
+      </div>
+      <div class="field">
+        <label for="req-phone">Mobile number</label>
+        <input class="input" id="req-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="(208) 555-0134" required>
+        <span class="hint">Only used so AJ can text you a sign-in code.</span>
+      </div>
+      <button class="btn primary wide" type="submit" id="req-submit">Send request</button>
+    </form>
+
+    <div id="panel-sent" class="panel sent" hidden>
+      <h2>Request sent</h2>
+      <p>AJ just got an alert. Once he approves you, he'll text a 6-digit code to the number you entered.</p>
+      <p>When it arrives, come back here and choose <strong>I have a code</strong>.</p>
+      <button class="btn wide" type="button" id="sent-back">I have my code</button>
+    </div>
+
+    <form id="panel-admin" class="panel" novalidate hidden>
+      <h2>AJ sign-in</h2>
+      <p class="muted">Get a code on your phone through your push alerts, then enter it under <strong>I have a code</strong>.</p>
+      <div class="field">
+        <label for="admin-phone">Your mobile number</label>
+        <input class="input" id="admin-phone" type="tel" inputmode="tel" autocomplete="tel-national" required>
+      </div>
+      <button class="btn primary wide" type="submit">Send me a code</button>
+      <button class="btn ghost wide" type="button" id="show-recover">Use a recovery code instead</button>
+      <button class="link" type="button" id="link-setup">First-time setup</button>
+    </form>
+
+    <form id="panel-recover" class="panel" novalidate hidden>
+      <h2>Recovery code</h2>
+      <div class="field">
+        <label for="rec-phone">Your mobile number</label>
+        <input class="input" id="rec-phone" type="tel" inputmode="tel" autocomplete="tel-national" required>
+      </div>
+      <div class="field">
+        <label for="rec-code">Recovery code</label>
+        <input class="input code" id="rec-code" type="text" autocomplete="off" maxlength="9" placeholder="ABCD-EF23" required>
+        <span class="hint">Each recovery code works once.</span>
+      </div>
+      <button class="btn primary wide" type="submit">Sign in</button>
+    </form>
+
+    <form id="panel-setup" class="panel" novalidate hidden>
+      <h2>First-time setup</h2>
+      <p class="muted">This works once, with the setup code from your Claude session. It makes you the admin.</p>
+      <div class="field">
+        <label for="setup-code">Setup code</label>
+        <input class="input code" id="setup-code" type="text" autocomplete="off" maxlength="24" placeholder="XXXX-XXXX-XXXX-XXXX" required>
+      </div>
+      <div class="field">
+        <label for="setup-name">First name</label>
+        <input class="input" id="setup-name" type="text" autocomplete="given-name" maxlength="30" required>
+      </div>
+      <div class="field">
+        <label for="setup-phone">Mobile number</label>
+        <input class="input" id="setup-phone" type="tel" inputmode="tel" autocomplete="tel-national" required>
+      </div>
+      <button class="btn primary wide" type="submit">Finish setup</button>
+    </form>
+
+    <div id="panel-recovery-codes" class="panel" hidden>
+      <h2>Save your recovery codes</h2>
+      <p>If you ever can't get a code on your phone, each of these signs you in once. Keep them somewhere private, like a password manager. They won't be shown again.</p>
+      <ol id="recovery-list" class="codes num"></ol>
+      <button class="btn wide" type="button" id="copy-codes">Copy codes</button>
+      <button class="btn primary wide" type="button" id="go-admin">I saved them, open my dashboard</button>
+    </div>
+
+    <footer class="foot">
+      <button type="button" class="link" id="link-admin">AJ sign-in</button>
+    </footer>
+  </section>
+</main>
+<script type="module" src="/login.js"></script>
+</body>
+</html>

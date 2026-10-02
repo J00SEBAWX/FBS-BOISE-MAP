@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>FBS Planner Admin</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/base.css">
+<link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-l">
+    <span class="logo" aria-hidden="true">FBS</span>
+    <div class="top-title"><strong>Store Planner</strong><span class="muted">AJ's dashboard</span></div>
+  </div>
+  <nav class="tabs" aria-label="Sections">
+    <a href="#requests" data-tab="requests">Requests <span class="badge" id="b-requests" hidden></span></a>
+    <a href="#team" data-tab="team">Team</a>
+    <a href="#builds" data-tab="builds">Builds <span class="badge" id="b-builds" hidden></span></a>
+    <a href="#sharing" data-tab="sharing">Sharing</a>
+    <a href="#activity" data-tab="activity">Activity</a>
+    <a href="#settings" data-tab="settings">Settings</a>
+  </nav>
+  <div class="top-r">
+    <a class="btn small" href="/app/">Open planner</a>
+    <button type="button" class="btn small ghost" id="logout">Sign out</button>
+  </div>
+</header>
+<main class="main" id="main" tabindex="-1">
+  <p class="muted">Loading…</p>
+</main>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<dialog id="dlg" class="dlg"><div id="dlg-body"></div></dialog>
+<section id="print" class="print-area" aria-hidden="true"></section>
+<script type="module" src="/admin/admin.js"></script>
+</body>
+</html>

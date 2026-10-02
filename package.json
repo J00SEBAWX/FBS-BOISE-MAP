@@ -1,13 +1,29 @@
 {
   "name": "fbs-boise-map",
-  "private": true,
-  "version": "0.1.0",
-  "description": "3D aisle/remodel planning viewer for the Franklin Building Supply Boise store, deployed on Cloudflare Pages.",
+  "version": "1.0.0",
+  "description": "FBS Boise store planner: private, sign-in only (Cloudflare Worker + D1)",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "check": "node scripts/check.mjs",
+    "test": "node --test test/unit.test.mjs",
+    "test:security": "node --test --test-reporter=spec test/security.test.mjs",
+    "test:all": "npm run check && npm test && npm run test:security",
+    "deploy": "npm run check && npm test && wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply fbs-boise-map --remote",
+    "assets": "node scripts/assets.mjs",
+    "go-live": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/go-live.ps1"
   },
+  "license": "UNLICENSED",
   "devDependencies": {
-    "wrangler": "^4.0.0"
+    "@fontsource/barlow-condensed": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "three": "^0.186.1",
+    "wrangler": "^4.146.0",
+    "esbuild": "^0.28.1"
+  },
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
   }
 }

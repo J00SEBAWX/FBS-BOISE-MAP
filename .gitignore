@@ -1,5 +1,11 @@
 node_modules/
 .wrangler/
-.dev.vars
-.env
-.DS_Store
+.dev.vars*
+.env*
+seed/
+*.pdf
+reference/
+test-results/
+playwright-report/
+*.log
+!.dev.vars.example

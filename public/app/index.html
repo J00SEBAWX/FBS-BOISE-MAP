@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>FBS Store Planner</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/base.css">
+<link rel="stylesheet" href="/app/app.css">
+<link rel="modulepreload" href="/vendor/three.module.min.js">
+</head>
+<body class="app" data-mode="areas" data-cam="jerry">
+<canvas id="view" aria-label="3D view of the store. Use the lists and details panels for a keyboard-friendly way to edit."></canvas>
+
+<header class="bar" id="bar">
+  <div class="bar-l">
+    <span class="logo" aria-hidden="true">FBS</span>
+    <div class="titles">
+      <button type="button" id="build-name" class="build-name" title="Rename this build"></button>
+      <span id="save-state" class="save-state" role="status" aria-live="polite"></span>
+    </div>
+  </div>
+  <nav class="modes" role="tablist" aria-label="View mode">
+    <button type="button" role="tab" data-mode="current"><span class="key" aria-hidden="true">1</span>Current layout</button>
+    <button type="button" role="tab" data-mode="areas"><span class="key" aria-hidden="true">2</span>Area planning <span class="mode-progress num" id="mode-progress"></span></button>
+    <button type="button" role="tab" data-mode="compare"><span class="key" aria-hidden="true">3</span>Compare</button>
+    <button type="button" role="tab" data-mode="suggested"><span class="key" aria-hidden="true">4</span>Suggested</button>
+  </nav>
+  <div class="bar-r">
+    <button type="button" class="icon-btn" id="btn-undo" aria-label="Undo"></button>
+    <button type="button" class="icon-btn" id="btn-redo" aria-label="Redo"></button>
+    <button type="button" class="btn small" id="btn-cam" title="Switch camera (Space)"></button>
+    <button type="button" class="btn small signal" id="btn-ask" aria-pressed="false" title="Ask Jerry (J)"><span>Ask Jerry</span></button>
+    <button type="button" class="btn small primary" id="btn-submit">Submit</button>
+    <button type="button" class="icon-btn" id="btn-menu" aria-label="Menu" aria-haspopup="true" aria-expanded="false"></button>
+    <div class="menu" id="menu" role="menu" hidden>
+      <button type="button" role="menuitem" data-act="builds">My builds</button>
+      <button type="button" role="menuitem" data-act="shared">Shared with me</button>
+      <button type="button" role="menuitem" data-act="new">New build</button>
+      <hr>
+      <button type="button" role="menuitem" data-act="layers">Layers &amp; graphics</button>
+      <button type="button" role="menuitem" data-act="help">Controls</button>
+      <a role="menuitem" href="/admin/" id="menu-admin" hidden>AJ's dashboard</a>
+      <hr>
+      <button type="button" role="menuitem" data-act="logout">Sign out</button>
+    </div>
+  </div>
+</header>
+
+<div class="banner" id="banner" hidden></div>
+<aside class="panel left" id="left" aria-label="Lists"></aside>
+<aside class="panel right" id="right" aria-label="Details"></aside>
+
+<div class="bubble" id="bubble" role="dialog" aria-live="polite" aria-labelledby="bubble-title" hidden>
+  <div class="bubble-head">
+    <span class="bubble-who"><span class="dot" aria-hidden="true"></span>Jerry</span>
+    <span class="bubble-count" id="bubble-count"></span>
+    <button type="button" class="icon-btn small" id="bubble-close" aria-label="Close tip"></button>
+  </div>
+  <h3 id="bubble-title"></h3>
+  <p id="bubble-text"></p>
+  <p id="bubble-note" class="bubble-note" hidden></p>
+  <div class="bubble-actions">
+    <button type="button" class="btn small primary" id="bubble-cta"></button>
+    <button type="button" class="btn small" id="bubble-show">Show me</button>
+    <button type="button" class="btn small ghost" id="bubble-next">Next tip</button>
+  </div>
+</div>
+<button type="button" class="thought" id="thought" aria-label="Jerry has an idea. Open it." hidden><span></span><span></span><span></span></button>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div class="carry-hint" id="carry-hint" role="status" hidden></div>
+<div class="minimap-wrap"><canvas id="minimap" aria-label="Store map. Click to walk Jerry there."></canvas></div>
+<div class="hint" id="hint"></div>
+
+<div class="touch" id="touch" hidden>
+  <div class="stick" id="stick" aria-label="Walk"><div class="knob" id="knob"></div></div>
+  <div class="touch-btns">
+    <button type="button" class="tbtn" id="t-grab">Grab / drop</button>
+    <button type="button" class="tbtn" id="t-rot">Rotate</button>
+  </div>
+</div>
+<nav class="sheet-tabs" id="sheet-tabs" aria-label="Panels">
+  <button type="button" data-sheet="left" aria-pressed="false">List</button>
+  <button type="button" data-sheet="jerry" aria-pressed="false">Jerry</button>
+  <button type="button" data-sheet="right" aria-pressed="false">Details</button>
+</nav>
+
+<div class="loading" id="loading">
+  <div class="loading-card">
+    <span class="eyebrow">FBS Boise · Store reset</span>
+    <h1>Store Planner</h1>
+    <p id="loading-text">Loading the store…</p>
+  </div>
+</div>
+
+<dialog id="dlg" class="dlg"><div id="dlg-body"></div></dialog>
+<script type="module" src="/app/main.js"></script>
+</body>
+</html>
