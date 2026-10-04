@@ -408,20 +408,19 @@ body.party::after {
   .bar-r { grid-column: 2; grid-row: 1; gap: 4px; }
   #btn-cam span, #btn-ask span { display: none; }
   #btn-cam, #btn-ask { padding: 0; width: 36px; min-height: 36px; }
-  .panel.left, .panel.right { top: auto; bottom: calc(56px + var(--safe-b)); left: 0; right: 0; width: auto; max-height: 58vh;
+  .panel.left, .panel.right { inset: auto 0 calc(56px + var(--safe-b)) 0; width: auto; max-height: 58vh;
     border-radius: 16px 16px 0 0; transform: translateY(calc(100% + 70px)); transition: transform .22s ease-out, visibility 0s linear .22s; z-index: 18; visibility: hidden; }
-  body[data-sheet="left"] .panel.left, body[data-sheet="right"] .panel.right { visibility: visible; transition: transform .22s ease-out, visibility 0s; }
+  body[data-sheet="left"] .panel.left, body[data-sheet="right"] .panel.right { visibility: visible; transform: none; transition: transform .22s ease-out, visibility 0s; }
   .logo, #btn-redo { display: none; }
   .titles { overflow: hidden; }
   .build-name { max-width: 100%; }
-  body[data-sheet="left"] .panel.left, body[data-sheet="right"] .panel.right { transform: none; }
   .sheet-tabs { display: grid; grid-template-columns: repeat(3, 1fr); position: fixed; z-index: 21; left: 0; right: 0; bottom: 0;
     padding-bottom: var(--safe-b); background: var(--hud); border-top: 1px solid var(--line); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
   .sheet-tabs button { border: 0; background: none; min-height: 56px; font-family: var(--display); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: 15px; color: var(--muted); }
   .sheet-tabs button[aria-pressed="true"] { color: var(--accent); box-shadow: inset 0 3px 0 var(--accent); }
   .touch { bottom: calc(56px + 14px + var(--safe-b)); }
   body[data-sheet="left"] .touch, body[data-sheet="right"] .touch, body[data-sheet="left"] .thought, body[data-sheet="right"] .thought { display: none; }
-  .minimap-wrap { top: calc(var(--bar-h) + var(--safe-t) + 8px); bottom: auto; left: auto; right: 8px; width: 150px; height: 76px; }
+  .minimap-wrap { inset: calc(var(--bar-h) + var(--safe-t) + 8px) 8px auto auto; width: 150px; height: 76px; }
   .hint { display: none; }
   .banner { left: 8px; right: 168px; max-width: none; top: calc(var(--bar-h) + var(--safe-t) + 8px); font-size: 12.5px; }
   .toasts { top: calc(var(--bar-h) + var(--safe-t) + 90px); }
