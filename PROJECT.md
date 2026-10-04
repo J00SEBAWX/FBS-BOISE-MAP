@@ -19,6 +19,7 @@ nothing about the store or the team is reachable without signing in.
 |---|---|
 | Code | This branch is the live app. It runs on the Cloudflare Worker `fbs-boise-map` with the D1 database `fbs-boise-map`. |
 | Deploys | Cloudflare Workers Builds watches this repo and the production branch is `main`. `npm run deploy` and `npm run go-live` also deploy straight from a laptop. |
+| Address | **https://franklinmap-boise.com** is the site address. The Worker is also reachable at its `workers.dev` address (and as branch previews while preview links are on); all of them share one database and one sign-in. To keep a single front door, turn off the `workers.dev` address and preview links in the Worker settings under Domains & Routes once the domain works for you. |
 | Database | Schema applied. Store layout loaded (`current` = surveyed store, `suggested` = Claude's area plan). No people yet. |
 | AJ's account | **Not set up yet.** One unused setup code exists (expires about October 6, 2026). Until AJ finishes first-time setup, nobody can sign in. If the code expired, run `npm run go-live` again: it only makes a new setup code while no admin exists and never rotates secrets. |
 | Phone alerts | ntfy push is set up by the go-live script. SMS (Twilio) is optional. See "Alerts" below. |
@@ -73,7 +74,7 @@ npm run go-live
 
 It signs in to Cloudflare, applies the schema, loads `seed/` if present, sets any missing secrets
 with random values, deploys, makes a one-time setup code and writes your notes (ntfy topic + setup
-code) to `FBS-planner-setup.txt` on your Desktop. Then open `https://<your worker>/login`, click
+code) to `FBS-planner-setup.txt` on your Desktop. Then open `https://franklinmap-boise.com/login`, click
 **AJ sign-in → First-time setup**, enter the code, your first name and mobile number, and save the
 8 recovery codes. Delete the Desktop file afterwards.
 
