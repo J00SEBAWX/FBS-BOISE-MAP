@@ -11,7 +11,9 @@
     "deploy": "npm run check && npm test && wrangler deploy",
     "db:migrate": "wrangler d1 migrations apply fbs-boise-map --remote",
     "assets": "node scripts/assets.mjs",
-    "go-live": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/go-live.ps1"
+    "go-live": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/go-live.ps1",
+    "db:seed": "wrangler d1 execute fbs-boise-map --remote --file seed/seed.sql",
+    "seed:pull": "node scripts/pull-seed.mjs"
   },
   "license": "UNLICENSED",
   "devDependencies": {

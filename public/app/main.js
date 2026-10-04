@@ -268,7 +268,11 @@ function refreshTips() {
       focusKey: app.ui.focusKey,
       focusAreaId: app.ui.selection && app.ui.selection.kind === "area" ? app.ui.selection.id : null,
     });
-    if (!state.build.canEdit) app.tips = [{ id: "readonly", tone: "info", title: `${state.build.ownerName || "A teammate"}'s build`, text: "You're viewing this build because AJ shared it with you. You can look around and compare, but not change it.", action: null, cta: null }];
+    if (!state.build.canEdit) {
+      const reviewing = app.user && app.user.role === "admin";
+      app.tips = [{ id: "readonly", tone: "info", title: `${state.build.ownerName || "A teammate"}'s build`, text: reviewing ? "You're reviewing this build. Look around and compare it with yours; review notes and sharing live in your dashboard." : "You're viewing this build because AJ shared it with you. You can look around and compare, but not change it.", action: null, cta: null }];
+    }
+    if (!(app.current.items || []).length) app.tips = [{ id: "no-layout", tone: "warn", title: "The store layout isn't loaded", text: "This server has no store geometry yet, so nothing can be placed or walked. AJ: load the seed folder (node scripts/pull-seed.mjs, then npm run db:seed) and refresh.", action: null, cta: null }];
   }
   hud.updateTips(app.tips);
 }
@@ -660,6 +664,7 @@ app.applyTip = async function (tip) {
 
 app.copySuggestedAll = async function () {
   if (!state.build.canEdit) return hud.toast("This build is read-only.", "warn");
+  if (!app.suggestedBlocks.length) return hud.toast("The suggested plan isn't loaded on this server yet, so there's nothing to copy.", "warn");
   const ok = await hud.confirm({
     title: "Copy my plan into this build?",
     text: "This replaces the department blocks in your build with the 10 blocks from my suggested plan. Your fixtures stay the same, and you can undo it.",

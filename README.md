@@ -1,5 +1,7 @@
 # FBS Boise Store Planner
 
+> Start with **[PROJECT.md](PROJECT.md)**: the goal, what is done, where things stand and how to run it, on one page.
+
 A private, sign-in-only planner for the Franklin Building Supply Boise store reset. Team members walk the
 store as Jerry, drag the 10 department areas into place, move fixtures and walls, and submit their build.
 AJ approves who gets in, reviews every build, and is the only one who can share one person's builds with
@@ -42,6 +44,7 @@ AJ's own account is made once with a one-time setup code, and has 8 recovery cod
 | `public/admin/` | AJ's dashboard: requests, team, builds and reviews, sharing, activity |
 | `scripts/` | `check.mjs` (pre-deploy checks), `assets.mjs` (Three.js + fonts), `go-live.ps1` |
 | `test/` | Unit tests and the end-to-end security suite |
+| `scripts/pull-seed.mjs` | `npm run seed:pull`: copies the store layout from the live database into git-ignored `seed/` for local dev and the real-store tests |
 | `docs/`, `legacy/`, `store-walk/` | Older handoff material. Not deployed. |
 
 ## Commands
@@ -65,3 +68,13 @@ Your setup code and alert topic are written to `FBS-planner-setup.txt` on your D
 
 Never re-create `PEPPER` or `PHONE_KEY` once people have signed up: stored phone numbers and codes depend on
 them.
+
+## Going live from a Mac or Linux machine
+
+`go-live` is a PowerShell script. The same steps by hand are listed in [PROJECT.md](PROJECT.md#first-time-setup-aj).
+
+## Alerts
+
+The ntfy topic carries access requests and AJ's own sign-in codes, so treat the topic name like a password.
+Set the `TWILIO_*` + `ADMIN_SMS_TO` secrets to also get everything by SMS, or self-host ntfy with
+`NTFY_SERVER` + `NTFY_TOKEN`.

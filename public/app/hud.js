@@ -261,7 +261,10 @@ export function createHud(app) {
       el.banner.hidden = !msg;
       el.banner.dataset.kind = kind;
       clear(el.banner);
-      if (msg) el.banner.append(h("span", msg), !b.canEdit ? h("button.btn.small", { type: "button", onclick: () => hud.openBuilds("mine") }, "Back to my builds") : null);
+      if (msg) {
+        el.banner.append(h("span", msg));
+        if (!b.canEdit) el.banner.append(h("button.btn.small", { type: "button", onclick: () => hud.openBuilds("mine") }, "Back to my builds"));
+      }
       hud.updateSave(app.state.status);
     },
     updateProgress(p) {

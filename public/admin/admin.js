@@ -189,7 +189,7 @@ async function makeCode(u) {
   route();
 }
 async function deny(u) {
-  if (!(await confirmBox(`Deny ${u.firstName}?`, "They won't get a code. They can ask again later.", "Deny", true))) return;
+  if (!(await confirmBox(`Deny ${u.firstName}?`, "They won't get a code and can't sign in. If you change your mind, restore them from the Team tab.", "Deny", true))) return;
   await run(() => api.post(`/api/admin/users/${u.id}/deny`, {}), "Denied.");
   route();
 }
@@ -595,7 +595,7 @@ async function renderActivity() {
     h("tr", h("td", new Date(e.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })), h("td", e.actor_name || h("span.muted", "Someone signing in")), h("td", ACTIONS[e.action] || e.action), h("td", h("span.muted", e.detail || "")))
   );
   clear(main).append(
-    h("div.sec-head", h("div", h("h1", "Activity"), h("p", "Sign-ins, approvals, shares and submissions, newest first. Kept for 180 days."))),
+    h("div.sec-head", h("div", h("h1", "Activity"), h("p", "Sign-ins, approvals, shares and submissions, newest first. Kept for a year."))),
     h("div.tbl-wrap", h("table", h("thead", h("tr", h("th", "When"), h("th", "Who"), h("th", "What"), h("th", "Detail"))), h("tbody", rows.length ? rows : h("tr", h("td", { colspan: "4" }, "Nothing yet.")))))
   );
 }
