@@ -18,7 +18,7 @@ nothing about the store or the team is reachable without signing in.
 | Thing | State |
 |---|---|
 | Code | This branch is the live app. It runs on the Cloudflare Worker `fbs-boise-map` with the D1 database `fbs-boise-map`. |
-| Deploys | Cloudflare's Git integration (Workers Builds) deployed both `claude/secure-planner` and `claude/nifty-faraday-tff6ix` to production the moment they were pushed, so a push to a branch goes live before anyone reviews it. Set the production branch to `main` in the Cloudflare dashboard (Workers & Pages → fbs-boise-map → Settings → Builds) so only merged code deploys. |
+| Deploys | Cloudflare Workers Builds watches this repo and the production branch is `main`. `npm run deploy` and `npm run go-live` also deploy straight from a laptop. |
 | Database | Schema applied. Store layout loaded (`current` = surveyed store, `suggested` = Claude's area plan). No people yet. |
 | AJ's account | **Not set up yet.** One unused setup code exists (expires about October 6, 2026). Until AJ finishes first-time setup, nobody can sign in. If the code expired, run `npm run go-live` again: it only makes a new setup code while no admin exists and never rotates secrets. |
 | Phone alerts | ntfy push is set up by the go-live script. SMS (Twilio) is optional. See "Alerts" below. |
