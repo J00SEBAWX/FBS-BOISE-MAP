@@ -14,11 +14,11 @@
     {
       "binding": "DB",
       "database_name": "fbs-boise-map",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "782b142f-bd23-434b-83a4-2bdb956c23f2",
       "migrations_dir": "migrations"
     }
   ],
-  "triggers": { "crons": ["17 10 * * *"] },
+  "triggers": { "crons": [] },
   "observability": { "enabled": true, "head_sampling_rate": 1 },
   "vars": { "NTFY_SERVER": "https://ntfy.sh" }
 }

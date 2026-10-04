@@ -25,7 +25,7 @@ export async function audit(db, actorId, action, target = null, detail = null) {
   }
 }
 
-/** Housekeeping, run daily from the cron trigger. */
+/** Housekeeping: clears expired rows. Called from normal traffic (see worker.js). */
 export async function prune(db) {
   const now = Date.now();
   const day = 86400000;

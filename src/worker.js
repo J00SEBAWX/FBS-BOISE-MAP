@@ -136,9 +136,20 @@ async function route(request, env, ctx) {
   return notFound();
 }
 
+// Housekeeping runs off normal traffic (at most every 6 hours per Worker instance), so no cron trigger is needed.
+// Expired sessions and codes are already refused on every request; this only clears old rows.
+let lastPrune = 0;
+function maybePrune(env, ctx) {
+  const now = Date.now();
+  if (now - lastPrune < 6 * 3600000) return;
+  lastPrune = now;
+  ctx.waitUntil(prune(env.DB).catch(() => {}));
+}
+
 export default {
   async fetch(request, env, ctx) {
     try {
+      maybePrune(env, ctx);
       return secure(await route(request, env, ctx));
     } catch (e) {
       if (e instanceof HttpError) return secure(json({ error: e.message, ...(e.extra || {}) }, e.status));

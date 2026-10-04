@@ -132,3 +132,4 @@ Write-Host ""
 Write-Host "Your setup steps are in $NOTES (open it, follow it, then delete it)." -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Planner: $url" -ForegroundColor Cyan
+if ($ok) { exit 0 } else { exit 1 }
