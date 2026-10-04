@@ -150,7 +150,6 @@ export function createHud(app) {
   let tips = [];
   let tipIndex = 0;
   let bubbleMode = "tips"; // tips | intro | celebrate
-  let bubbleAnchor = null;
 
   function currentTip() {
     return tips[tipIndex] || null;
@@ -376,7 +375,6 @@ export function createHud(app) {
         const y = visible ? p.y - 46 : vh - 120;
         el.thought.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
       }
-      bubbleAnchor = p;
     },
     showIntro() {
       bubbleMode = "intro";

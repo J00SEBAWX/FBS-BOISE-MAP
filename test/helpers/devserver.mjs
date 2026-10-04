@@ -32,7 +32,7 @@ export async function startDev({ port = 8791 } = {}) {
   );
   const kill = () => {
     try {
-      if (WIN) spawn("taskkill", ["/pid", String(proc.pid), "/T", "/F"]);
+      if (WIN) spawn(path.join(process.env.SystemRoot || "C:\\Windows", "System32", "taskkill.exe"), ["/pid", String(proc.pid), "/T", "/F"]);
       else process.kill(-proc.pid, "SIGTERM");
     } catch {
       /* already gone */

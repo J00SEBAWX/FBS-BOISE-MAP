@@ -259,8 +259,6 @@ async function renderBuilds() {
   const counts = {};
   for (const b of S.builds) counts[b.status] = (counts[b.status] || 0) + 1;
   const filters = [["submitted", "Submitted"], ["needs_changes", "Needs changes"], ["reviewed", "Reviewed"], ["draft", "Drafts"], ["all", "All"]];
-  const q = S.buildSearch.toLowerCase();
-  const list = S.builds.filter((b) => (S.buildFilter === "all" || b.status === S.buildFilter) && (!q || b.name.toLowerCase().includes(q) || (b.ownerName || "").toLowerCase().includes(q)));
   const search = h("input.input", { type: "search", placeholder: "Search builds or people", value: S.buildSearch, "aria-label": "Search builds" });
   search.addEventListener("input", () => {
     S.buildSearch = search.value;
@@ -330,7 +328,6 @@ async function renderBuilds() {
   );
   renderBuildTable();
   if (S.selBuild && S.builds.some((b) => b.id === S.selBuild)) renderDetail(detailHost, S.builds.find((b) => b.id === S.selBuild));
-  void list;
 }
 
 function planCanvas(b, theme) {

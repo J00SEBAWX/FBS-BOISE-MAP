@@ -76,8 +76,8 @@ export function createPanels(app) {
     const tabs = h(
       "div.seg",
       { role: "tablist" },
-      h("button", { type: "button", role: "tab", "aria-selected": String(fixtureTab === "fixtures"), onclick: () => ((fixtureTab = "fixtures"), render()) }, "Fixtures"),
-      h("button", { type: "button", role: "tab", "aria-selected": String(fixtureTab === "structure"), onclick: () => ((fixtureTab = "structure"), render()) }, "Structure")
+      h("button", { type: "button", role: "tab", "aria-selected": String(fixtureTab === "fixtures"), onclick: () => { fixtureTab = "fixtures"; render(); } }, "Fixtures"),
+      h("button", { type: "button", role: "tab", "aria-selected": String(fixtureTab === "structure"), onclick: () => { fixtureTab = "structure"; render(); } }, "Structure")
     );
     const search = h("input.input.small", { type: "search", placeholder: "Find…", value: filter, "aria-label": "Find a fixture" });
     search.addEventListener("input", () => {

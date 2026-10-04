@@ -362,7 +362,7 @@ export function createEditor(app) {
       }
       const copy = JSON.parse(JSON.stringify(o));
       copy.id = newId(sel.kind === "area" ? "a" : "n");
-      const [x0, y0, x1, y1] = bbox(o);
+      const [x0, , x1] = bbox(o);
       copy.x = r2(o.x + (x1 - x0) + 1);
       if (sel.kind === "item") copy.name = `${o.name || "Fixture"} (copy)`.slice(0, 80);
       const ok2 = app.state.change(`Duplicate ${nameOf(sel.kind, o)}`, (d) => (sel.kind === "area" ? d.areas.push(copy) : d.items.push(copy)));

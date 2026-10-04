@@ -774,10 +774,6 @@ export function createScene(canvas) {
     return Number.isFinite(x0) ? [x0, y0, x1, y1] : [0, 0, 169, 80];
   }
 
-  function areaColor(a, catalogByKey) {
-    return a.color || (catalogByKey && catalogByKey[a.key] && catalogByKey[a.key].color) || "#888888";
-  }
-
   function buildArea(a, info) {
     const g = new THREE.Group();
     g.userData = { kind: "area", id: a.id };
@@ -890,7 +886,7 @@ export function createScene(canvas) {
     });
     for (const n of ["marker", "palette", "overlaps", "guides", "handles", "select", "ghosts", "links", "anchors"]) {
       ov[n].traverse((o) => {
-        if (o.material && !Array.isArray(o.material)) o.material.depthTest = !(camMode === "map");
+        if (o.material && !Array.isArray(o.material)) o.material.depthTest = camMode !== "map";
       });
     }
   }
@@ -1456,7 +1452,8 @@ export function createScene(canvas) {
           pulsers.delete(m);
           continue;
         }
-        m.material.opacity = m.userData.baseOpacity === undefined ? (m.userData.baseOpacity = m.material.opacity) : m.userData.baseOpacity * (0.45 + 0.55 * pulse);
+        if (m.userData.baseOpacity === undefined) m.userData.baseOpacity = m.material.opacity;
+        else m.material.opacity = m.userData.baseOpacity * (0.45 + 0.55 * pulse);
       }
       renderer.render(scene, camera());
     },

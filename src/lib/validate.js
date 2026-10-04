@@ -17,7 +17,7 @@ export function formatPhone(e164) {
   return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
 }
 
-const NAME_RE = /^[\p{L}][\p{L}\p{M} .'\-]{0,29}$/u;
+const NAME_RE = /^\p{L}[\p{L}\p{M} .'\-]{0,29}$/u;
 export function cleanFirstName(input) {
   const s = String(input ?? "").normalize("NFC").replace(/\s+/g, " ").trim();
   if (!s || s.length > 30 || !NAME_RE.test(s)) return null;

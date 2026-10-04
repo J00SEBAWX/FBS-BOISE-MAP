@@ -3,7 +3,7 @@ import { api, ApiError } from "./api.js";
 import { createState } from "./state.js";
 import { createScene } from "./scene3d.js";
 import { NavGrid } from "./nav.js";
-import { analyzeBuild, analyzeArea, suggestions, prepCatalog, buildContext, anchorPoints, anchorShort, nice } from "./analysis.js";
+import { analyzeBuild, analyzeArea, suggestions, prepCatalog, anchorPoints, nice } from "./analysis.js";
 import { diffAreas, diffItems, matchScore } from "./compare.js";
 import { createEditor, areaFromCatalog, FIXTURE_TEMPLATES, STRUCTURE_TEMPLATES } from "./edit.js";
 import { attachInput } from "./input.js";
@@ -12,7 +12,7 @@ import { createHud } from "./hud.js";
 import { createPanels } from "./panels.js";
 import { createInspector } from "./inspector.js";
 import { drawPlan, shortName } from "./plan2d.js";
-import { bbox, rectDist, pointRectDist } from "./geometry.js";
+import { pointRectDist } from "./geometry.js";
 import { $ } from "./h.js";
 
 const store = {

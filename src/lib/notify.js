@@ -4,7 +4,8 @@
 export async function notifyAdmin(env, { title, message, click, priority = 4, tags = ["bell"] }) {
   const jobs = [];
   if (env.NTFY_TOPIC) {
-    const server = (env.NTFY_SERVER || "https://ntfy.sh").replace(/\/+$/, "");
+    let server = env.NTFY_SERVER || "https://ntfy.sh";
+    while (server.endsWith("/")) server = server.slice(0, -1);
     const headers = { "Content-Type": "application/json" };
     if (env.NTFY_TOKEN) headers.Authorization = `Bearer ${env.NTFY_TOKEN}`;
     const body = { topic: env.NTFY_TOPIC, title, message, priority, tags };

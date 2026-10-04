@@ -30,7 +30,9 @@ export function fromB64(str) {
 }
 
 export function toB64Url(bytes) {
-  return toB64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  let s = toB64(bytes).replace(/\+/g, "-").replace(/\//g, "_");
+  while (s.endsWith("=")) s = s.slice(0, -1);
+  return s;
 }
 
 /** Opaque random id, e.g. for users/builds. */
