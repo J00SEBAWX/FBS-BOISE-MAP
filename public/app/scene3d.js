@@ -3,7 +3,6 @@
 import * as THREE from "/vendor/three.module.min.js";
 import { corners, bbox, rad, rectDist, toWorld } from "./geometry.js";
 import { createJerry } from "./jerry.js";
-import { shortName } from "./plan2d.js";
 
 const DISPLAY = '"Barlow Condensed", "Arial Narrow", Arial, sans-serif';
 const BODY = '"IBM Plex Sans", system-ui, sans-serif';
