@@ -1,93 +1,107 @@
-# FBS Boise Remodel Viewer
+# FBS Boise Store Map
 
-A 3D viewer for the Franklin Building Supply Boise store, used to lay out
-and manipulate store aisles while planning the remodel. Static frontend
-plus a small Cloudflare Worker backend.
+A website that lets you look around the FBS Boise store the way a customer
+would. It lives at **https://franklinmap-boise.com**.
 
-## Stack
+There are two views:
 
-- Plain HTML/CSS/JS frontend, [Three.js](https://threejs.org) for the 3D
-  scene (loaded via CDN, no build step needed), served as static assets
-  from `public/`.
-- A single [Cloudflare Worker](https://developers.cloudflare.com/workers/)
-  (`src/worker.js`) as a thin server-side proxy to the
-  [Meshy AI](https://www.meshy.ai) API, so the Meshy API key never reaches
-  the browser. Only `/api/*` requests reach this Worker — everything else
-  is served directly from `public/` (`wrangler.toml`'s
-  `assets.run_worker_first`).
-- `.mcp.json` wires up the official Meshy MCP server for interactive use
-  while developing in Claude Code (separate from the production proxy
-  above — see `docs/meshy-api-notes.md`).
+- **Walk** (opens first): you stand just inside the front door at eye height
+  and can look and walk around the store in 3D. The card in the top-right
+  corner tells you which part of the store you are in and what you are near.
+  The small map in the bottom-left shows where you are; tap it to walk there.
+- **Map**: the floor plan from above. Click any fixture to see what it is and
+  its size, then press **Go look at it** to walk over and face it.
 
-This is deployed as a **Worker**, not a Pages project — the Cloudflare
-resource behind this repo's Git integration is a Workers service
-(`workers/services/view/fbs-boise-map`), so `wrangler.toml` uses `main` +
-`[assets]` rather than Pages' `pages_build_output_dir`. Mixing the two
-config styles is what caused the first build to fail (`wrangler deploy`
-refuses to run against a Pages-style config).
+The site is view only. Nobody can change the layout from the website.
 
-## What it does
+## Controls
 
-- Renders the store floor as a 3D scene with aisles you can click to
-  select, drag to reposition, and resize/recolor from the side panel.
-- Add/delete aisles; layout persists in the browser (`localStorage`) — no
-  database required for a single-user planning tool.
-- Per aisle, generate a 3D model from a text description via Meshy AI and
-  drop it into the scene in place of the placeholder box.
+| On a computer | |
+| --- | --- |
+| Drag with the mouse | Look around |
+| W A S D or the arrow keys | Walk (hold Shift to go faster) |
+| Q / E | Turn left / right |
+| Double-click the floor | Walk there |
+| Mouse wheel | Zoom in or out |
+| Space | Slow 360° look |
+| M | Switch between Walk and Map |
+| F (in Map) | Fit the whole store on screen |
+| ? | Show the controls |
 
-The actual served site lives in `public/` — repo files like
-`package.json`, `docs/`, and `wrangler.toml` itself stay outside it, so
-they can't end up published as part of the live website.
+On a phone or tablet: drag to look around, tap the floor to walk there, and
+pinch to zoom. In the Map, drag to move around, pinch to zoom, tap a fixture
+for details and double-tap the floor to walk there.
 
-## Local development
+## Changing the store layout
+
+Everything in the store (walls, doors, shelves, desks) is listed in
+`public/js/store-data.js`, one line per item. Each line gives the item's
+position (`x` = feet from the west wall, `y` = feet from the south wall),
+its size (`w` long, `d` deep, `h` tall) and its rotation in degrees (`rot`).
+Change the numbers, save the file, and the change shows up the next time the
+site is deployed (see below). The photos used on shelves and desks are in
+`public/tex/`.
+
+## Running it on your own computer
+
+You need [Node.js](https://nodejs.org) installed. Then, in this folder:
 
 ```bash
 npm install
-cp .dev.vars.example .dev.vars   # fill in your real MESHY_API_KEY, not committed
 npm run dev
 ```
 
-`npm run dev` runs `wrangler dev`, which serves `public/` and runs
-`src/worker.js` for `/api/*`, same as production.
+and open http://localhost:8787 in your browser. `npm run check` runs a quick
+self-check of the site files.
 
-## Deploying to Cloudflare
+## How it gets published
 
-This repo is already connected to Cloudflare's Git integration
-(Workers Builds), so pushes to the deployed branch build and deploy
-automatically. If setting this up fresh instead:
+The site is a Cloudflare **Worker** called `fbs-boise-map` that only serves
+the files in `public/` (there is no server code). Cloudflare Workers Builds
+watches this repository: when a change is merged into the `main` branch, it
+deploys the Worker `fbs-boise-map`, which serves franklinmap-boise.com.
+Nothing else needs to be done by hand.
 
-1. `npm run deploy` (needs `wrangler login` first), or connect the repo to
-   a Workers project in the Cloudflare dashboard.
-2. Set the `MESHY_API_KEY` secret on the Worker (dashboard -> Workers &
-   Pages -> fbs-boise-map -> Settings -> Variables and Secrets -> add as
-   "Secret", or `wrangler secret put MESHY_API_KEY`). Never commit this key.
-3. **Before making the site public**, do one of these — right now there is
-   no login, so anyone with the URL could trigger Meshy generations and
-   spend your paid credits:
-   - Set a `SITE_ACCESS_CODE` secret (`wrangler secret put
-     SITE_ACCESS_CODE`). The site will prompt for it once and remember it.
-     This is a shared-secret speed bump, not real per-user auth.
-   - Or, for real access control, put the whole site behind
-     [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/)
-     in the Cloudflare dashboard — that's account-level configuration, not
-     something in this repo, but it's the stronger option.
+## Make it team-only
 
-## Using the Meshy MCP server while developing
+To let only your team see the site, put it behind Cloudflare Access. In the
+Cloudflare dashboard:
 
-`.mcp.json` in this repo configures the official `@meshy-ai/meshy-mcp-server`
-for Claude Code. Set `MESHY_API_KEY` in your environment before opening this
-project (e.g. `export MESHY_API_KEY=msy_...` in your shell profile) — the
-config reads it from the environment and never stores it in the repo.
+0. If Cloudflare asks you to set up Zero Trust first, do that (the free plan
+   is fine).
+1. Go to **Workers & Pages** and open **fbs-boise-map**.
+2. Open the **Access** tab.
+3. Click **Protect this Worker behind Access**.
+4. Choose **All traffic**.
+5. Choose who can sign in: add the specific email addresses of the people
+   who should have access.
+6. Click **Apply Access**.
 
-## Security notes
+This covers franklinmap-boise.com, the workers.dev address and preview links.
 
-- The Meshy API key lives only in two places: your local `.dev.vars`
-  (gitignored) and the Worker's "Secret" binding on Cloudflare. It is
-  never in git, never sent to the browser, and `src/meshy.js` never echoes
-  upstream error bodies that could leak it.
-- `docs/meshy-api-notes.md` has more detail on the API integration,
-  including a caveat that the exact Meshy REST shape used here wasn't
-  verified against live docs (network-restricted environment) and should be
-  double-checked before heavy production use.
-- The app itself has no login yet — see the `SITE_ACCESS_CODE` / Cloudflare
-  Access note above before deploying somewhere reachable by the public.
+If your team members don't have Cloudflare logins, turn on email codes once:
+**Zero Trust → Integrations → Identity providers → Add new identity provider →
+One-time PIN**. People on the list can then sign in with a code sent to their
+email.
+
+Note: every deploy switches the workers.dev address
+(`fbs-boise-map.<your-subdomain>.workers.dev`) back on. Access protects it too,
+so this is fine. If you want the site to answer only at franklinmap-boise.com,
+add the line `workers_dev = false` to `wrangler.toml`.
+
+## Old settings you can delete
+
+The site used to have a server part that called the paid Meshy AI service.
+That is gone, so these Worker secrets are no longer used: `MESHY_API_KEY`,
+`SITE_ACCESS_CODE`, `PEPPER`, `PHONE_KEY`, `NTFY_TOPIC` and any other old
+ones. You can delete them in the Cloudflare dashboard under **Workers &
+Pages → fbs-boise-map → Settings → Variables and Secrets**.
+
+## What's in this folder
+
+- `public/` – the website itself (`index.html`, `css/`, `js/`, the store
+  photos in `tex/`, and self-hosted copies of three.js and the fonts).
+- `public/_headers` – security settings sent with every page.
+- `wrangler.toml` – tells Cloudflare to serve `public/`.
+- `scripts/check.mjs` – the self-check behind `npm run check`.
+- `docs/` – background notes from earlier work.

@@ -1,84 +1,126 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>FBS Boise Remodel Viewer</title>
-  <link rel="stylesheet" href="css/styles.css" />
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
-      }
-    }
-  </script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1b1f23" media="(prefers-color-scheme: dark)">
+  <meta name="description" content="Walk through the FBS Boise store from a customer's point of view, or look at the floor plan.">
+  <title>FBS Boise Store Map</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-  <div id="app">
-    <header id="topbar">
-      <h1>Franklin Building Supply &mdash; Boise Store Remodel Viewer</h1>
-      <button id="add-aisle-btn" type="button">+ Add Aisle</button>
-    </header>
-
-    <div id="layout">
-      <div id="viewport"></div>
-
-      <aside id="panel">
-        <p id="panel-empty" class="hint">Click an aisle in the 3D view to edit it, or add a new one.</p>
-
-        <div id="panel-form" hidden>
-          <label>
-            Name
-            <input id="f-name" type="text" maxlength="60" />
-          </label>
-          <div class="row">
-            <label>
-              Width (ft)
-              <input id="f-width" type="number" min="1" max="200" step="0.5" />
-            </label>
-            <label>
-              Depth (ft)
-              <input id="f-depth" type="number" min="1" max="200" step="0.5" />
-            </label>
-            <label>
-              Height (ft)
-              <input id="f-height" type="number" min="1" max="40" step="0.5" />
-            </label>
-          </div>
-          <label>
-            Color
-            <input id="f-color" type="color" />
-          </label>
-
-          <button id="delete-aisle-btn" type="button" class="danger">Delete Aisle</button>
-
-          <hr />
-
-          <h2>Generate 3D Model</h2>
-          <p class="hint">Describe the fixture or layout for this aisle and generate a 3D model with Meshy AI.</p>
-          <label>
-            Prompt
-            <textarea id="f-prompt" rows="3" maxlength="600" placeholder="e.g. heavy-duty steel warehouse shelving, 4 tiers, industrial"></textarea>
-          </label>
-          <button id="generate-btn" type="button">Generate 3D Model</button>
-          <p id="generate-status" class="hint" aria-live="polite"></p>
-
-          <hr />
-
-          <h2>Or Load a Local Model</h2>
-          <p class="hint">Made one in Blender? Export it as .glb, drop it in public/models/, and type its path here.</p>
-          <label>
-            Model path
-            <input id="f-model-path" type="text" placeholder="models/end-cap-shelf.glb" />
-          </label>
-          <button id="load-model-btn" type="button">Load Model</button>
-          <p id="load-model-status" class="hint" aria-live="polite"></p>
-        </div>
-      </aside>
+<div id="app">
+  <header class="bar">
+    <div class="brand"><b>FBS Boise</b><span>Store Map</span></div>
+    <div class="tabs" role="group" aria-label="View">
+      <button type="button" id="tabWalk" aria-pressed="true" title="Walk the store (M)"><i class="dot"></i>Walk</button>
+      <button type="button" id="tabMap" aria-pressed="false" title="Floor plan (M)"><i class="dot"></i>Map</button>
     </div>
-  </div>
+    <div class="spacer"></div>
+    <button type="button" class="btn icon" id="helpBtn" aria-haspopup="dialog" aria-controls="help" aria-label="Controls" title="Controls (?)">?</button>
+  </header>
 
-  <script type="module" src="js/main.js"></script>
+  <main class="stage">
+    <!-- Walk: first-person view at a customer's eye height -->
+    <section class="view" id="walkView" aria-label="Walk view">
+      <div id="three" aria-label="3D view of the store. Drag to look around."></div>
+      <div class="float tl hud">
+        <button type="button" class="chip" id="spinBtn" aria-pressed="false" title="Slowly turn a full 360&deg; (Space)">360&deg; look</button>
+        <button type="button" class="chip" id="ceilBtn" aria-pressed="true">Ceiling</button>
+      </div>
+      <div class="float tr card loc hud" id="locCard">
+        <span class="eyebrow">You are in</span>
+        <b id="locZone">Front room</b>
+        <span id="locNear">near the front door</span>
+      </div>
+      <div class="float bl card mini-card hud">
+        <canvas id="mini" aria-label="Mini map. Tap a spot to walk there."></canvas>
+      </div>
+      <div class="float br card walk-hint hud" id="walkHint">
+        <span class="only-mouse"><span class="kbd">Drag</span> to look &middot; <span class="kbd">W A S D</span> walk &middot; <span class="kbd">Q</span> <span class="kbd">E</span> turn &middot; <span class="kbd">Double-click</span> the floor to walk there &middot; <span class="kbd">Wheel</span> zoom &middot; <span class="kbd">M</span> map</span>
+        <span class="only-touch">Drag to look around &middot; tap the floor to walk there &middot; pinch to zoom</span>
+      </div>
+      <div class="nogl" id="noGl" hidden>
+        <div class="card nogl-card" role="alert">
+          <h2>The 3D walk can&rsquo;t start here</h2>
+          <p>This browser or device has 3D graphics (WebGL) turned off or unavailable. The floor plan still works.</p>
+          <button type="button" class="btn primary" id="noGlMap">Open the map</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Map: top-down floor plan, view only -->
+    <section class="view" id="mapView" aria-label="Map view" hidden>
+      <canvas id="mapCanvas" tabindex="0" aria-label="Store floor plan. Drag or use the arrow keys to move around, scroll, pinch or press plus and minus to zoom. Click a fixture, or press N to step through the fixtures, for details. Double-click the floor to walk there."></canvas>
+      <div class="float tl">
+        <button type="button" class="chip" id="labelsBtn" aria-pressed="true">Labels</button>
+      </div>
+      <div class="float tr zoom">
+        <button type="button" class="btn" id="zIn" aria-label="Zoom in" title="Zoom in (+)">+</button>
+        <button type="button" class="btn" id="zOut" aria-label="Zoom out" title="Zoom out (&minus;)">&minus;</button>
+        <button type="button" class="btn" id="zFit" aria-label="Fit the whole store" title="Fit (F)">&#9635;</button>
+      </div>
+      <div class="float bl card info" id="info" role="region" aria-label="Fixture details" hidden>
+        <div class="info-head">
+          <span class="eyebrow" id="infoKind"></span>
+          <button type="button" class="btn icon close" id="infoClose" aria-label="Close details">&times;</button>
+        </div>
+        <h2 id="infoName"></h2>
+        <span class="info-size" id="infoSize"></span>
+        <button type="button" class="btn primary" id="infoGo" aria-describedby="infoName infoKind infoSize">Go look at it</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<dialog id="help" aria-labelledby="helpTitle">
+  <div class="dialog">
+    <h2 id="helpTitle" tabindex="-1" autofocus>Controls</h2>
+    <div class="keys">
+      <div class="kg k-walk">
+      <h3>Walk view</h3>
+      <span><span class="kbd">Drag</span></span><span>Look around</span>
+      <span><span class="kbd">W A S D</span> or arrows</span><span>Walk (hold <span class="kbd">Shift</span> to go faster)</span>
+      <span><span class="kbd">Q</span> <span class="kbd">E</span></span><span>Turn left / right</span>
+      <span>Double-click the floor</span><span>Walk there</span>
+      <span>Mouse wheel</span><span>Zoom in or out</span>
+      <span><span class="kbd">Space</span></span><span>Slow 360&deg; look</span>
+      <span>Mini map</span><span>Click a spot to walk there</span>
+      </div>
+      <div class="kg k-touch">
+      <h3>Phone or tablet</h3>
+      <span>Drag</span><span>Look around</span>
+      <span>Tap the floor</span><span>Walk there</span>
+      <span>Pinch</span><span>Zoom in or out</span>
+      <span>Mini map</span><span>Tap a spot to walk there</span>
+      </div>
+      <div class="kg k-map">
+      <h3>Map view</h3>
+      <span>Drag &middot; <span class="kbd">Arrows</span></span><span>Move around the plan</span>
+      <span>Wheel &middot; pinch &middot; <span class="kbd">+</span> <span class="kbd">&minus;</span></span><span>Zoom</span>
+      <span><span class="kbd">F</span></span><span>Fit the whole store</span>
+      <span>Click a fixture</span><span>Details, and &ldquo;Go look at it&rdquo;</span>
+      <span><span class="kbd">N</span> &middot; <span class="kbd">Shift</span>+<span class="kbd">N</span></span><span>Step through the fixtures</span>
+      <span>Double-click the floor</span><span>Walk there</span>
+      </div>
+      <div class="kg k-any">
+      <h3>Anywhere</h3>
+      <span><span class="kbd">M</span></span><span>Switch between Walk and Map</span>
+      <span><span class="kbd">Esc</span></span><span>Close this box or the details card</span>
+      </div>
+    </div>
+    <div class="foot"><button type="button" class="btn primary" id="helpClose">Got it</button></div>
+  </div>
+</dialog>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<div class="sr-only" id="srLive" aria-live="polite"></div>
+
+<script src="vendor/three.min.js" defer></script>
+<script src="js/store-data.js" defer></script>
+<script src="js/app.js" defer></script>
 </body>
 </html>
