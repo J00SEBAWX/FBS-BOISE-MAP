@@ -1,8 +1,0 @@
-# Cloudflare Worker "fbs-boise-map" (franklinmap-boise.com).
-# Static-assets-only Worker: there is no Worker script (no `main`), so every
-# request is served straight from public/, with the headers in public/_headers.
-name = "fbs-boise-map"
-compatibility_date = "2026-09-19"
-
-[assets]
-directory = "public"

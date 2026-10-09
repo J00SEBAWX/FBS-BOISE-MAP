@@ -22,6 +22,17 @@
     </div>
     <div class="spacer"></div>
     <button type="button" class="btn icon" id="helpBtn" aria-haspopup="dialog" aria-controls="help" aria-label="Controls" title="Controls (?)">?</button>
+    <div class="acct" id="acct" hidden>
+      <button type="button" class="btn acct-btn" id="acctBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="acctMenu" aria-label="Account">
+        <svg class="acct-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        <span class="acct-name" id="acctName"></span>
+      </button>
+      <div class="acct-menu card" id="acctMenu" role="menu" aria-labelledby="acctBtn" hidden>
+        <p class="acct-who" role="none">Signed in as <b id="acctFull"></b></p>
+        <a role="menuitem" href="/admin/" id="acctAdmin" tabindex="-1" hidden>Admin dashboard</a>
+        <button type="button" role="menuitem" id="acctOut" tabindex="-1">Sign out</button>
+      </div>
+    </div>
   </header>
 
   <main class="stage">
@@ -116,11 +127,22 @@
     <div class="foot"><button type="button" class="btn primary" id="helpClose">Got it</button></div>
   </div>
 </dialog>
+<dialog id="signout" class="signout" aria-labelledby="signoutTitle" aria-describedby="signoutText">
+  <form method="dialog" class="dialog">
+    <h2 id="signoutTitle">Sign out?</h2>
+    <p id="signoutText">Your access code has been used, so you'll need a new code from the person who sent you the link to get back in.</p>
+    <div class="foot">
+      <button type="submit" class="btn" value="cancel" id="signoutCancel">Stay signed in</button>
+      <button type="submit" class="btn primary" value="ok" id="signoutOk">Sign out</button>
+    </div>
+  </form>
+</dialog>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="sr-only" id="srLive" aria-live="polite"></div>
 
 <script src="vendor/three.min.js" defer></script>
 <script src="js/store-data.js" defer></script>
 <script src="js/app.js" defer></script>
+<script src="js/account.js" defer></script>
 </body>
 </html>

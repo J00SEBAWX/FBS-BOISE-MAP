@@ -1,12 +1,16 @@
 {
   "name": "fbs-boise-map",
   "private": true,
-  "version": "0.2.0",
-  "description": "Customer-view 3D store map for the FBS Boise store, served as static assets by a Cloudflare Worker (not Pages).",
+  "version": "0.3.0",
+  "type": "module",
+  "description": "Private 3D store map for the FBS Boise store: a Cloudflare Worker with D1, sign-in by access code (visitors) or username and password (admin).",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "check": "node scripts/check.mjs"
+    "check": "node scripts/check.mjs",
+    "db:local": "wrangler d1 migrations apply fbs-boise-map --local",
+    "test": "node --test test/*.test.mjs",
+    "setup-code": "node scripts/setup-code.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

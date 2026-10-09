@@ -1,8 +1,0 @@
-# Security headers for every response (Cloudflare Workers static assets).
-/*
-  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: no-referrer
-  X-Frame-Options: DENY
-  X-Robots-Tag: noindex, nofollow
-  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()

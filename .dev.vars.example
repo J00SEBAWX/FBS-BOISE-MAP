@@ -1,0 +1,11 @@
+# Local development only. Copy this file to .dev.vars (git-ignored):
+#   cp .dev.vars.example .dev.vars
+# The values below are throwaway local values so `npm run dev` works right away.
+# To make your own, run:
+#   openssl rand -hex 32        -> PEPPER     (at least 32 characters)
+#   openssl rand -base64 32     -> PHONE_KEY  (base64 of exactly 32 bytes)
+# Never put the production values in any file. Production keeps its own PEPPER and PHONE_KEY
+# as Worker secrets (Cloudflare dashboard -> Workers & Pages -> fbs-boise-map -> Settings ->
+# Variables and Secrets); never change or delete those.
+PEPPER=local-dev-pepper-not-a-secret-0123456789abcdef
+PHONE_KEY=bG9jYWwtZGV2LXBob25lLWtleS1ub3Qtc2VjcmV0ISE=

@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Cloudflare Worker "fbs-boise-map" (franklinmap-boise.com), deployed by Workers Builds from main.
+  // Every request runs src/worker.js first, which checks the session before serving anything from public/.
+  "name": "fbs-boise-map",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-09-19",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "fbs-boise-map",
+      "database_id": "782b142f-bd23-434b-83a4-2bdb956c23f2",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "observability": { "enabled": true }
+}

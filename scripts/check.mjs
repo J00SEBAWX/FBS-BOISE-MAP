@@ -1,55 +1,104 @@
-// Quick, dependency-free checks for the static site in public/. Run: npm run check
+// Quick, dependency-free checks for the site. Run: npm run check
+//  1. every script parses (public/ classic scripts with vm, Worker/test/script modules with node --check)
+//  2. nothing published mentions the old walk-around character
+//  3. no HTML page has inline scripts, inline styles or inline event handlers (the CSP blocks them)
+//  4. every src/href in the HTML pages points at a file in public/
+//  5. no unsafe DOM sinks (innerHTML and friends) in our browser code
+//  6. security headers have one source: the Worker (no public/_headers)
 import {readFileSync, readdirSync, statSync, existsSync} from "node:fs";
-import {join, relative, resolve, dirname} from "node:path";
+import {join, relative, resolve, dirname, sep} from "node:path";
 import {fileURLToPath} from "node:url";
+import {execFileSync} from "node:child_process";
 import vm from "node:vm";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pub = join(root, "public");
 const problems = [];
 const fail = msg => problems.push(msg);
+const rel = p => relative(root, p).split(sep).join("/");
 
 function walk(dir) {
+  if (!existsSync(dir)) return [];
   return readdirSync(dir).flatMap(name => {
     const p = join(dir, name);
     return statSync(p).isDirectory() ? walk(p) : [p];
   });
 }
 const files = walk(pub);
+const isVendor = f => /^vendor[\\/]/.test(relative(pub, f));
 
-// 1. every script of ours parses (public/**/*.js, except the vendored three.js)
-for (const f of files.filter(f => f.endsWith(".js") && !/^vendor[\\/]/.test(relative(pub, f)))) {
+// 1a. browser scripts are classic scripts (no modules): parse them as such
+for (const f of files.filter(f => f.endsWith(".js") && !isVendor(f))) {
   try { new vm.Script(readFileSync(f, "utf8"), {filename: f}); }
-  catch (e) { fail(`${relative(root, f)}: syntax error: ${e.message}`); }
+  catch (e) { fail(`${rel(f)}: syntax error: ${e.message}`); }
+}
+// 1b. Worker code, tests and scripts are ES modules: node --check
+const modules = [...walk(join(root, "src")), ...walk(join(root, "test")), ...walk(join(root, "scripts"))].filter(f => /\.m?js$/.test(f));
+for (const f of modules) {
+  try { execFileSync(process.execPath, ["--check", f], {stdio: "pipe"}); }
+  catch (e) { fail(`${rel(f)}: syntax error\n${String(e.stderr || e.message).trim()}`); }
 }
 
-// 2. nothing published mentions the old walk-around character
+// 2. nothing published or served mentions the old walk-around character
 // (the pattern is written as j[e]rry so this file doesn't match a plain-text search for the name)
 const OLD_CHARACTER = /j[e]rry/i;
-for (const f of files) {
-  if (OLD_CHARACTER.test(readFileSync(f, "latin1"))) fail(`${relative(root, f)} mentions the old walk-around character`);
+for (const f of [...files, ...walk(join(root, "src"))]) {
+  if (OLD_CHARACTER.test(readFileSync(f, "latin1"))) fail(`${rel(f)} mentions the old walk-around character`);
 }
 
-// 3. index.html has no inline script, inline style or inline event handler (the CSP blocks them)
-const html = readFileSync(join(pub, "index.html"), "utf8");
-for (const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
-  if (m[2].trim()) fail("index.html has an inline <script> body");
-  if (!/\bsrc\s*=/.test(m[1])) fail("index.html has a <script> without src");
+// 3 + 4. the HTML pages, with the URL each one is served at (relative links resolve against it)
+const PAGES = [
+  ["index.html", "/"],
+  ["login.html", "/login"],
+  ["admin/index.html", "/admin/"],
+];
+function fileFor(pathname) {
+  const p = pathname.endsWith("/") ? pathname + "index.html" : pathname;
+  const f = join(pub, decodeURIComponent(p).replace(/^\//, ""));
+  if (existsSync(f) && statSync(f).isFile()) return f;
+  if (existsSync(f + ".html")) return f + ".html"; // /login -> login.html
+  return null;
 }
-if (/<style\b/i.test(html)) fail("index.html has a <style> element");
-if (/\sstyle\s*=/i.test(html)) fail("index.html has a style= attribute");
-if (/\son[a-z]+\s*=/i.test(html)) fail("index.html has an inline event handler (on...=)");
+for (const [page, served] of PAGES) {
+  const file = join(pub, page);
+  if (!existsSync(file)) { fail(`public/${page} is missing`); continue; }
+  const html = readFileSync(file, "utf8");
+  for (const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
+    if (m[2].trim()) fail(`${page} has an inline <script> body`);
+    if (!/\bsrc\s*=/.test(m[1])) fail(`${page} has a <script> without src`);
+  }
+  if (/<style\b/i.test(html)) fail(`${page} has a <style> element`);
+  if (/\sstyle\s*=/i.test(html)) fail(`${page} has a style= attribute`);
+  if (/\son[a-z]+\s*=/i.test(html)) fail(`${page} has an inline event handler (on...=)`);
+  for (const m of html.matchAll(/\s(?:src|href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi)) {
+    const url = m[1] ?? m[2] ?? m[3];
+    const u = new URL(url, "https://site.invalid" + served);
+    if (u.origin !== "https://site.invalid") { fail(`${page} links off-site: ${url}`); continue; }
+    if (!fileFor(u.pathname)) fail(`${page}: ${url} is not a file in public/`);
+  }
+}
 
-// 4. every src/href in index.html points at a file in public/
-for (const m of html.matchAll(/\s(?:src|href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi)) {
-  const url = m[1] ?? m[2] ?? m[3];
-  if (/^[a-z][a-z0-9+.-]*:|^\/\//i.test(url)) { fail(`index.html links off-site: ${url}`); continue; }
-  const p = join(pub, url.split(/[?#]/)[0].replace(/^\//, ""));
-  if (!existsSync(p) || !statSync(p).isFile()) fail(`index.html: ${url} is not a file in public/`);
+// 5. unsafe DOM sinks in our browser code (visitor names must only ever go in as text)
+for (const f of files.filter(f => f.endsWith(".js") && !isVendor(f))) {
+  const js = readFileSync(f, "utf8");
+  for (const [re, why] of [
+    [/\.innerHTML\s*=/, "innerHTML assignment"],
+    [/\.outerHTML\s*=/, "outerHTML assignment"],
+    [/insertAdjacentHTML\s*\(/, "insertAdjacentHTML"],
+    [/document\.write\s*\(/, "document.write"],
+    [/\beval\s*\(/, "eval"],
+    [/new\s+Function\s*\(/, "new Function"],
+    [/setAttribute\(\s*["']style["']/, "setAttribute('style') (blocked by the CSP)"],
+  ]) {
+    if (re.test(js)) fail(`${rel(f)}: ${why}`);
+  }
 }
+
+// 6. one source of truth for headers
+if (existsSync(join(pub, "_headers"))) fail("public/_headers exists: the Worker (src/lib/http.js) sets every header");
 
 if (problems.length) {
   console.error("check failed:\n  - " + problems.join("\n  - "));
   process.exit(1);
 }
-console.log(`check passed (${files.length} files in public/)`);
+console.log(`check passed (${files.length} files in public/, ${modules.length} modules)`);

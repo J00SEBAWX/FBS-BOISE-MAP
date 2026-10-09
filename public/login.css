@@ -1,0 +1,42 @@
+/* Sign-in page: one card on floor-plan grid paper. */
+body.auth{
+  background-color:var(--map-bg);
+  background-image:
+    linear-gradient(var(--map-grid-major) 1px,transparent 1px),
+    linear-gradient(90deg,var(--map-grid-major) 1px,transparent 1px),
+    linear-gradient(var(--map-grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--map-grid) 1px,transparent 1px);
+  background-size:120px 120px,120px 120px,24px 24px,24px 24px;
+  background-position:-1px -1px;
+}
+.auth-wrap{min-height:100vh;min-height:100dvh;display:grid;place-items:center;
+  padding:calc(24px + var(--safe-t)) calc(var(--gut) + var(--safe-r)) calc(24px + var(--safe-b)) calc(var(--gut) + var(--safe-l));}
+.auth-card{width:min(420px,100%);background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--accent);border-radius:14px;
+  box-shadow:var(--shadow-lg);padding:24px 24px 8px;display:grid;gap:20px;}
+.auth-head{display:flex;align-items:center;gap:10px;}
+.auth-head .eyebrow{font-size:15px;color:var(--ink);font-weight:700;letter-spacing:.1em;}
+.panel{display:grid;gap:16px;}
+.panel h1{font-size:36px;}
+.lead{color:var(--muted);line-height:1.5;}
+.note{font-size:13px;color:var(--muted);text-align:center;}
+.input.code{font-family:var(--mono);font-size:22px;letter-spacing:.14em;text-transform:uppercase;text-align:center;}
+.input.code::placeholder{letter-spacing:.14em;}
+/* the 19-character setup code has to fit a 375px phone */
+#setup-code,#setup-code::placeholder{letter-spacing:.06em;}
+#setup-code{font-size:20px;}
+.mono{font-family:var(--mono);letter-spacing:.06em;}
+.code-ok{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;padding:6px 6px 6px 12px;border-radius:8px;background:var(--ok-soft);color:var(--ok);font-size:14px;}
+.code-ok .link{margin-left:auto;min-height:44px;padding:0 10px;color:var(--ok);}
+.tick{width:16px;height:16px;flex:none;border-radius:50%;background:var(--ok);position:relative;}
+.tick::after{content:"";position:absolute;left:5px;top:3px;width:4px;height:7px;border:solid var(--panel);border-width:0 2px 2px 0;transform:rotate(45deg);}
+.link.small{font-size:13px;justify-self:center;}
+.auth-foot{display:flex;justify-content:center;border-top:1px solid var(--line);padding-top:4px;}
+.auth-card.solo{padding-bottom:24px;} /* no footer (the 404 page) */
+
+@media (max-width:420px){
+  :root{--gut:12px;}
+  .auth-card{padding:20px 18px 6px;gap:18px;}
+  .panel h1{font-size:32px;}
+  #setup-code{font-size:18px;}
+  .auth-card.solo{padding-bottom:20px;}
+}
