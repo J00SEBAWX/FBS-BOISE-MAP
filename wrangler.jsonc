@@ -30,5 +30,9 @@
       "head_sampling_rate": 1,
       "persist": true
     }
-  }
+  },
+  // Branch builds run `wrangler preview`, which refuses to run without this block.
+  // It is empty on purpose: Previews get no D1 binding and no secrets, so a branch build can never reach
+  // production data. A Preview only serves the sign-in page; signing in there fails closed with a server error.
+  "previews": {}
 }

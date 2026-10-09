@@ -13,6 +13,6 @@
     "setup-code": "node scripts/setup-code.mjs"
   },
   "devDependencies": {
-    "wrangler": "^4.0.0"
+    "wrangler": "^4.135.0"
   }
 }
