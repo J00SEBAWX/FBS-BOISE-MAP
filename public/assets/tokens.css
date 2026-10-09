@@ -1,0 +1,456 @@
+/* FBS Boise Store Map: design tokens (Franklin Building Supply design system, v3).
+   Load this file FIRST on every page (map app, sign-in, admin, 404), before base.css / app.css.
+   Light is the default; dark follows the OS (prefers-color-scheme) unless the page sets
+   <html data-theme="light|dark">. Every text/background pair listed in docs/DESIGN.md
+   ("Contrast") is checked to WCAG AA: 4.5:1 for text, 3:1 for UI strokes, icons and focus rings.
+   Fonts are self-hosted (CSP default-src 'self'); only the weights below exist, use no others. */
+
+/* ---------- self-hosted fonts (OFL, see /assets/fonts/LICENSE-*.txt) ---------- */
+@font-face{font-family:"Barlow Condensed";font-style:normal;font-weight:600;font-display:swap;src:url("/assets/fonts/barlow-condensed-latin-600-normal.woff2") format("woff2");}
+@font-face{font-family:"Barlow Condensed";font-style:normal;font-weight:700;font-display:swap;src:url("/assets/fonts/barlow-condensed-latin-700-normal.woff2") format("woff2");}
+@font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:400;font-display:swap;src:url("/assets/fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2");}
+@font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:500;font-display:swap;src:url("/assets/fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2");}
+@font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:600;font-display:swap;src:url("/assets/fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2");}
+
+:root{
+  /* ================= brand (fixed in both themes) ================= */
+  --fbs-blue:#006CB4;        /* logo outline + "FBS" text: primary actions, active tab, links, focus */
+  --fbs-sky:#609CD8;         /* logo fill: accents, highlights, plan selection fill */
+  --fbs-navy:#0C2D4E;        /* navy ink: headings, wordmark */
+  --fbs-white:#FFFFFF;
+  /* blue ramp built around the two logo blues (400 = sky, 600 = blue, 900 = navy) */
+  --fbs-blue-50:#F0F6FC;
+  --fbs-blue-100:#E1EEF9;
+  --fbs-blue-200:#C3DCF1;
+  --fbs-blue-300:#94BFE6;
+  --fbs-blue-400:#609CD8;
+  --fbs-blue-500:#2B83C9;
+  --fbs-blue-600:#006CB4;
+  --fbs-blue-700:#005793;
+  --fbs-blue-800:#064373;
+  --fbs-blue-900:#0C2D4E;
+  /* cool greys (slightly blue, to sit with the logo) */
+  --grey-25:#F8FAFC;
+  --grey-50:#F2F5F8;
+  --grey-100:#E8EDF2;
+  --grey-200:#D6DEE6;
+  --grey-300:#B8C4CF;
+  --grey-400:#8C9AA8;
+  --grey-500:#6A7A8B;
+  --grey-600:#526273;
+  --grey-700:#3A4754;
+  --grey-800:#25313C;
+  --grey-900:#15212D;
+  /* night surfaces for dark mode */
+  --night-950:#08111A;
+  --night-900:#0F1A26;
+  --night-850:#142231;
+  --night-800:#1B2B3D;
+  --night-700:#24384D;
+  --night-600:#36506A;
+  --night-500:#5C728A;
+
+  /* ================= semantic: surfaces + ink ================= */
+  --bg:#EDF1F5;              /* app background behind panels */
+  --surface:#FFFFFF;         /* header, panels, inspector, dialogs, sheets */
+  --surface-2:#F5F7FA;       /* inputs, segmented-control track, list rows, status bar */
+  --surface-3:#E8EDF2;       /* hover / pressed on surface and surface-2 */
+  --surface-sunken:#E8EDF2;  /* tracks: view tabs, segmented controls, progress bar (darker than surface in both themes) */
+  --surface-inverse:#15212D; /* toasts, tooltips */
+  --scrim:rgba(8,17,26,.48); /* behind dialogs and expanded sheets */
+  --ink:#15212D;             /* body text, icons on buttons */
+  --ink-heading:#0C2D4E;     /* headings, item names, wordmark (navy) */
+  --ink-muted:#526273;       /* secondary text, field labels, units */
+  --ink-subtle:#647384;      /* placeholders, captions, timestamps (still 4.5:1 on surface + surface-2) */
+  --ink-disabled:#A0ADBA;    /* disabled controls only (exempt from contrast, never for information) */
+  --ink-inverse:#F3F7FB;     /* text on surface-inverse */
+  --line:#D6DEE6;            /* dividers, panel borders (decorative) */
+  --line-strong:#7D8B99;     /* input + control outlines, checkbox borders (3:1 on surface + surface-2) */
+
+  /* ================= semantic: accent (FBS Blue) ================= */
+  --accent:#006CB4;          /* primary buttons, active tab, toggles on, progress */
+  --accent-hover:#005793;
+  --accent-pressed:#064373;
+  --accent-ink:#FFFFFF;      /* text + icons on accent */
+  --accent-text:#006CB4;     /* links, accent-coloured text and icons on surfaces */
+  --accent-soft:#E1EEF9;     /* selected row, active chip, info banner background */
+  --accent-soft-ink:#00558F; /* text on accent-soft */
+  --accent-line:#94BFE6;     /* border of accent-soft boxes (decorative) */
+  --focus:#006CB4;           /* focus ring: 2px solid, 2px offset */
+  --focus-halo:rgba(0,108,180,.28); /* extra 3px halo on inputs */
+
+  /* ================= semantic: status (red ONLY for destructive + errors) ================= */
+  --danger:#C42B2B;          /* destructive button fill, error icon */
+  --danger-hover:#A82323;
+  --danger-ink:#FFFFFF;
+  --danger-text:#B42323;     /* error text, "Delete" ghost button text */
+  --danger-soft:#FDECEC;
+  --danger-soft-ink:#9A1D1D;
+  --warning:#B25E00;         /* warning icon, check badges (3:1) */
+  --warning-text:#8A4A00;
+  --warning-soft:#FFF3E0;
+  --warning-soft-ink:#7A4100;
+  --success:#1E7F4A;         /* success icon, "Saved" tick */
+  --success-text:#19703F;
+  --success-soft:#E6F4EC;
+  --success-soft-ink:#14603A;
+
+  /* ================= plan canvas ================= */
+  --plan-bg:#E7ECF1;         /* outside the building */
+  --plan-floor:#FBFCFD;      /* inside the building */
+  --plan-grid:#E6EBF0;       /* 1 ft lines (drawn only when zoomed in) */
+  --plan-grid-major:#CDD6DF; /* 5 ft / 10 ft lines */
+  --plan-wall:#1F2B37;       /* walls, columns */
+  --plan-structure:#B8C4CF;  /* floors/ceilings outline, locked-structure hatch */
+  --plan-door:#526273;       /* door swing arcs, opening ticks */
+  --plan-fixture-fill:#DDE4EB;
+  --plan-fixture-stroke:#5E6E7E;
+  --plan-item-mix:45%;       /* fixture fill = color-mix(in srgb, <item colour> var(--plan-item-mix), var(--plan-floor)) */
+  --plan-label:#15212D;      /* item labels (drawn with --plan-label-halo behind) */
+  --plan-label-halo:rgba(251,252,253,.88);
+  --plan-scan:#8E3BB5;       /* "Scan lines" layer (DXF), 1px dashed */
+  --plan-scan-obj:#8E3BB5;   /* "Scan objects" layer (RoomPlan boxes), dashed outline + label */
+  --plan-measure:#006CB4;    /* measure tool line + live dimension readouts */
+  --plan-dim-bg:#006CB4;     /* dimension readout pill */
+  --plan-dim-ink:#FFFFFF;
+  --plan-ghost-before:#6A7A8B; /* Review: where it was (dashed) */
+  --plan-ghost-after:#006CB4;  /* Review: where it is now */
+  --plan-faint:.28;          /* opacity of fixtures when "Show fixtures faintly" is on (Categories) */
+
+  /* selection (tool feedback is always FBS Blue / Sky) */
+  --sel-stroke:#006CB4;
+  --sel-fill:rgba(96,156,216,.22);
+  --sel-handle:#FFFFFF;
+  --sel-handle-stroke:#006CB4;
+  --sel-hover:#2B83C9;       /* hover outline (mouse only) */
+  --sel-marquee-fill:rgba(96,156,216,.12);
+  --sel-marquee-stroke:#2B83C9;
+  --snap-guide:#C2410C;      /* snapping guide line (thin, momentary) */
+
+  /* ================= department / category palette =================
+     12 hues, no pure red (red means "error"). --cat-N is the stroke, swatch and sign colour
+     (3:1 on the plan floor and on panels); fill the block with the same colour at --cat-fill-alpha.
+     Canvas code: ctx.globalAlpha = parseFloat(var(--cat-fill-alpha)) for the fill, 1 for the stroke. */
+  --cat-fill-alpha:.32;
+  --cat-01:#CD5811; /* orange   */
+  --cat-02:#B98918; /* gold     */
+  --cat-03:#60991D; /* lime     */
+  --cat-04:#206F33; /* green    */
+  --cat-05:#0F9B89; /* teal     */
+  --cat-06:#086082; /* cyan     */
+  --cat-07:#4449C6; /* indigo   */
+  --cat-08:#A167CF; /* violet   */
+  --cat-09:#9E197B; /* magenta  */
+  --cat-10:#DB5471; /* rose     */
+  --cat-11:#714725; /* brown    */
+  --cat-12:#677A8B; /* slate    */
+
+  /* ================= spacing (4 / 8 grid) ================= */
+  --space-0:0;
+  --space-1:4px;
+  --space-2:8px;
+  --space-3:12px;
+  --space-4:16px;
+  --space-5:24px;
+  --space-6:32px;
+  --space-7:40px;
+  --space-8:48px;
+  --space-9:64px;
+  --gutter:16px;             /* page side gutter on phones */
+
+  /* ================= sizes ================= */
+  --hit:44px;                /* minimum touch target (every tappable thing on touch screens) */
+  --control-h:36px;          /* buttons / inputs with a mouse; becomes 44px on touch (below) */
+  --control-h-lg:44px;
+  --header-h:56px;
+  --toolbar-h:48px;
+  --statusbar-h:32px;
+  --bottombar-h:64px;        /* phone bottom toolbar (plus safe-area inset) */
+  --inspector-w:320px;
+  --palette-w:280px;
+  --icon-sm:16px;
+  --icon-md:20px;
+  --icon-lg:24px;
+  --icon-stroke:1.75;
+  --handle:8px;              /* resize handle (visual); its hit area is --hit on touch, 16px with a mouse */
+
+  /* ================= radii ================= */
+  --radius-xs:4px;           /* chips, handles, swatches */
+  --radius-sm:6px;           /* icon buttons, inputs */
+  --radius-md:8px;           /* buttons, cards, menus items */
+  --radius-lg:12px;          /* popovers, panels, the logo badge */
+  --radius-xl:16px;          /* dialogs, bottom-sheet top corners */
+  --radius-full:999px;
+
+  /* ================= elevation ================= */
+  --shadow-1:0 1px 2px rgba(16,32,48,.08),0 1px 1px rgba(16,32,48,.04);      /* raised controls, floating zoom */
+  --shadow-2:0 2px 4px rgba(16,32,48,.06),0 8px 20px rgba(16,32,48,.10);     /* menus, popovers, palette flyout */
+  --shadow-3:0 4px 8px rgba(16,32,48,.08),0 18px 44px rgba(16,32,48,.18);    /* dialogs, bottom sheets, toasts */
+  --shadow-inset:inset 0 1px 2px rgba(16,32,48,.06);                         /* inputs, segmented track */
+
+  /* ================= z-index (one scale, no 9999s) ================= */
+  --z-canvas:0;
+  --z-canvas-ui:10;          /* floating zoom, on-canvas readouts, read-only banner */
+  --z-panel:20;              /* toolbar, inspector, palette, status bar */
+  --z-header:30;
+  --z-sheet:40;              /* phone bottom sheets */
+  --z-dropdown:50;           /* menus, popovers, map switcher */
+  --z-scrim:60;
+  --z-dialog:70;
+  --z-toast:80;
+  --z-tooltip:90;
+
+  /* ================= type ================= */
+  --font-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;  /* 600, 700; UPPERCASE headings only */
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; /* 400, 500, 600 */
+  --font-mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --weight-regular:400;
+  --weight-medium:500;
+  --weight-semibold:600;
+  --weight-bold:700;         /* Barlow Condensed only */
+  /* body sizes (IBM Plex Sans). Inputs are always >= 16px on phones (no iOS zoom). */
+  --text-xs:12px;   --leading-xs:16px;   /* status bar, captions, badges */
+  --text-sm:13px;   --leading-sm:18px;   /* dense UI: field labels, list meta, tooltips */
+  --text-md:14px;   --leading-md:20px;   /* default UI text on desktop */
+  --text-lg:16px;   --leading-lg:24px;   /* default on phones, inputs, dialog body */
+  --text-xl:18px;   --leading-xl:26px;
+  /* display sizes (Barlow Condensed, uppercase) */
+  --display-xs:13px;         /* eyebrows, section labels (600, tracking-caps) */
+  --display-sm:16px;         /* panel titles, menu group titles */
+  --display-md:20px;         /* inspector item name, dialog titles */
+  --display-lg:24px;         /* wordmark, page titles */
+  --display-xl:32px;         /* empty-state + sign-in headlines */
+  --leading-tight:1.1;
+  --tracking-display:.02em;
+  --tracking-caps:.08em;
+  --numeric:tabular-nums;    /* font-variant-numeric for coordinates, sizes, counts */
+
+  /* ================= motion ================= */
+  --dur-fast:150ms;          /* hover, press, toggles */
+  --dur-base:200ms;          /* menus, popovers, tab indicator */
+  --dur-slow:250ms;          /* sheets, dialogs, toasts */
+  --ease-standard:cubic-bezier(.2,0,0,1);
+  --ease-enter:cubic-bezier(0,0,.2,1);
+  --ease-exit:cubic-bezier(.4,0,1,1);
+
+  /* ================= safe areas ================= */
+  --safe-t:env(safe-area-inset-top,0px);
+  --safe-r:env(safe-area-inset-right,0px);
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-l:env(safe-area-inset-left,0px);
+
+  /* ================= legacy names (v2 CSS) -> new tokens =================
+     Lets base.css / app.css / admin.css switch palettes before they are rewritten.
+     NOTE: v2 used --accent / --accent-text / --accent-soft (red) for errors too. Those names now mean
+     FBS Blue; every error/destructive use must move to --danger / --danger-text / --danger-soft. */
+  --paper:var(--bg);
+  --panel:var(--surface);
+  --panel-2:var(--surface-2);
+  --muted:var(--ink-muted);
+  --accent-fill:var(--accent);
+  --ok:var(--success-text);
+  --warn:var(--warning-text);
+  --ok-soft:var(--success-soft);
+  --warn-soft:var(--warning-soft);
+  --map-bg:var(--plan-floor);
+  --map-grid:var(--plan-grid);
+  --map-grid-major:var(--plan-grid-major);
+  --map-label:var(--plan-label);
+  --shadow:var(--shadow-2);
+  --shadow-lg:var(--shadow-3);
+  --display:var(--font-display);
+  --body:var(--font-body);
+  --mono:var(--font-mono);
+  --gut:var(--gutter);
+
+  color-scheme:light;
+}
+
+/* touch screens: every control is at least 44px */
+@media (pointer: coarse){
+  :root{ --control-h:44px; --handle:12px; }
+}
+
+/* reduced motion: keep state changes, drop the movement */
+@media (prefers-reduced-motion: reduce){
+  :root{ --dur-fast:0ms; --dur-base:0ms; --dur-slow:0ms; }
+}
+
+/* ================= dark theme =================
+   The two blocks below must stay identical (OS dark, and the explicit data-theme="dark" switch). */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#08111A;
+    --surface:#0F1A26;
+    --surface-2:#142231;
+    --surface-3:#1B2B3D;
+    --surface-sunken:#08111A;
+    --surface-inverse:#E4EBF2;
+    --scrim:rgba(0,0,0,.6);
+    --ink:#E4EBF2;
+    --ink-heading:#F3F7FB;
+    --ink-muted:#A3B3C4;
+    --ink-subtle:#8C9DB0;
+    --ink-disabled:#4F6378;
+    --ink-inverse:#15212D;
+    --line:#24384D;
+    --line-strong:#5F7790;
+    --accent:#006CB4;
+    --accent-hover:#0B78C2;
+    --accent-pressed:#005793;
+    --accent-ink:#FFFFFF;
+    --accent-text:#7CB8EC;
+    --accent-soft:#10304E;
+    --accent-soft-ink:#A9D1F5;
+    --accent-line:#245A88;
+    --focus:#7CB8EC;
+    --focus-halo:rgba(124,184,236,.30);
+    --danger:#C42B2B;
+    --danger-hover:#D33A3A;
+    --danger-ink:#FFFFFF;
+    --danger-text:#FF8E87;
+    --danger-soft:#3A1618;
+    --danger-soft-ink:#FFB8B2;
+    --warning:#E8A23A;
+    --warning-text:#F2B860;
+    --warning-soft:#33240C;
+    --warning-soft-ink:#F7CB86;
+    --success:#4CC38A;
+    --success-text:#6AD3A0;
+    --success-soft:#0F2E20;
+    --success-soft-ink:#8FE0B8;
+    --plan-bg:#08111A;
+    --plan-floor:#101C29;
+    --plan-grid:#172738;
+    --plan-grid-major:#22374C;
+    --plan-wall:#D2DCE6;
+    --plan-structure:#3A5068;
+    --plan-door:#A3B3C4;
+    --plan-fixture-fill:#22364B;
+    --plan-fixture-stroke:#8DA1B6;
+    --plan-item-mix:30%;
+    --plan-label:#E4EBF2;
+    --plan-label-halo:rgba(16,28,41,.86);
+    --plan-scan:#CE93E8;
+    --plan-scan-obj:#CE93E8;
+    --plan-measure:#7CB8EC;
+    --plan-dim-bg:#006CB4;
+    --plan-dim-ink:#FFFFFF;
+    --plan-ghost-before:#8C9DB0;
+    --plan-ghost-after:#7CB8EC;
+    --plan-faint:.32;
+    --sel-stroke:#7CB8EC;
+    --sel-fill:rgba(96,156,216,.24);
+    --sel-handle:#0F1A26;
+    --sel-handle-stroke:#7CB8EC;
+    --sel-hover:#609CD8;
+    --sel-marquee-fill:rgba(96,156,216,.14);
+    --sel-marquee-stroke:#7CB8EC;
+    --snap-guide:#FF9A5C;
+    --cat-fill-alpha:.34;
+    --cat-01:#FC9252;
+    --cat-02:#F6C755;
+    --cat-03:#A5E060;
+    --cat-04:#4CB86A;
+    --cat-05:#5ADDC7;
+    --cat-06:#42A4CF;
+    --cat-07:#7E8EF4;
+    --cat-08:#DCAEFE;
+    --cat-09:#EA66BF;
+    --cat-10:#FE9EAD;
+    --cat-11:#AE815D;
+    --cat-12:#AEC0D0;
+    --shadow-1:0 1px 2px rgba(0,0,0,.45);
+    --shadow-2:0 2px 4px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.45);
+    --shadow-3:0 4px 8px rgba(0,0,0,.4),0 20px 48px rgba(0,0,0,.55);
+    --shadow-inset:inset 0 1px 2px rgba(0,0,0,.35);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+    --bg:#08111A;
+    --surface:#0F1A26;
+    --surface-2:#142231;
+    --surface-3:#1B2B3D;
+    --surface-sunken:#08111A;
+    --surface-inverse:#E4EBF2;
+    --scrim:rgba(0,0,0,.6);
+    --ink:#E4EBF2;
+    --ink-heading:#F3F7FB;
+    --ink-muted:#A3B3C4;
+    --ink-subtle:#8C9DB0;
+    --ink-disabled:#4F6378;
+    --ink-inverse:#15212D;
+    --line:#24384D;
+    --line-strong:#5F7790;
+    --accent:#006CB4;
+    --accent-hover:#0B78C2;
+    --accent-pressed:#005793;
+    --accent-ink:#FFFFFF;
+    --accent-text:#7CB8EC;
+    --accent-soft:#10304E;
+    --accent-soft-ink:#A9D1F5;
+    --accent-line:#245A88;
+    --focus:#7CB8EC;
+    --focus-halo:rgba(124,184,236,.30);
+    --danger:#C42B2B;
+    --danger-hover:#D33A3A;
+    --danger-ink:#FFFFFF;
+    --danger-text:#FF8E87;
+    --danger-soft:#3A1618;
+    --danger-soft-ink:#FFB8B2;
+    --warning:#E8A23A;
+    --warning-text:#F2B860;
+    --warning-soft:#33240C;
+    --warning-soft-ink:#F7CB86;
+    --success:#4CC38A;
+    --success-text:#6AD3A0;
+    --success-soft:#0F2E20;
+    --success-soft-ink:#8FE0B8;
+    --plan-bg:#08111A;
+    --plan-floor:#101C29;
+    --plan-grid:#172738;
+    --plan-grid-major:#22374C;
+    --plan-wall:#D2DCE6;
+    --plan-structure:#3A5068;
+    --plan-door:#A3B3C4;
+    --plan-fixture-fill:#22364B;
+    --plan-fixture-stroke:#8DA1B6;
+    --plan-item-mix:30%;
+    --plan-label:#E4EBF2;
+    --plan-label-halo:rgba(16,28,41,.86);
+    --plan-scan:#CE93E8;
+    --plan-scan-obj:#CE93E8;
+    --plan-measure:#7CB8EC;
+    --plan-dim-bg:#006CB4;
+    --plan-dim-ink:#FFFFFF;
+    --plan-ghost-before:#8C9DB0;
+    --plan-ghost-after:#7CB8EC;
+    --plan-faint:.32;
+    --sel-stroke:#7CB8EC;
+    --sel-fill:rgba(96,156,216,.24);
+    --sel-handle:#0F1A26;
+    --sel-handle-stroke:#7CB8EC;
+    --sel-hover:#609CD8;
+    --sel-marquee-fill:rgba(96,156,216,.14);
+    --sel-marquee-stroke:#7CB8EC;
+    --snap-guide:#FF9A5C;
+    --cat-fill-alpha:.34;
+    --cat-01:#FC9252;
+    --cat-02:#F6C755;
+    --cat-03:#A5E060;
+    --cat-04:#4CB86A;
+    --cat-05:#5ADDC7;
+    --cat-06:#42A4CF;
+    --cat-07:#7E8EF4;
+    --cat-08:#DCAEFE;
+    --cat-09:#EA66BF;
+    --cat-10:#FE9EAD;
+    --cat-11:#AE815D;
+    --cat-12:#AEC0D0;
+    --shadow-1:0 1px 2px rgba(0,0,0,.45);
+    --shadow-2:0 2px 4px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.45);
+    --shadow-3:0 4px 8px rgba(0,0,0,.4),0 20px 48px rgba(0,0,0,.55);
+    --shadow-inset:inset 0 1px 2px rgba(0,0,0,.35);
+    color-scheme:dark;
+}
