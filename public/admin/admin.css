@@ -1,0 +1,86 @@
+/* Admin dashboard: one calm column that works the same on a phone and a laptop. */
+
+/* ---------- header ---------- */
+html{scroll-padding-top:84px;} /* keyboard focus never ends up under the sticky header */
+.top{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 16px;
+  padding:calc(10px + var(--safe-t)) calc(var(--gut) + var(--safe-r)) 10px calc(var(--gut) + var(--safe-l));
+  background:var(--panel);border-bottom:1px solid var(--line);}
+.top-brand{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;min-height:44px;}
+.top-brand .logo{width:30px;height:30px;}
+.top-title{display:flex;align-items:baseline;gap:6px;white-space:nowrap;}
+.top-title b{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.02em;text-transform:uppercase;line-height:1;}
+.top-title span{font-family:var(--display);font-weight:600;font-size:18px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
+.top-nav{display:flex;gap:6px;flex-wrap:wrap;}
+
+/* ---------- layout ---------- */
+.main{max-width:780px;margin:0 auto;padding:20px calc(var(--gut) + var(--safe-r)) calc(56px + var(--safe-b)) calc(var(--gut) + var(--safe-l));display:grid;gap:18px;}
+.sec{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:20px;display:grid;gap:14px;}
+.sec-head{display:grid;gap:4px;}
+.sec-head h1{font-size:28px;}
+.sec-head h1:focus{outline:none;} /* focused by the page after removing someone, not a control */
+.sec-foot{display:flex;flex-wrap:wrap;gap:8px;}
+.empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px;}
+
+/* ---------- access codes ---------- */
+.count{display:flex;align-items:center;gap:10px;font-weight:600;}
+.pips{display:inline-flex;gap:4px;}
+.pip{width:12px;height:12px;border-radius:50%;border:2px solid var(--ok);}
+.pip.on{background:var(--ok);}
+.codes,.people{list-style:none;margin:0;padding:0;display:grid;gap:8px;}
+.code-item{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;
+  padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);}
+.code-item.is-used{justify-content:flex-start;flex-wrap:nowrap;padding:10px 14px;background:transparent;border-style:dashed;}
+.used-mark{position:relative;width:18px;height:18px;flex:none;border-radius:50%;background:color-mix(in srgb,var(--muted) 70%,transparent);}
+.used-mark::after{content:"";position:absolute;left:6px;top:3px;width:4px;height:8px;border:solid var(--panel);border-width:0 2px 2px 0;transform:rotate(45deg);}
+.code-main{display:grid;gap:4px;min-width:0;}
+.code-val{font:700 26px/1.1 var(--mono);letter-spacing:.1em;user-select:all;-webkit-user-select:all;}
+.code-status{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);}
+.code-status.ok{color:var(--ok);font-weight:600;}
+.code-status.ok::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ok);}
+.code-status.sent{color:var(--warn);font-weight:600;}
+.code-status.sent::before{content:"";width:8px;height:8px;border-radius:50%;border:2px solid var(--warn);}
+.code-actions{display:flex;gap:6px;}
+
+/* ---------- people ---------- */
+.person{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--line);border-radius:10px;}
+.person-main{display:grid;gap:2px;min-width:0;}
+.person-name{font-weight:600;font-size:16px;}
+.person-phone{font-family:var(--mono);font-size:14px;color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;min-height:44px;width:fit-content;}
+.person-phone:hover{text-decoration:underline;}
+.person-meta{font-size:13px;color:var(--muted);}
+
+/* ---------- your account ---------- */
+.pw-form{display:grid;gap:14px;max-width:420px;}
+.form-actions{display:flex;flex-wrap:wrap;gap:8px;}
+
+/* ---------- confirm dialog ---------- */
+.dlg{padding:0;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--ink);box-shadow:var(--shadow-lg);
+  width:min(440px,calc(100% - 32px));max-height:calc(100% - 32px);}
+.dlg::backdrop{background:rgba(10,12,14,.5);}
+.dlg-body{padding:20px;display:grid;gap:12px;}
+.dlg-body h2{font-size:26px;}
+.dlg-body p{color:var(--muted);line-height:1.5;}
+.dlg-foot{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:6px;}
+
+/* ---------- toast ---------- */
+.toast{position:fixed;left:50%;bottom:calc(20px + var(--safe-b));transform:translateX(-50%);z-index:60;max-width:calc(100% - 32px);
+  background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;box-shadow:var(--shadow);text-align:center;}
+.toast.warn{background:var(--accent-fill);color:var(--accent-ink);}
+
+/* ---------- phones ---------- */
+@media (max-width:560px){
+  :root{--gut:12px;}
+  html{scroll-padding-top:0;}
+  .top{position:static;} /* two rows on a phone: scrolls away instead of covering ~1/5 of the screen and the focus */
+  .top-nav{width:100%;}
+  .top-nav .btn{flex:1;}
+  .main{padding-top:14px;gap:14px;}
+  .sec{padding:16px 14px;border-radius:12px;}
+  .sec-head h1{font-size:26px;}
+  .sec-foot .btn{width:100%;}
+  .code-item:not(.is-used),.person{align-items:stretch;}
+  .code-actions{width:100%;}
+  .code-actions .btn{flex:1;}
+  .person .btn{width:100%;}
+  .form-actions .btn{flex:1;}
+}

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#f7f7f4" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1a1e22" media="(prefers-color-scheme: dark)">
+  <title>Sign in · FBS Boise Store Map</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/base.css">
+  <link rel="stylesheet" href="/login.css">
+</head>
+<body class="auth">
+<main class="auth-wrap">
+  <section class="auth-card" aria-labelledby="brand">
+    <header class="auth-head">
+      <span class="logo" aria-hidden="true"><svg viewBox="0 0 32 32" focusable="false"><rect width="32" height="32" rx="7" fill="#c8102e"/><rect x="6" y="7" width="20" height="3" rx="1.5" fill="#fff"/><rect x="6" y="14.5" width="12" height="3" rx="1.5" fill="#fff"/><rect x="6" y="22" width="12" height="3" rx="1.5" fill="#fff"/></svg></span>
+      <span class="eyebrow" id="brand">FBS Boise &middot; Store Map</span>
+    </header>
+
+    <!-- Step 1: access code -->
+    <form id="step-code" class="panel" method="post" novalidate>
+      <h1>This map is private.</h1>
+      <p class="lead">Enter the access code you were given. If you don't have one, ask the person who sent you this link.</p>
+      <p class="notice error" id="msg-code" role="alert" hidden></p>
+      <div class="field">
+        <label for="code">Access code</label>
+        <input class="input code" id="code" name="code" type="text" inputmode="text" autocomplete="one-time-code" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="24" placeholder="XXXX-XXXX" required aria-describedby="msg-code">
+      </div>
+      <button class="btn primary wide" type="submit">Continue</button>
+    </form>
+
+    <!-- Step 2: name and phone -->
+    <form id="step-details" class="panel" method="post" novalidate hidden>
+      <h1>One more step.</h1>
+      <p class="code-ok"><span class="tick" aria-hidden="true"></span><span>Code <b class="mono" id="code-echo"></b> works.</span> <button type="button" class="link" id="change-code">Change</button></p>
+      <p class="notice error" id="msg-details" role="alert" hidden></p>
+      <div class="field">
+        <label for="name">Your name</label>
+        <input class="input" id="name" name="name" type="text" autocomplete="name" autocapitalize="words" maxlength="60" required aria-describedby="msg-details">
+      </div>
+      <div class="field">
+        <label for="phone">Mobile phone</label>
+        <input class="input" id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="208-555-0123" required aria-describedby="msg-details">
+      </div>
+      <button class="btn primary wide" type="submit">Open the store map</button>
+      <p class="note">Only the site's admin can see your name and number.</p>
+    </form>
+
+    <!-- Admin sign-in -->
+    <form id="admin-login" class="panel" method="post" novalidate hidden>
+      <h1>Admin sign-in</h1>
+      <p class="notice error" id="msg-admin" role="alert" hidden></p>
+      <div class="field">
+        <label for="username">Username</label>
+        <input class="input" id="username" name="username" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="100" required aria-describedby="msg-admin">
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input class="input" id="password" name="password" type="password" autocomplete="current-password" maxlength="200" required aria-describedby="msg-admin">
+      </div>
+      <button class="btn primary wide" type="submit">Sign in</button>
+      <a class="link small" href="/login?setup=1">Set up or reset the admin password</a>
+    </form>
+
+    <!-- First-time setup / password reset -->
+    <form id="admin-setup" class="panel" method="post" novalidate hidden>
+      <h1>Set the admin password</h1>
+      <p class="lead">Use the one-time setup code you were given. It works once and signs out the admin everywhere else.</p>
+      <p class="notice error" id="msg-setup" role="alert" hidden></p>
+      <div class="field">
+        <label for="setup-code">One-time setup code</label>
+        <input class="input code" id="setup-code" name="setupCode" type="text" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="40" placeholder="XXXX-XXXX-XXXX-XXXX" required aria-describedby="msg-setup">
+      </div>
+      <div class="field">
+        <label for="setup-username">Username</label>
+        <input class="input" id="setup-username" name="username" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40" required aria-describedby="setup-username-hint msg-setup">
+        <span class="hint" id="setup-username-hint">3 to 40 letters, numbers, dots, dashes or underscores.</span>
+      </div>
+      <div class="field">
+        <label for="setup-password">New password</label>
+        <input class="input" id="setup-password" name="password" type="password" autocomplete="new-password" maxlength="200" required aria-describedby="setup-password-hint msg-setup">
+        <span class="hint" id="setup-password-hint">At least 10 characters.</span>
+      </div>
+      <div class="field">
+        <label for="setup-password2">Type it again</label>
+        <input class="input" id="setup-password2" name="password2" type="password" autocomplete="new-password" maxlength="200" required aria-describedby="msg-setup">
+      </div>
+      <button class="btn primary wide" type="submit">Save and sign in</button>
+    </form>
+
+    <footer class="auth-foot">
+      <a class="link small" id="to-admin" href="/login?admin=1">Admin sign-in</a>
+      <a class="link small" id="to-code" href="/login" hidden>I have an access code</a>
+      <a class="link small" id="to-login" href="/login?admin=1" hidden>Back to admin sign-in</a>
+    </footer>
+  </section>
+  <!-- always present, so screen readers hear what changed when a step opens -->
+  <p class="sr-only" id="live" role="status" aria-live="polite"></p>
+</main>
+<script src="/login.js" defer></script>
+</body>
+</html>

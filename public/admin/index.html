@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1b1f23" media="(prefers-color-scheme: dark)">
+  <title>Admin · FBS Boise Store Map</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/base.css">
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+<header class="top">
+  <a class="top-brand" href="/admin/">
+    <span class="logo" aria-hidden="true"><svg viewBox="0 0 32 32" focusable="false"><rect width="32" height="32" rx="7" fill="#c8102e"/><rect x="6" y="7" width="20" height="3" rx="1.5" fill="#fff"/><rect x="6" y="14.5" width="12" height="3" rx="1.5" fill="#fff"/><rect x="6" y="22" width="12" height="3" rx="1.5" fill="#fff"/></svg></span>
+    <span class="top-title"><b>Store Map</b><span>&middot; Admin</span></span>
+  </a>
+  <nav class="top-nav" aria-label="Site">
+    <a class="btn" href="/">Open the store map</a>
+    <button type="button" class="btn ghost" id="logout">Sign out</button>
+  </nav>
+</header>
+
+<main class="main" id="main">
+  <p class="notice error" id="load-error" role="alert" hidden></p>
+
+  <!-- Access codes -->
+  <section class="sec" aria-labelledby="codes-title">
+    <div class="sec-head">
+      <h1 id="codes-title">Access codes</h1>
+      <p class="muted">Give one code to each person. Each code works once.</p>
+    </div>
+    <p class="count" id="codes-count" aria-live="polite"></p>
+    <ul class="codes" id="codes-list" aria-label="Current codes"></ul>
+    <p class="empty" id="codes-empty" hidden>No codes yet.</p>
+    <div class="sec-foot">
+      <button type="button" class="btn primary" id="new-set" disabled>Make a new set of 5</button>
+    </div>
+  </section>
+
+  <!-- People with access -->
+  <section class="sec" aria-labelledby="people-title">
+    <div class="sec-head">
+      <h1 id="people-title" tabindex="-1">People with access</h1>
+      <p class="muted" id="people-count"></p>
+    </div>
+    <ul class="people" id="people-list" aria-label="People with access"></ul>
+    <p class="empty" id="people-empty" hidden>Nobody yet. Give someone a code.</p>
+  </section>
+
+  <!-- Your account -->
+  <section class="sec" aria-labelledby="account-title">
+    <div class="sec-head">
+      <h1 id="account-title">Your account</h1>
+      <p class="muted">Changing your password signs you out on your other devices.</p>
+    </div>
+    <form id="pw-form" class="pw-form" method="post" novalidate>
+      <p class="notice" id="pw-msg" hidden></p>
+      <div class="field">
+        <label for="pw-current">Current password</label>
+        <input class="input" id="pw-current" type="password" autocomplete="current-password" maxlength="200" required>
+      </div>
+      <div class="field">
+        <label for="pw-new">New password</label>
+        <input class="input" id="pw-new" type="password" autocomplete="new-password" maxlength="200" required aria-describedby="pw-hint">
+        <span class="hint" id="pw-hint">At least 10 characters.</span>
+      </div>
+      <div class="field">
+        <label for="pw-again">Type it again</label>
+        <input class="input" id="pw-again" type="password" autocomplete="new-password" maxlength="200" required>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn primary">Change password</button>
+        <button type="button" class="btn" id="logout-2">Sign out</button>
+      </div>
+    </form>
+  </section>
+</main>
+
+<dialog class="dlg" id="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+  <form method="dialog" class="dlg-body">
+    <h2 id="confirm-title"></h2>
+    <p id="confirm-text"></p>
+    <div class="dlg-foot">
+      <button type="submit" class="btn" value="cancel" id="confirm-cancel">Cancel</button>
+      <button type="submit" class="btn primary" value="ok" id="confirm-ok">OK</button>
+    </div>
+  </form>
+</dialog>
+<div class="toast" id="toast" aria-hidden="true" hidden></div>
+<!-- always rendered (never hidden), so screen readers hear every message the toast and forms show -->
+<p class="sr-only" id="announce" role="status" aria-live="polite"></p>
+<script src="/admin/admin.js" defer></script>
+</body>
+</html>
