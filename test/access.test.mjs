@@ -5,6 +5,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import { readFileSync } from "node:fs";
 import { startDev, normalizeCode, hmacHex, sha256Hex, aesEncrypt, passwordFields, randomCode, sqlStr } from "./helpers/devserver.mjs";
 import { Client } from "./helpers/client.mjs";
 import { mockDb, mockSecrets, jsonRequest } from "./helpers/mockdb.mjs";
@@ -129,7 +130,19 @@ test("only the sign-in page and what it needs are public", async () => {
   assert.match(login.headers.get("content-type"), /text\/html/);
   assert.equal(login.headers.get("cache-control"), "no-store");
   assert.match(login.text, /This map is private\./);
-  for (const p of ["/login.js", "/login.css", "/assets/base.css", "/favicon.svg", "/robots.txt", "/assets/fonts/ibm-plex-sans-latin-400-normal.woff2"]) {
+  // FBS branding on the sign-in page: tokens first, the logo and favicons, no old red; all of it loads without a session
+  assert.match(login.text, /<link rel="stylesheet" href="\/assets\/tokens.css">[\s\S]*<link rel="stylesheet" href="\/assets\/base.css">/);
+  assert.match(login.text, /src="\/assets\/brand\/fbs-logo-64.png"/);
+  assert.match(login.text, /rel="icon" href="\/assets\/brand\/favicon-32.png"/);
+  assert.doesNotMatch(login.text, /c8102e|favicon\.svg/i);
+  for (const [, url] of login.text.matchAll(/(?:href|src)="(\/[^"?#]+)/g)) {
+    if (url === "/login") continue;
+    assert.equal((await anon.get(url)).status, 200, `${url} loads without a session`);
+  }
+  // the theme is applied before the first paint by a public script, not inline code
+  assert.match(login.text, /<script src="\/assets\/theme-boot.js"><\/script>[\s\S]*<\/head>/);
+  for (const p of ["/login.js", "/login.css", "/assets/tokens.css", "/assets/base.css", "/assets/theme-boot.js", "/robots.txt", "/assets/fonts/ibm-plex-sans-latin-400-normal.woff2",
+    "/assets/brand/fbs-logo-64.png", "/assets/brand/favicon-32.png", "/assets/brand/favicon-192.png", "/assets/brand/apple-touch-icon.png"]) {
     const r = await anon.get(p);
     assert.equal(r.status, 200, p);
     assert.match(r.headers.get("cache-control"), /^public, max-age=\d+$/, p);
@@ -144,8 +157,15 @@ test("only the sign-in page and what it needs are public", async () => {
 test("everything else needs a session, whatever the path looks like", async () => {
   const anon = new Client(dev.base);
   const gated = [
-    "/", "/index.html", "/js/app.js", "/js/store-data.js", "/js/account.js", "/css/app.css", "/tex/prod_atlas.jpg", "/vendor/three.min.js",
-    "//index.html", "/./js/app.js", "/%2e/js/app.js", "/js/../index.html", "/JS/app.js", "/index.html?x", "/assets/fonts/../../js/app.js",
+    "/", "/index.html", "/js/main.js", "/js/core/model.js", "/js/view3d/structure.js", "/js/account.js", "/css/app.css", "/tex/prod_atlas.jpg",
+    "/vendor/three.min.js", "/vendor/GLTFLoader.js", "/vendor/OrbitControls.js",
+    // the store layout and the 3D scan are never public
+    "/data/master.json", "/data/scan.glb", "/data/scan-overlay.json", "/DATA/scan.glb", "/data/../data/scan.glb", "/assets/brand/../../data/scan.glb",
+    // only the brand files the sign-in and 404 pages show are public (not the full-size logo, not the icon sprite)
+    "/assets/brand/", "/assets/brand/fbs-logo.png", "/assets/brand/fbs-logo.svg", "/assets/brand/FBS-logo.png", "/assets/brand/x/fbs-logo.png", "/assets/brand/-x.png",
+    "/assets/brand/fbs--logo.png", "/assets/brand/favicon-32.PNG", "/assets/icons.svg", "/assets/icons.svg/", "/assets/tokens.css.map", "/favicon.svg",
+    "/assets/fonts/LICENSE-ibm-plex-sans.txt", "/assets/fonts/x.woff2.map", "/assets/theme-boot.js.map",
+    "//index.html", "/./js/main.js", "/%2e/js/main.js", "/js/../index.html", "/JS/main.js", "/index.html?x", "/assets/fonts/../../js/main.js",
     "/assets/", "/assets/base.css/", "/no-such-file", "/api", "/api/me", "/api/admin/overview", "/api/nope",
   ];
   for (const p of gated) {
@@ -155,7 +175,7 @@ test("everything else needs a session, whatever the path looks like", async () =
     for (const [r, kind] of [[html, "html"], [any, "*/*"], [head, "HEAD"]]) {
       assert.ok([302, 401].includes(r.status), `${kind} ${p} -> ${r.status}`);
       if (r.status === 302) assert.equal(r.headers.get("location"), "/login", `${kind} ${p}`);
-      assert.doesNotMatch(r.text, /FBS_STORE|THREE|acctBtn|@font-face/, `${kind} ${p} leaked content`);
+      assert.doesNotMatch(r.text, /FBS_STORE|THREE|acctBtn|@font-face|glTF|"items"|scan_front_w/, `${kind} ${p} leaked content`);
       assertSecurityHeaders(r, `${kind} ${p}`);
     }
     if (!p.startsWith("/api")) assert.equal(html.status, 302, `html ${p} should redirect`);
@@ -169,7 +189,7 @@ test("everything else needs a session, whatever the path looks like", async () =
     }
   }
   assert.equal((await anon.post("/api/logout", {})).status, 200, "logout without a session is harmless");
-  assert.equal((await anon.req("PUT", "/js/app.js", {})).status, 405);
+  assert.equal((await anon.req("PUT", "/js/main.js", {})).status, 405);
 });
 
 // ---------- admin: legacy row, setup, sign-in ----------
@@ -258,7 +278,7 @@ test("the admin gets the dashboard; /login sends a signed-in admin there", async
   assertSecurityHeaders(page, "/admin/");
   const js = await admin.get("/admin/admin.js");
   assert.equal(js.status, 200);
-  assert.equal(js.headers.get("cache-control"), "private, no-cache");
+  assert.equal(js.headers.get("cache-control"), "private, no-cache"); // the dashboard is re-checked against the session every time
   assert.equal((await admin.get("/admin")).headers.get("location"), "/admin/");
   // the dashboard has one address: its other names send the admin there
   for (const p of ["/admin.html", "/admin.html?x", "/Admin.HTML", "/admin.htm", "/ADMIN"]) {
@@ -450,13 +470,21 @@ test("members get the map, but nothing of the admin's", async () => {
   assert.equal(page.status, 200);
   assert.equal(page.headers.get("cache-control"), "no-store");
   assertSecurityHeaders(page, "member /");
-  for (const p of ["/js/app.js", "/js/store-data.js", "/js/account.js", "/css/app.css", "/tex/prod_atlas.jpg", "/vendor/three.min.js", "/favicon.svg"]) {
+  for (const p of ["/js/main.js", "/js/core/model.js", "/js/account.js", "/css/app.css", "/tex/prod_atlas.jpg", "/vendor/three.min.js", "/vendor/GLTFLoader.js",
+    "/vendor/OrbitControls.js", "/data/master.json", "/data/scan-overlay.json", "/data/scan.glb", "/assets/icons.svg", "/assets/brand/fbs-logo.png"]) {
     const r = await m.get(p);
     assert.equal(r.status, 200, p);
     assertSecurityHeaders(r, `member ${p}`);
-    if (!p.endsWith(".svg")) assert.equal(r.headers.get("cache-control"), "private, no-cache", p);
+    // private (never in a shared cache); code, styles and textures are kept 5 minutes like the public sign-in
+    // styles, so a page's modules and tokens.css expire together; the store data is re-checked every request
+    assert.equal(r.headers.get("cache-control"), p.startsWith("/data/") ? "private, no-cache" : "private, max-age=300", p);
     assert.equal((await m.head(p)).status, 200, `HEAD ${p}`);
   }
+  assert.match((await m.get("/js/main.js")).headers.get("content-type"), /javascript/);
+  assert.match((await m.get("/data/master.json")).headers.get("content-type"), /application\/json/);
+  const master = JSON.parse((await m.get("/data/master.json")).text);
+  assert.deepEqual(master, JSON.parse(readFileSync(new URL("../public/data/master.json", import.meta.url))), "the one master layout file, as is");
+  assert.equal((await m.get("/js/store-data.js")).status, 404, "the old static layout is gone");
   assert.match((await m.get("/tex/prod_atlas.jpg")).headers.get("content-type"), /image\/jpeg/);
   for (const p of ["/admin/", "/admin/admin.js", "/admin/index.html", "/ADMIN/", "/admin", ...ADMIN_ALIASES]) {
     for (const r of [await m.get(p, { Accept: "text/html" }), await m.get(p), await m.head(p)]) {
@@ -520,8 +548,15 @@ test("a page that doesn't exist gets a small page with a way back, the same one 
   assert.ok(pages.every((t) => t === pages[0]), "one 404 page for everything, so a member can't tell the dashboard exists");
   assert.match(pages[0], /This page doesn't exist/);
   assert.match(pages[0], /<a [^>]*href="\/"[^>]*>Open the store map<\/a>/);
-  assert.doesNotMatch(pages[0], /<script|<style|\sstyle\s*=|\son[a-z]+\s*=/i, "nothing the CSP would block");
-  for (const [, href] of pages[0].matchAll(/href="(\/[^"]+)"/g)) assert.equal((await new Client(dev.base).get(href)).status, 200, `${href} loads without a session`);
+  assert.doesNotMatch(pages[0], /<script(?![^>]*\bsrc=)|<script[^>]*>[^<]|<style|\sstyle\s*=|\son[a-z]+\s*=/i, "nothing the CSP would block");
+  // the theme chosen in the map applies here too (a public script in <head>), and the logo next to the wordmark is decorative
+  assert.match(pages[0], /<script src="\/assets\/theme-boot.js"><\/script>[\s\S]*<\/head>/);
+  assert.match(pages[0], /<img src="\/assets\/brand\/fbs-logo-64.png"[^>]* alt="">/);
+  for (const [, href] of pages[0].matchAll(/(?:href|src)="(\/[^"]+)"/g)) assert.equal((await new Client(dev.base).get(href)).status, 200, `${href} loads without a session`);
+  // FBS branding: tokens first, the logo, no old red
+  assert.match(pages[0], /<link rel="stylesheet" href="\/assets\/tokens.css">[\s\S]*<link rel="stylesheet" href="\/assets\/base.css">/);
+  assert.match(pages[0], /src="\/assets\/brand\/fbs-logo-64.png"/);
+  assert.doesNotMatch(pages[0], /c8102e|favicon\.svg/i);
   // files that aren't pages still get a plain 404
   for (const p of ["/js/missing.js", "/nope"]) {
     const r = await m.get(p);
@@ -534,14 +569,14 @@ test("a page that doesn't exist gets a small page with a way back, the same one 
 test("removing a member signs them out on their very next request", async () => {
   const m = visitor();
   await join(m, "Rex Removed", "2085550161");
-  assert.equal((await m.get("/js/app.js")).status, 200);
+  assert.equal((await m.get("/js/main.js")).status, 200);
   const before = await overview();
   const rex = before.people.find((p) => p.name === "Rex Removed");
   assert.equal(before.codes.filter((c) => c.usedByName === "Rex Removed").length, 1);
   const orphansBefore = before.codes.filter((c) => c.status === "used" && c.usedByName === null).length;
   const r = await admin.del(`/api/admin/people/${rex.id}`);
   assert.equal(r.status, 200);
-  assert.equal((await m.get("/js/app.js")).status, 401);
+  assert.equal((await m.get("/js/main.js")).status, 401);
   const page = await m.get("/", { Accept: "text/html" });
   assert.equal(page.status, 302);
   assert.equal(page.headers.get("location"), "/login");
