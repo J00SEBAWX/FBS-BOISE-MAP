@@ -6,122 +6,253 @@
   <meta name="robots" content="noindex,nofollow">
   <meta name="referrer" content="no-referrer">
   <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#1b1f23" media="(prefers-color-scheme: dark)">
-  <meta name="description" content="Walk through the FBS Boise store from a customer's point of view, or look at the floor plan.">
+  <meta name="theme-color" content="#0f1a26" media="(prefers-color-scheme: dark)">
+  <script src="/assets/theme-boot.js"></script>
+  <meta name="description" content="The FBS Boise store in 3D and on a floor plan, built from the photo survey and the 3D scan.">
   <title>FBS Boise Store Map</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/assets/brand/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="/assets/brand/favicon-192.png" sizes="192x192" type="image/png">
+  <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
+  <link rel="stylesheet" href="/assets/tokens.css">
+  <link rel="stylesheet" href="/assets/base.css">
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-<div id="app">
-  <header class="bar">
-    <div class="brand"><b>FBS Boise</b><span>Store Map</span></div>
-    <div class="tabs" role="group" aria-label="View">
-      <button type="button" id="tabWalk" aria-pressed="true" title="Walk the store (M)"><i class="dot"></i>Walk</button>
-      <button type="button" id="tabMap" aria-pressed="false" title="Floor plan (M)"><i class="dot"></i>Map</button>
+<div class="app" id="app" data-view="3d">
+  <header class="hdr">
+    <a class="hdr-brand" href="#3d" id="brandLink" aria-label="FBS Boise Store Map: open the 3D view">
+      <span class="logo-badge"><img src="/assets/brand/fbs-logo-64.png" width="78" height="64" alt=""></span>
+      <span class="wordmark" aria-hidden="true"><span>FBS BOISE</span><b>STORE MAP</b></span>
+    </a>
+    <span class="hdr-div" aria-hidden="true"></span>
+    <div class="map-chip" id="mapChip" title="The confirmed layout the team works from">
+      <span class="map-chip-ico"><svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-star"/></svg></span>
+      <span class="map-chip-text"><b>Master map</b><span id="mapMeta">Confirmed layout</span></span>
     </div>
-    <div class="spacer"></div>
-    <button type="button" class="btn icon" id="helpBtn" aria-haspopup="dialog" aria-controls="help" aria-label="Controls" title="Controls (?)">?</button>
-    <div class="acct" id="acct" hidden>
-      <button type="button" class="btn acct-btn" id="acctBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="acctMenu" aria-label="Account">
-        <svg class="acct-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
-        <span class="acct-name" id="acctName"></span>
+    <div class="tabs" role="tablist" aria-label="Display">
+      <button type="button" class="tab" role="tab" id="tab-plan" data-view="plan" aria-selected="false" aria-controls="viewPlan" tabindex="-1" title="Plan: the floor plan from above (1)">
+        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-plan"/></svg><span>Plan</span>
       </button>
-      <div class="acct-menu card" id="acctMenu" role="menu" aria-labelledby="acctBtn" hidden>
-        <p class="acct-who" role="none">Signed in as <b id="acctFull"></b></p>
-        <a role="menuitem" href="/admin/" id="acctAdmin" tabindex="-1" hidden>Admin dashboard</a>
-        <button type="button" role="menuitem" id="acctOut" tabindex="-1">Sign out</button>
+      <button type="button" class="tab" role="tab" id="tab-3d" data-view="3d" aria-selected="true" aria-controls="view3d" title="3D: orbit around the store (2)">
+        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-rotate"/></svg><span>3D</span>
+      </button>
+      <button type="button" class="tab" role="tab" id="tab-walk" data-view="walk" aria-selected="false" aria-controls="view3d" tabindex="-1" title="Walk: the store at a customer's eye height (3)">
+        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-walk"/></svg><span>Walk</span>
+      </button>
+    </div>
+    <span class="spacer"></span>
+    <button type="button" class="icon-btn hide-phone" id="helpBtn" aria-haspopup="dialog" aria-controls="help" aria-label="Controls and shortcuts (?)" title="Controls and shortcuts (?)">
+      <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-help"/></svg>
+    </button>
+    <div class="acct" id="acct" hidden>
+      <button type="button" class="acct-btn" id="acctBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="acctMenu" aria-label="Account">
+        <span class="avatar" id="acctInitials" aria-hidden="true"></span>
+        <svg class="i i-sm" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-chevron"/></svg>
+      </button>
+      <div class="menu acct-menu" id="acctMenu" role="menu" aria-labelledby="acctBtn" hidden>
+        <p class="menu-who" role="none">Signed in as <b id="acctFull"></b></p>
+        <a role="menuitem" href="/admin/" id="acctAdmin" tabindex="-1" hidden>
+          <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-user"/></svg>Admin dashboard
+        </a>
+        <p class="menu-label" role="none" id="themeLabel">Theme</p>
+        <div class="menu-group" role="group" aria-labelledby="themeLabel">
+          <button type="button" role="menuitemradio" aria-checked="true" data-theme-choice="system" tabindex="-1">System</button>
+          <button type="button" role="menuitemradio" aria-checked="false" data-theme-choice="light" tabindex="-1">Light</button>
+          <button type="button" role="menuitemradio" aria-checked="false" data-theme-choice="dark" tabindex="-1">Dark</button>
+        </div>
+        <button type="button" role="menuitem" id="acctOut" tabindex="-1">
+          <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-sign-out"/></svg>Sign out
+        </button>
       </div>
     </div>
   </header>
 
-  <main class="stage">
-    <!-- Walk: first-person view at a customer's eye height -->
-    <section class="view" id="walkView" aria-label="Walk view">
-      <div id="three" aria-label="3D view of the store. Drag to look around."></div>
-      <div class="float tl hud">
-        <button type="button" class="chip" id="spinBtn" aria-pressed="false" title="Slowly turn a full 360&deg; (Space)">360&deg; look</button>
-        <button type="button" class="chip" id="ceilBtn" aria-pressed="true">Ceiling</button>
+  <div class="toolbar" role="toolbar" aria-label="Tools" id="toolbar">
+    <button type="button" class="tool" id="toolMeasure" data-views="plan 3d" aria-pressed="false" aria-label="Measure / place" aria-keyshortcuts="M" title="Measure / place: snap a point to the floor, a wall or a column (M)">
+      <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-measure"/></svg><span>Measure / place</span>
+    </button>
+    <button type="button" class="tool hide-phone" id="toolSnap" data-views="plan 3d" aria-pressed="true" aria-label="Snap" aria-keyshortcuts="S" title="Snap to the 6-inch grid, walls and columns (S)">
+      <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-snap"/></svg><span>Snap</span>
+    </button>
+    <span class="tb-div hide-phone" data-views="plan 3d" aria-hidden="true"></span>
+    <button type="button" class="tool" id="btnReset" data-views="plan 3d" aria-label="Reset view" aria-keyshortcuts="F" title="Reset the view to the whole store (F)">
+      <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-fit"/></svg><span>Reset view</span>
+    </button>
+    <button type="button" class="tool" id="btnTop" data-views="3d" aria-label="Top view" aria-keyshortcuts="T" title="Look straight down, north at the top (T)">
+      <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-plan"/></svg><span>Top view</span>
+    </button>
+    <button type="button" class="tool" id="btnSpin" data-views="walk" aria-pressed="false" aria-label="360&deg; look" aria-keyshortcuts="Space" title="Slowly turn a full 360&deg; (Space)">
+      <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-rotate"/></svg><span>360&deg; look</span>
+    </button>
+    <button type="button" class="tool" id="btnStart" data-views="walk" aria-label="Front door" title="Go back to just inside the front door">
+      <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-arrow-left"/></svg><span>Front door</span>
+    </button>
+    <span class="spacer hide-phone" aria-hidden="true"></span>
+    <div class="layers-wrap">
+      <button type="button" class="tool" id="layersBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="layersPop" aria-label="Layers" title="Layers: what the map shows (L toggles labels)">
+        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-layers"/></svg><span>Layers</span>
+        <svg class="i i-sm hide-phone" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-chevron"/></svg>
+      </button>
+      <div class="pop layers-pop" id="layersPop" role="dialog" aria-label="Layers" hidden>
+        <p class="pop-title">LAYERS</p>
+        <div class="layer-row layer-scan" data-views="3d walk">
+          <span class="layer-key key-scan" aria-hidden="true"></span>
+          <span class="layer-text"><b id="scanLabel">Scan model</b><span>The 3D scan as measured. It can't be changed.</span></span>
+          <div class="seg" role="radiogroup" aria-labelledby="scanLabel">
+            <button type="button" role="radio" aria-checked="false" data-scan="off">Off</button>
+            <button type="button" role="radio" aria-checked="true" data-scan="ghost">Ghost</button>
+            <button type="button" role="radio" aria-checked="false" data-scan="solid">Solid</button>
+          </div>
+        </div>
+        <button type="button" class="layer-row" data-layer="structure" aria-pressed="true">
+          <span class="layer-key key-structure" aria-hidden="true"></span>
+          <span class="layer-text"><b>Structure</b><span>Walls, doors, columns, stairs, fixed desks</span></span>
+          <svg class="i eye" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-eye"/></svg>
+        </button>
+        <button type="button" class="layer-row" data-layer="fixtures" aria-pressed="true">
+          <span class="layer-key key-fixtures" aria-hidden="true"></span>
+          <span class="layer-text"><b>Fixtures</b><span>Shelving, racks, displays, counters</span></span>
+          <svg class="i eye" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-eye"/></svg>
+        </button>
+        <button type="button" class="layer-row" data-layer="ceiling" data-views="3d walk" aria-pressed="true">
+          <span class="layer-key key-ceiling" aria-hidden="true"></span>
+          <span class="layer-text"><b>Ceiling</b><span>Ceilings, lights and the roof</span></span>
+          <svg class="i eye" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-eye"/></svg>
+        </button>
+        <button type="button" class="layer-row" data-layer="labels" data-views="plan 3d" aria-pressed="true">
+          <span class="layer-key key-labels" aria-hidden="true">Aa</span>
+          <span class="layer-text"><b>Labels</b><span>Names of rooms and fixtures</span></span>
+          <svg class="i eye" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-eye"/></svg>
+        </button>
+        <button type="button" class="layer-row" data-layer="scanLines" data-views="plan" aria-pressed="false">
+          <span class="layer-key key-scanlines" aria-hidden="true"></span>
+          <span class="layer-text"><b>Scan lines</b><span>Walls traced by the 3D scan</span></span>
+          <svg class="i eye" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-eye-off"/></svg>
+        </button>
+        <button type="button" class="layer-row only-phone" data-layer="snap" data-views="plan 3d" aria-pressed="true">
+          <span class="layer-key" aria-hidden="true"><svg class="i i-sm" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-snap"/></svg></span>
+          <span class="layer-text"><b>Snap</b><span>To the 6&Prime; grid, walls and columns</span></span>
+          <svg class="i eye" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-eye"/></svg>
+        </button>
       </div>
-      <div class="float tr card loc hud" id="locCard">
+    </div>
+    <button type="button" class="tool only-phone" id="helpBtn2" aria-haspopup="dialog" aria-controls="help" aria-label="Help" title="Controls">
+      <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-help"/></svg><span>Help</span>
+    </button>
+  </div>
+
+  <main class="stage" id="stage" aria-label="Store view">
+    <!-- 3D: Orbit (3D tab) and the customer's-eye Walk share one WebGL view -->
+    <section class="view view-3d" id="view3d" role="tabpanel" aria-labelledby="tab-3d">
+      <div class="three" id="three" tabindex="0" role="application" aria-roledescription="3D view" aria-label="3D store. Drag to turn the view, right-drag or two fingers to move, scroll or pinch to zoom, double-click to focus a spot. The arrow keys move the view; in the Walk view W A S D walk."></div>
+      <div class="labels3d" id="labels3d" aria-hidden="true"></div>
+      <div class="readout" id="readout" role="status" aria-live="polite" hidden></div>
+      <div class="banner" id="scanBanner" role="status" hidden></div>
+      <div class="north3d only-3d" id="north3d" aria-hidden="true"><span>N</span></div>
+      <!-- Walk HUD -->
+      <div class="float tr card loc only-walk" id="locCard">
         <span class="eyebrow">You are in</span>
         <b id="locZone">Front room</b>
         <span id="locNear">near the front door</span>
       </div>
-      <div class="float bl card mini-card hud">
+      <div class="float bl card mini-card only-walk">
         <canvas id="mini" aria-label="Mini map. Tap a spot to walk there."></canvas>
       </div>
-      <div class="float br card walk-hint hud" id="walkHint">
-        <span class="only-mouse"><span class="kbd">Drag</span> to look &middot; <span class="kbd">W A S D</span> walk &middot; <span class="kbd">Q</span> <span class="kbd">E</span> turn &middot; <span class="kbd">Double-click</span> the floor to walk there &middot; <span class="kbd">Wheel</span> zoom &middot; <span class="kbd">M</span> map</span>
+      <div class="float br card walk-hint only-walk hide-phone" id="walkHint">
+        <span class="only-mouse"><span class="kbd">Drag</span> look &middot; <span class="kbd">W A S D</span> walk &middot; <span class="kbd">Q</span> <span class="kbd">E</span> turn &middot; <span class="kbd">Double-click</span> the floor to walk there &middot; <span class="kbd">Wheel</span> zoom</span>
         <span class="only-touch">Drag to look around &middot; tap the floor to walk there &middot; pinch to zoom</span>
       </div>
       <div class="nogl" id="noGl" hidden>
         <div class="card nogl-card" role="alert">
-          <h2>The 3D walk can&rsquo;t start here</h2>
+          <h2>The 3D view can&rsquo;t start here</h2>
           <p>This browser or device has 3D graphics (WebGL) turned off or unavailable. The floor plan still works.</p>
-          <button type="button" class="btn primary" id="noGlMap">Open the map</button>
+          <button type="button" class="btn primary" id="noGlPlan">Open the plan</button>
         </div>
       </div>
     </section>
 
-    <!-- Map: top-down floor plan, view only -->
-    <section class="view" id="mapView" aria-label="Map view" hidden>
-      <canvas id="mapCanvas" tabindex="0" aria-label="Store floor plan. Drag or use the arrow keys to move around, scroll, pinch or press plus and minus to zoom. Click a fixture, or press N to step through the fixtures, for details. Double-click the floor to walk there."></canvas>
-      <div class="float tl">
-        <button type="button" class="chip" id="labelsBtn" aria-pressed="true">Labels</button>
-      </div>
-      <div class="float tr zoom">
-        <button type="button" class="btn" id="zIn" aria-label="Zoom in" title="Zoom in (+)">+</button>
-        <button type="button" class="btn" id="zOut" aria-label="Zoom out" title="Zoom out (&minus;)">&minus;</button>
-        <button type="button" class="btn" id="zFit" aria-label="Fit the whole store" title="Fit (F)">&#9635;</button>
-      </div>
-      <div class="float bl card info" id="info" role="region" aria-label="Fixture details" hidden>
-        <div class="info-head">
-          <span class="eyebrow" id="infoKind"></span>
-          <button type="button" class="btn icon close" id="infoClose" aria-label="Close details">&times;</button>
-        </div>
-        <h2 id="infoName"></h2>
-        <span class="info-size" id="infoSize"></span>
-        <button type="button" class="btn primary" id="infoGo" aria-describedby="infoName infoKind infoSize">Go look at it</button>
-      </div>
+    <!-- Plan: the floor plan from above (view only) -->
+    <section class="view view-plan" id="viewPlan" role="tabpanel" aria-labelledby="tab-plan" hidden>
+      <canvas id="planCanvas" tabindex="0" role="application" aria-roledescription="floor plan" aria-label="Store floor plan. Drag or use the arrow keys to move around; scroll, pinch or press plus and minus to zoom; F fits the store. Click a fixture, or press N to step through the fixtures, for details. Double-click the floor to walk there."></canvas>
+      <div class="north" aria-hidden="true"><span>N</span></div>
+      <div class="scalebar" id="scalebar" aria-hidden="true"><span class="scalebar-bar" id="scalebarBar"></span><span id="scalebarText">10 ft</span></div>
     </section>
+
+    <!-- what is selected (Plan and 3D) -->
+    <div class="info card" id="info" role="region" aria-label="Fixture details" hidden>
+      <div class="info-head">
+        <span class="eyebrow" id="infoKind"></span>
+        <button type="button" class="icon-btn small" id="infoClose" aria-label="Close details">
+          <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-close"/></svg>
+        </button>
+      </div>
+      <h2 id="infoName"></h2>
+      <span class="info-size" id="infoSize"></span>
+      <p class="info-note" id="infoNote" hidden></p>
+      <button type="button" class="btn primary" id="infoGo" aria-describedby="infoName infoKind infoSize">
+        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-walk"/></svg>Go look at it
+      </button>
+    </div>
   </main>
+
+  <footer class="status" id="status">
+    <span class="st-pos" id="stPos"><svg class="i i-sm" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-crosshair"/></svg><span id="stPosText">&ndash;</span></span>
+    <span class="st-sel" id="stSel"></span>
+    <span class="st-hint" id="stHint"></span>
+    <span class="spacer"></span>
+    <span class="st-zoom" id="stZoom" data-views="plan">
+      <button type="button" class="zbtn" id="zOut" aria-label="Zoom out" title="Zoom out (&minus;)"><svg class="i i-sm" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-minus"/></svg></button>
+      <span id="zPct">100%</span>
+      <button type="button" class="zbtn" id="zIn" aria-label="Zoom in" title="Zoom in (+)"><svg class="i i-sm" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-add"/></svg></button>
+      <button type="button" class="zbtn" id="zFit" aria-label="Fit the store" title="Fit the store (F)"><svg class="i i-sm" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-fit"/></svg></button>
+    </span>
+  </footer>
 </div>
 
 <dialog id="help" aria-labelledby="helpTitle">
   <div class="dialog">
-    <h2 id="helpTitle" tabindex="-1" autofocus>Controls</h2>
+    <div class="dialog-head">
+      <h2 id="helpTitle" tabindex="-1">Controls</h2>
+      <button type="button" class="icon-btn" id="helpX" aria-label="Close"><svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-close"/></svg></button>
+    </div>
     <div class="keys">
+      <div class="kg k-3d">
+        <h3>3D</h3>
+        <span>Drag</span><span>Turn around the store</span>
+        <span>Right-drag &middot; two fingers</span><span>Move across the floor</span>
+        <span>Wheel &middot; pinch</span><span>Zoom</span>
+        <span>Double-click</span><span>Focus on that spot</span>
+        <span><span class="kbd">Arrows</span></span><span>Move the view</span>
+        <span><span class="kbd">F</span> &middot; <span class="kbd">T</span></span><span>Reset the view &middot; top view, north up</span>
+      </div>
+      <div class="kg k-plan">
+        <h3>Plan</h3>
+        <span>Drag &middot; <span class="kbd">Arrows</span></span><span>Move around the plan</span>
+        <span>Wheel &middot; pinch &middot; <span class="kbd">+</span> <span class="kbd">&minus;</span></span><span>Zoom</span>
+        <span><span class="kbd">F</span></span><span>Fit the whole store</span>
+        <span>Click a fixture</span><span>Details, and &ldquo;Go look at it&rdquo;</span>
+        <span><span class="kbd">N</span> &middot; <span class="kbd">Shift</span>+<span class="kbd">N</span></span><span>Step through the fixtures</span>
+        <span>Double-click the floor</span><span>Walk there</span>
+      </div>
       <div class="kg k-walk">
-      <h3>Walk view</h3>
-      <span><span class="kbd">Drag</span></span><span>Look around</span>
-      <span><span class="kbd">W A S D</span> or arrows</span><span>Walk (hold <span class="kbd">Shift</span> to go faster)</span>
-      <span><span class="kbd">Q</span> <span class="kbd">E</span></span><span>Turn left / right</span>
-      <span>Double-click the floor</span><span>Walk there</span>
-      <span>Mouse wheel</span><span>Zoom in or out</span>
-      <span><span class="kbd">Space</span></span><span>Slow 360&deg; look</span>
-      <span>Mini map</span><span>Click a spot to walk there</span>
+        <h3>Walk</h3>
+        <span><span class="kbd">Drag</span></span><span>Look around</span>
+        <span><span class="kbd">W A S D</span> &middot; arrows</span><span>Walk (hold <span class="kbd">Shift</span> to go faster)</span>
+        <span><span class="kbd">Q</span> <span class="kbd">E</span></span><span>Turn left / right</span>
+        <span>Double-click &middot; tap the floor</span><span>Walk there</span>
+        <span><span class="kbd">Space</span></span><span>Slow 360&deg; look</span>
       </div>
-      <div class="kg k-touch">
-      <h3>Phone or tablet</h3>
-      <span>Drag</span><span>Look around</span>
-      <span>Tap the floor</span><span>Walk there</span>
-      <span>Pinch</span><span>Zoom in or out</span>
-      <span>Mini map</span><span>Tap a spot to walk there</span>
-      </div>
-      <div class="kg k-map">
-      <h3>Map view</h3>
-      <span>Drag &middot; <span class="kbd">Arrows</span></span><span>Move around the plan</span>
-      <span>Wheel &middot; pinch &middot; <span class="kbd">+</span> <span class="kbd">&minus;</span></span><span>Zoom</span>
-      <span><span class="kbd">F</span></span><span>Fit the whole store</span>
-      <span>Click a fixture</span><span>Details, and &ldquo;Go look at it&rdquo;</span>
-      <span><span class="kbd">N</span> &middot; <span class="kbd">Shift</span>+<span class="kbd">N</span></span><span>Step through the fixtures</span>
-      <span>Double-click the floor</span><span>Walk there</span>
+      <div class="kg k-both">
+        <h3>Plan and 3D</h3>
+        <span><span class="kbd">M</span></span><span>Measure / place: click A, then B</span>
+        <span><span class="kbd">S</span></span><span>Snap on / off</span>
+        <span><span class="kbd">Enter</span></span><span>Go look at the selected fixture</span>
       </div>
       <div class="kg k-any">
-      <h3>Anywhere</h3>
-      <span><span class="kbd">M</span></span><span>Switch between Walk and Map</span>
-      <span><span class="kbd">Esc</span></span><span>Close this box or the details card</span>
+        <h3>Anywhere</h3>
+        <span><span class="kbd">1</span> <span class="kbd">2</span> <span class="kbd">3</span></span><span>Plan &middot; 3D &middot; Walk</span>
+        <span><span class="kbd">L</span></span><span>Labels on / off</span>
+        <span><span class="kbd">Esc</span></span><span>Clear the measurement or selection, close this box</span>
       </div>
     </div>
     <div class="foot"><button type="button" class="btn primary" id="helpClose">Got it</button></div>
@@ -133,7 +264,7 @@
     <p id="signoutText">Your access code has been used, so you'll need a new code from the person who sent you the link to get back in.</p>
     <div class="foot">
       <button type="submit" class="btn" value="cancel" id="signoutCancel">Stay signed in</button>
-      <button type="submit" class="btn primary" value="ok" id="signoutOk">Sign out</button>
+      <button type="submit" class="btn danger solid" value="ok" id="signoutOk">Sign out</button>
     </div>
   </form>
 </dialog>
@@ -141,8 +272,8 @@
 <div class="sr-only" id="srLive" aria-live="polite"></div>
 
 <script src="vendor/three.min.js" defer></script>
-<script src="js/store-data.js" defer></script>
-<script src="js/app.js" defer></script>
-<script src="js/account.js" defer></script>
+<script src="vendor/GLTFLoader.js" defer></script>
+<script src="vendor/OrbitControls.js" defer></script>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>

@@ -9,17 +9,31 @@ import * as ACCOUNT from "./routes/account.js";
 import * as ADMIN from "./routes/admin.js";
 
 // ---------- what is public ----------
-const SHORT = "public, max-age=300"; // sign-in page assets: short, so a deploy shows up quickly
-const LONG = "public, max-age=86400";
-const PRIVATE = "private, no-cache"; // signed-in assets: browser only, revalidated every time
+// Styles and scripts get the same short life (public before sign-in, private after), so tokens.css, base.css and
+// a page's own CSS / modules expire together and a deploy shows up within 5 minutes everywhere. Within that time
+// the browser doesn't ask again, so loading the map's ~30 modules costs no session lookups once it is cached.
+const SHORT = "public, max-age=300"; // what the sign-in and 404 pages load
+const LONG = "public, max-age=86400"; // fonts, favicons, the logo
+const PRIVATE = "private, max-age=300"; // signed-in code, styles and textures: a page's modules expire together
+// the store layout, the scan and the admin dashboard are checked against the session on every request:
+// after sign-out nothing of them can be read back from the browser's cache
+const PRIVATE_FRESH = "private, no-cache";
+const FRESH_RE = /^\/(?:data|admin)\//;
+// Exactly what /login and the 404 page load (and the fonts tokens.css names), nothing else: the icon sprite, the
+// full-size logo and everything the map uses stay behind sign-in.
 const PUBLIC_FILES = new Map([
   ["/login.js", SHORT],
   ["/login.css", SHORT],
+  ["/assets/tokens.css", SHORT],
   ["/assets/base.css", SHORT],
-  ["/favicon.svg", LONG],
+  ["/assets/theme-boot.js", SHORT],
+  ["/assets/brand/fbs-logo-64.png", LONG],
+  ["/assets/brand/favicon-32.png", LONG],
+  ["/assets/brand/favicon-192.png", LONG],
+  ["/assets/brand/apple-touch-icon.png", LONG],
   ["/robots.txt", LONG],
 ]);
-const FONT_RE = /^\/assets\/fonts\/[A-Za-z0-9_-][A-Za-z0-9._-]*$/;
+const FONT_RE = /^\/assets\/fonts\/[a-z0-9]+(?:-[a-z0-9]+)*\.woff2$/;
 // signed-in asset paths: plain segments only (no empty, dot-leading or encoded segments)
 const SAFE_PATH = /^\/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*\/)*(?:[A-Za-z0-9_-][A-Za-z0-9._-]*)?$/;
 // The admin folder however it is named: /admin, /admin/..., and also /admin.html, /admin.htm, /admin. ...
@@ -41,8 +55,14 @@ const NOT_FOUND_HTML = `<!doctype html>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0f1a26" media="(prefers-color-scheme: dark)">
+  <script src="/assets/theme-boot.js"></script>
   <title>Page not found · FBS Boise Store Map</title>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/assets/brand/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="/assets/brand/favicon-192.png" sizes="192x192" type="image/png">
+  <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
+  <link rel="stylesheet" href="/assets/tokens.css">
   <link rel="stylesheet" href="/assets/base.css">
   <link rel="stylesheet" href="/login.css">
 </head>
@@ -50,8 +70,8 @@ const NOT_FOUND_HTML = `<!doctype html>
 <main class="auth-wrap">
   <section class="auth-card solo" aria-labelledby="nf-title">
     <header class="auth-head">
-      <span class="logo" aria-hidden="true"><svg viewBox="0 0 32 32" focusable="false"><rect width="32" height="32" rx="7" fill="#c8102e"/><rect x="6" y="7" width="20" height="3" rx="1.5" fill="#fff"/><rect x="6" y="14.5" width="12" height="3" rx="1.5" fill="#fff"/><rect x="6" y="22" width="12" height="3" rx="1.5" fill="#fff"/></svg></span>
-      <span class="eyebrow">FBS Boise &middot; Store Map</span>
+      <span class="logo-badge"><img src="/assets/brand/fbs-logo-64.png" width="78" height="64" alt=""></span>
+      <span class="wordmark"><span>FBS BOISE</span><b>STORE MAP</b></span>
     </header>
     <div class="panel">
       <h1 id="nf-title">This page doesn't exist.</h1>
@@ -169,11 +189,11 @@ async function files(request, env, url) {
     if (sess.user.role !== "admin") return notFound();
     if (!path.startsWith("/admin/")) return ADMIN_PAGE_ALIAS.test(path) ? redirect("/admin/") : notFound();
     if (!SAFE_PATH.test(path)) return notFound();
-    return serveAsset(request, env, path, PRIVATE);
+    return serveAsset(request, env, path, PRIVATE_FRESH);
   }
   if (!sess) return wantsHtml(request) ? redirect("/login") : text("Sign in required", 401);
   if (!SAFE_PATH.test(path)) return notFound();
-  return serveAsset(request, env, path, PRIVATE);
+  return serveAsset(request, env, path, FRESH_RE.test(path) ? PRIVATE_FRESH : PRIVATE);
 }
 
 // Housekeeping runs off normal traffic (at most every 6 hours per Worker instance), so no cron trigger is needed.

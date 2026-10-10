@@ -1,0 +1,11 @@
+Third-party code in this folder (served only to signed-in people, never from a CDN):
+
+  three.min.js        three.js r128 build                          (npm three@0.128.0, build/three.min.js)
+  GLTFLoader.js       three.js r128 glTF / GLB loader              (npm three@0.128.0, examples/js/loaders/GLTFLoader.js)
+  OrbitControls.js    three.js r128 orbit / pan / zoom controls    (npm three@0.128.0, examples/js/controls/OrbitControls.js)
+
+All three files are unmodified copies (byte-identical to the npm package) and are
+MIT licensed, Copyright (c) 2010-2021 three.js authors. The full licence text is in
+LICENSE-three.txt next to this file. They are classic scripts that add THREE,
+THREE.GLTFLoader and THREE.OrbitControls to the page; the map's own code (js/) are
+ES modules that use them.

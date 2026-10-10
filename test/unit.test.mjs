@@ -5,9 +5,10 @@ import crypto from "node:crypto";
 import { normalizeCode, normalizePhone, formatPhone, cleanName, cleanUsername } from "../src/lib/validate.js";
 import { randomCode, encryptText, decryptText, hmacHex as workerHmac } from "../src/lib/crypto.js";
 import { hashPassword, verifyPassword, checkNewPassword } from "../src/lib/password.js";
-import { accessCodeHash, phoneHash, setupTokenHash, configured } from "../src/lib/auth.js";
+import { accessCodeHash, phoneHash, setupTokenHash, configured, loadSession } from "../src/lib/auth.js";
 import { ipBucket } from "../src/lib/http.js";
 import { hmacHex, sha256Hex, passwordFields } from "./helpers/devserver.mjs";
+import { mockDb } from "./helpers/mockdb.mjs";
 
 const env = { PEPPER: crypto.randomBytes(32).toString("hex"), PHONE_KEY: crypto.randomBytes(32).toString("base64") };
 
@@ -125,4 +126,21 @@ test("secrets are required", () => {
   assert.equal(configured({ PEPPER: "short", PHONE_KEY: env.PHONE_KEY }), false);
   assert.equal(configured({ PEPPER: env.PEPPER, PHONE_KEY: Buffer.alloc(16).toString("base64") }), false);
   assert.equal(configured({ PEPPER: env.PEPPER, PHONE_KEY: "not base64 at all!" }), false);
+});
+
+test("a session's last visit slides at most every 10 minutes, and only the first of parallel requests writes", async () => {
+  const token = "t".repeat(43), now = Date.now();
+  const request = new Request("https://map.test/js/main.js", { headers: { Cookie: `__Host-fbs_s=${token}` } });
+  for (const [lastSeen, writes] of [[now - 11 * 60000, 1], [now - 60000, 0]]) {
+    const db = mockDb((s) => (s.sql.startsWith("SELECT") ? { token_hash: "h", last_seen_at: lastSeen, absolute_expires_at: now + 86400000 * 60, id: "u", first_name: "A", role: "member", status: "approved" } : { meta: { changes: 1 } }));
+    const sess = await loadSession({ ...env, DB: db }, request);
+    assert.equal(sess.user.id, "u");
+    const updates = db.log.filter((s) => s.sql.startsWith("UPDATE"));
+    assert.equal(updates.length, writes, `last seen ${(now - lastSeen) / 60000} min ago`);
+    if (writes) {
+      // the write is conditional: a request that arrives with the same old row changes nothing
+      assert.match(updates[0].sql, /WHERE token_hash = \?3 AND last_seen_at < \?4$/);
+      assert.ok(Math.abs(updates[0].args[3] - (updates[0].args[0] - 10 * 60000)) < 5, "last_seen_at < now - 10 minutes");
+    }
+  }
 });
