@@ -8,6 +8,7 @@ import {outline, blockArea} from "../core/areas.js";
 import {rayPrism} from "../core/geometry.js";
 import {colourOf} from "../plan2d/blocks.js";
 import {formatSqft} from "../core/units.js";
+import {readableOn} from "../core/contrast.js";
 
 export function createBlocks3D(R, host) {
   const THREE = R.THREE;
@@ -32,6 +33,7 @@ export function createBlocks3D(R, host) {
     const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 1), new THREE.LineBasicMaterial({color: lin(col), transparent: true, opacity: 0.9}));
     edges.renderOrder = 7;
     const label = document.createElement("span"); label.className = "lbl3d sign"; label.style.setProperty("--c", col);
+    const ink = readableOn(col); label.style.setProperty("--sign-bg", ink.bg); label.style.setProperty("--sign-fg", ink.fg); // 4.5:1 text on any department colour
     const b = document.createElement("b"); const s = document.createElement("span"); label.append(b, s);
     host.appendChild(label);
     return {mesh, edges, label, geo, mat};

@@ -12,7 +12,7 @@ import {TYPES} from "../core/model.js";
 import {FILTERS, filterProposals, statusInfo, proposalLines, decisionLine, reviewErrorText, historyLines, restoreConfirmText, approveLabel, keepChecked} from "../core/review.js";
 
 /**
- * createReviewPanel({el, toast, announce, isTouch(), onClose(), confirm({title, text, ok, danger, onOk}),
+ * createReviewPanel({el, toast, announce, isTouch(), setSheet("peek" | "expanded"), onClose(), confirm({title, text, ok, danger, onOk}),
  *   loadProposals(), loadProposal(id), decide(id, body), listMaps(), loadMap(id), loadMasterMeta() (GET /api/master),
  *   history(), historyVersion(v), restore(version, baseVersion), onChange("docs" | "selection"),
  *   onMasterChanged(), onCompare(mapId)})
@@ -81,6 +81,7 @@ export function createReviewPanel(o) {
       S.master = master;
       setProposalItem(r);
       S.checked = null; // ticked below: everything, once the diff exists
+      expand(true);
     } catch (e) { if (my !== token) return; S.loading = false; S.error = reviewErrorText(e && e.status, e && e.message); render(); return; }
     S.loading = false;
     recomputeAllChecked();
@@ -95,6 +96,7 @@ export function createReviewPanel(o) {
       if (my !== token) return;
       S.master = master;
       S.openItem = {kind: "map", id, name: r.meta.name, ownerName: r.meta.ownerName, doc: r.data};
+      expand(true);
     } catch (e) { if (my !== token) return; S.loading = false; S.error = reviewErrorText(e && e.status, e && e.message); render(); return; }
     S.loading = false;
     recompute();
@@ -109,6 +111,7 @@ export function createReviewPanel(o) {
       if (my !== token) return;
       S.master = master;
       S.openItem = {kind: "version", version, meta: r, doc: r.data};
+      expand(true);
     } catch (e) { if (my !== token) return; S.loading = false; S.error = reviewErrorText(e && e.status, e && e.message); render(); return; }
     S.loading = false;
     recompute();
@@ -120,8 +123,11 @@ export function createReviewPanel(o) {
     recompute();
     if (S.diff) S.checked = new Set(S.diff.rows.map(rowKey));
   }
+  /** A phone reads the rows in the tall sheet; the list view goes back to the short one. */
+  function expand(on) { if (o.isTouch() && o.setSheet) o.setSheet(on ? "expanded" : "peek"); }
   function backToList() {
     token++;
+    expand(false);
     S.openItem = null; S.diff = null; S.selected = null; S.notice = null; S.busy = false;
     render();
     o.onChange("docs");
@@ -230,8 +236,9 @@ export function createReviewPanel(o) {
     }
     clear(foot);
   }
+  const backLink = () => h("button", {type: "button", class: "rv-back", onclick: backToList}, icon("i-arrow-left", "i i-sm"), "All proposals and history");
   function detailHead(it) {
-    body.appendChild(h("button", {type: "button", class: "rv-back", onclick: backToList}, icon("i-arrow-left", "i i-sm"), "All proposals and history"));
+    if (!o.isTouch()) body.appendChild(backLink()); // on a phone the link is in the sheet's title row instead
     if (it.kind === "proposal") {
       const p = it.p;
       body.appendChild(h("div", {class: "rv-detail-head"},
@@ -239,8 +246,7 @@ export function createReviewPanel(o) {
         h("p", {class: "cmp-detail", text: [`From ${p.ownerName || "someone"}`, `sent ${relTime(p.createdAt) || "just now"}`, p.itemCount != null ? `${p.itemCount} items` : ""].filter(Boolean).join(" · ")}),
         p.note ? h("p", {class: "prop-note", text: `“${p.note}”`}) : null,
         p.status !== "submitted" ? h("p", {class: "cmp-detail", text: decisionLine(p, relTime)}) : null,
-        p.status !== "submitted" && p.decisionNote ? h("p", {class: "prop-note prop-answer", text: `Note: ${p.decisionNote}`}) : null,
-        h("p", {class: "pal-hint", text: "This is the map as it was when it was submitted. The ghosts on the plan show before (dashed) and after."})));
+        p.status !== "submitted" && p.decisionNote ? h("p", {class: "prop-note prop-answer", text: `Note: ${p.decisionNote}`}) : null));
     } else if (it.kind === "map") {
       body.appendChild(h("div", {class: "rv-detail-head"},
         h("div", {class: "rv-title-row"}, h("h3", {class: "rv-title", text: it.name || "Map"})),
@@ -251,15 +257,16 @@ export function createReviewPanel(o) {
       const lines = historyLines({...m, version: it.version}, S.master ? S.master.version : null, relTime);
       body.appendChild(h("div", {class: "rv-detail-head"},
         h("div", {class: "rv-title-row"}, h("h3", {class: "rv-title", text: `Version ${it.version} preview`}), lines.current ? h("span", {class: "badge rv-current", text: "Current"}) : null),
-        h("p", {class: "cmp-detail", text: lines.meta}),
-        h("p", {class: "pal-hint", text: "The plan shows this old version. The list below is what restoring it would change on today's master."})));
+        h("p", {class: "cmp-detail", text: lines.meta})));
     }
   }
   function detailRows(it) {
     const ticking = it.kind === "proposal" && it.p.status === "submitted";
     if (!S.diff) return;
     const n = S.diff.rows.length;
-    body.appendChild(h("p", {class: "cmp-count", text: n ? `${n} difference${n === 1 ? "" : "s"} from the master map (version ${S.master ? S.master.version : "?"}). Tap one to see it on the plan.` : (it.kind === "version" ? "This version matches today's master." : "No differences. This matches the master map.")}));
+    const countText = n ? `${n} difference${n === 1 ? "" : "s"} from the master map (version ${S.master ? S.master.version : "?"}). Tap one to see it on the plan.` : (it.kind === "version" ? "This version matches today's master." : "No differences. This matches the master map.");
+    const tickAll = ticking && n ? h("button", {type: "button", class: "btn small rv-tickall", onclick: () => { if (S.checked.size === n) S.checked.clear(); else S.checked = new Set(S.diff.rows.map(rowKey)); render(); }}, S.checked.size === n ? "Untick all" : "Tick all") : null;
+    body.appendChild(h("div", {class: "rv-countrow"}, h("p", {class: "cmp-count", text: countText}), tickAll));
     if (S.notice) body.appendChild(h("div", {class: "notice error cmp-notice", role: "alert"}, h("span", {text: S.notice.text}),
       S.notice.reload ? h("button", {type: "button", class: "btn small", onclick: () => { S.notice = null; open(); }}, icon("i-reload"), "Reload") : null));
     if (!n && it.kind === "proposal" && it.p.status === "submitted") body.appendChild(h("p", {class: "pal-hint", text: "You can still approve it (nothing changes), ask for changes or decline it."}));
@@ -281,36 +288,45 @@ export function createReviewPanel(o) {
         body.appendChild(row);
       }
     }
-    if (ticking && n) {
-      const all = h("button", {type: "button", class: "btn small rv-tickall", onclick: () => { if (S.checked.size === n) S.checked.clear(); else S.checked = new Set(S.diff.rows.map(rowKey)); render(); }},
-        S.checked.size === n ? "Untick all" : "Tick all");
-      body.insertBefore(h("div", {class: "rv-tickrow"}, all), body.querySelector(".mp-group"));
-    }
   }
-  function renderFoot() {
-    clear(foot);
+  /** The decision note and the one-line hints: the end of the scrolling part, where the reviewer has just read the rows. */
+  function endNotes() {
     const it = S.openItem;
     if (!it) return;
     if (it.kind === "proposal" && it.p.status === "submitted") {
       const noteIn = h("textarea", {class: "input", id: "rvNote", rows: 2, maxlength: 500, placeholder: "Looks good · Move Paint first · …"});
       noteIn.value = S.note;
       noteIn.addEventListener("input", () => { S.note = noteIn.value; });
-      foot.appendChild(h("div", {class: "field"}, h("label", {for: "rvNote", text: `Note for ${it.p.ownerName || "them"} (optional)`}), noteIn));
+      body.appendChild(h("div", {class: "field rv-note"}, h("label", {for: "rvNote", text: `Note for ${it.p.ownerName || "them"} (optional)`}), noteIn));
+      body.appendChild(h("p", {class: "pal-hint rv-hint", text: "Approving with changes saves a new master version and records it here."}));
+    } else if (it.kind === "version") {
+      const cur = S.master && S.master.version === it.version;
+      body.appendChild(h("p", {class: "pal-hint rv-hint", text: cur ? "This is the current master version." : "Restoring saves a new master version; nothing is deleted."}));
+    }
+    if (it.kind === "proposal") body.appendChild(h("p", {class: "pal-hint rv-hint", text: "This is the map as it was when it was submitted. The ghosts on the plan show before (dashed) and after."}));
+    else if (it.kind === "version") body.appendChild(h("p", {class: "pal-hint rv-hint", text: "The plan shows this old version. The list above is what restoring it would change on today's master."}));
+  }
+  /** The decisions: one compact, always-visible row (the note and hints scroll with the rows above it). */
+  function renderFoot() {
+    clear(foot);
+    const it = S.openItem;
+    if (!it) return;
+    if (it.kind === "proposal" && it.p.status === "submitted") {
       const nChecked = S.diff ? S.diff.rows.filter(r => S.checked.has(rowKey(r))).length : 0;
-      foot.appendChild(h("button", {type: "button", class: "btn primary wide", disabled: S.busy, onclick: () => decide("approve")}, icon("i-check", "i i-sm"), S.busy ? "Working…" : approveLabel(nChecked)));
       foot.appendChild(h("div", {class: "rv-foot-row"},
-        h("button", {type: "button", class: "btn", disabled: S.busy, onclick: () => decide("needs_changes")}, icon("i-warning", "i i-sm"), "Needs changes"),
+        h("button", {type: "button", class: "btn primary rv-approve", disabled: S.busy, title: approveLabel(nChecked), onclick: () => decide("approve")},
+          icon("i-check", "i i-sm"), S.busy ? "Working…" : nChecked > 0 ? `Approve ${nChecked} change${nChecked === 1 ? "" : "s"}` : "Approve, no changes"),
+        h("button", {type: "button", class: "btn", disabled: S.busy, onclick: () => decide("needs_changes")}, "Needs changes"),
         h("button", {type: "button", class: "btn danger", disabled: S.busy, onclick: () => decide("decline")}, "Decline")));
-      foot.appendChild(h("p", {class: "pal-hint", text: "Approving with changes saves a new master version and records it here."}));
     } else if (it.kind === "version") {
       const cur = S.master && S.master.version === it.version;
       if (!cur) foot.appendChild(h("button", {type: "button", class: "btn primary wide", disabled: S.busy, onclick: () => confirmRestore(it.version, it.meta)}, icon("i-history", "i i-sm"), "Restore this version"));
-      foot.appendChild(h("p", {class: "pal-hint", text: cur ? "This is the current master version." : "Restoring saves a new master version; nothing is deleted."}));
     }
   }
   function render() {
     clear(head);
-    head.appendChild(h("div", {class: "pal-title-row"}, h("h2", {class: "pal-title", text: "Review"}),
+    const detailOnPhone = o.isTouch() && S.openItem && !S.loading && !S.error;
+    head.appendChild(h("div", {class: "pal-title-row"}, detailOnPhone ? backLink() : h("h2", {class: "pal-title", text: "Review"}),
       o.isTouch() ? h("button", {type: "button", class: "icon-btn", aria: {label: "Close"}, onclick: () => o.onClose && o.onClose()}, icon("i-close")) : null));
     if (!S.openItem) head.appendChild(h("p", {class: "pal-hint", text: "Proposals from the team, any map against the master, and the master's history."}));
     clear(body);
@@ -319,6 +335,7 @@ export function createReviewPanel(o) {
     if (!S.openItem) { listView(); return; }
     detailHead(S.openItem);
     detailRows(S.openItem);
+    endNotes();
     renderFoot();
   }
 

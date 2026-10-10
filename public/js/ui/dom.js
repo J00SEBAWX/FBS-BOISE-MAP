@@ -1,6 +1,20 @@
 /* Tiny DOM helpers for the panels built from data. Everything that comes from a person or the API is set with
  * textContent (never innerHTML), and per-item colours go through el.style.setProperty("--c", ...) (CSP). */
 
+/** The states whose "false" is information (a toggle that is off, a collapsed menu): they are always written. */
+const ARIA_STATES = new Set(["pressed", "checked", "selected", "expanded", "current"]);
+/**
+ * The string an aria-<name> attribute should get, or null for "leave it off". undefined / null are skipped; a
+ * false state (pressed, checked, selected, expanded, current) is written as "false" because a screen reader
+ * announces a toggle as "not pressed" / "not checked" only when the attribute exists (WCAG 4.1.2); for every
+ * other attribute false still means "not set".
+ */
+export function ariaValue(name, v) {
+  if (v === undefined || v === null) return null;
+  if (v === false) return ARIA_STATES.has(name) ? "false" : null;
+  return String(v);
+}
+
 /** h("button", {class: "btn", type: "button", onclick: fn, aria: {label: "x"}, data: {id: "1"}}, "text", child...) */
 export function h(tag, attrs = {}, ...children) {
   const el = document.createElement(tag);
@@ -9,7 +23,7 @@ export function h(tag, attrs = {}, ...children) {
     if (k === "class") el.className = v;
     else if (k === "text") el.textContent = String(v);
     else if (k === "html") throw new Error("no innerHTML");
-    else if (k === "aria") { for (const [a, b] of Object.entries(v)) if (b !== undefined && b !== null && b !== false) el.setAttribute("aria-" + a, String(b)); }
+    else if (k === "aria") { for (const [a, b] of Object.entries(v)) { const val = ariaValue(a, b); if (val !== null) el.setAttribute("aria-" + a, val); } }
     else if (k === "data") { for (const [a, b] of Object.entries(v)) if (b !== undefined && b !== null) el.dataset[a] = String(b); }
     else if (k === "style") { for (const [a, b] of Object.entries(v)) el.style.setProperty(a, String(b)); }
     else if (k.startsWith("on") && typeof v === "function") el.addEventListener(k.slice(2), v);

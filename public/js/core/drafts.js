@@ -50,3 +50,30 @@ export function clearAllDrafts(storage) {
   try { for (const id of draftIds(storage)) { clearDraft(storage, id); n++; } } catch { /* no storage */ }
   return n;
 }
+
+/**
+ * Keeps track of WHICH document each draft holds, so a finished save only clears a draft it fully covers.
+ * The editing session replaces its document on every edit, so object identity says whether anything changed
+ * while a save was in flight: a save of {a} must not delete the draft of {a, b}.
+ *   write(mapId, version, doc)        a change happened: keep the document on the device
+ *   saved(mapId, savedDoc, newVersion, openDoc)
+ *       the server now has savedDoc as newVersion; openDoc is the document in the editor if that map is still
+ *       the open one (else null). Returns "cleared" (the draft was exactly savedDoc), "rebased" (the open map
+ *       has newer edits: the draft is rewritten against the new version so a reload restores it) or "kept".
+ *   clear(mapId)                      the person discarded it, or the map was deleted
+ */
+export function createDraftKeeper(storage) {
+  const held = new Map(); // mapId -> the document object last written to the draft
+  return {
+    write(mapId, version, doc) {
+      if (saveDraft(storage, mapId, {version, data: doc})) held.set(mapId, doc); else held.delete(mapId);
+    },
+    saved(mapId, savedDoc, newVersion, openDoc) {
+      const h = held.get(mapId);
+      if (h === savedDoc) { clearDraft(storage, mapId); held.delete(mapId); return "cleared"; }
+      if (h && openDoc && h === openDoc) { saveDraft(storage, mapId, {version: newVersion, data: openDoc}); return "rebased"; }
+      return "kept";
+    },
+    clear(mapId) { clearDraft(storage, mapId); held.delete(mapId); },
+  };
+}

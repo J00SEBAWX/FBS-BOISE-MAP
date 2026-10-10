@@ -144,8 +144,10 @@ and the **display** (Shift+1 / 2 / 3): **Plan** (the floor from above), **3D** (
 
 On a phone or tablet the modes scroll sideways under the header and the tools are along the bottom of the
 screen: drag to turn or look around, two fingers to move, pinch to zoom, tap a fixture for details, tap the floor
-to walk there (Walk) or to place A and B (Measure). In Comparison, Advisor and Review the **Changes** /
-**Advisor** / **Review** button opens the list as a sheet.
+to walk there (Walk) or to place A and B (Measure). In Area planning the bottom bar has **Add** (fixtures,
+structure, a department block) and **Departments** (your progress, Find a product, New category). In Comparison,
+Advisor and Review the **Changes** / **Advisor** / **Review** button opens the list as a sheet. Every sheet scrolls
+as one piece; pull the grab bar at its top to make it taller or shorter.
 
 The button with your name (or the person icon on a phone) in the top-right corner has **Sign out**, and for you,
 **Admin dashboard** and the two **Map settings** switches (sharing, master lock).

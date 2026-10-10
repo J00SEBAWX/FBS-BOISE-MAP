@@ -18,7 +18,7 @@ import {clamp, deg} from "./core/geometry.js";
 import {formatFtIn, formatSqft} from "./core/units.js";
 import {createSession, toLayout} from "./core/session.js";
 import {createAutosave} from "./core/autosave.js";
-import {saveDraft, loadDraft, clearDraft} from "./core/drafts.js";
+import {loadDraft, createDraftKeeper} from "./core/drafts.js";
 import {parseHash, isMapId} from "./core/route.js";
 import {api, ApiError} from "./core/api.js";
 import {MODE_INFO, isMode, modeAllows, modeLayers, modeNotice} from "./core/modes.js";
@@ -57,6 +57,7 @@ import {createAddMenu, createDeptPalette, createCategoryDialog} from "./ui/palet
 import {createComparePanel} from "./ui/compare.js";
 import {createAdvisorPanel} from "./ui/advisor.js";
 import {createReviewPanel} from "./ui/review.js";
+import {attachSheetGrab} from "./ui/sheet.js";
 import {createProposalControl} from "./ui/proposals.js";
 import {h, icon} from "./ui/dom.js";
 import {initAccount} from "./account.js";
@@ -69,6 +70,7 @@ const coarse = matchMedia("(pointer:coarse)");
 const isTouch = () => coarse.matches;
 const phoneMq = matchMedia("(max-width:767px), (pointer:coarse) and (max-width:1023px)");
 const storage = (() => { try { return window.localStorage; } catch { return null; } })();
+const drafts = createDraftKeeper(storage);
 const cssToken = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 /* ================= loading the data ================= */
@@ -383,7 +385,7 @@ function start(me, overlay) {
         outline3D();
       }
       if (kind === "doc" && !suppressSave) {
-        if (state.map.canEdit && !state.loading) { autosave.change(); saveDraft(storage, draftKey(), {version: state.map.version, data: session.doc}); }
+        if (state.map.canEdit && !state.loading) { autosave.change(); drafts.write(state.map.id, state.map.version, session.doc); }
       }
       if (state.map.id === "master") state.master = null; // the admin edited the master: Current layout / Comparison read it again
       if (state.mode === "advisor") { clearTimeout(advisorTimer); advisorTimer = setTimeout(() => { if (state.mode === "advisor") { advisorPanel.run(); plan.draw(); sync3DOverlays(); } }, 200); }
@@ -571,7 +573,7 @@ function start(me, overlay) {
   $("#deptBtn").addEventListener("click", () => {
     const p = $("#palette"); const open = !p.classList.contains("open");
     p.classList.toggle("open", open); $("#deptBtn").setAttribute("aria-expanded", String(open));
-    if (open) { session.clearSelection(); const b = session.building; plan.revealAbove({x: b.L / 2, y: b.W / 2}, plan.V.H * 0.6); }
+    if (open) { session.clearSelection(); const b = session.building; plan.revealAbove({x: b.L / 2, y: b.W / 2}, plan.V.H * 0.72); }
   });
   $("#catsEmptyBtn").addEventListener("click", () => $("#deptBtn").click());
 
@@ -654,7 +656,7 @@ function start(me, overlay) {
     onClose: () => closePanelSheet(),
   });
   let advisorLoaded = false;
-  function openPanelSheet() { const p = $(state.mode === "comparison" ? "#comparePanel" : state.mode === "review" ? "#reviewPanel" : "#advisorPanel"); p.classList.add("open"); $("#panelBtn").setAttribute("aria-expanded", "true"); const f = p.querySelector("button, select, input"); if (f) f.focus(); }
+  function openPanelSheet() { const p = $(state.mode === "comparison" ? "#comparePanel" : state.mode === "review" ? "#reviewPanel" : "#advisorPanel"); p.classList.add("open"); $("#panelBtn").setAttribute("aria-expanded", "true"); const f = p.querySelector("button:not(.sheet-grab), select, input"); if (f) f.focus(); }
   function closePanelSheet() { for (const p of [$("#comparePanel"), $("#advisorPanel"), $("#reviewPanel")]) p.classList.remove("open"); $("#panelBtn").setAttribute("aria-expanded", "false"); }
   $("#panelBtn").addEventListener("click", () => { const open = $("#panelBtn").getAttribute("aria-expanded") === "true"; if (open) closePanelSheet(); else openPanelSheet(); });
 
@@ -662,6 +664,7 @@ function start(me, overlay) {
   let compareWith = null; // "open this map in Comparison" from the Review panel
   const reviewPanel = !isAdmin ? null : createReviewPanel({
     el: $("#reviewPanel"), toast, announce, isTouch: () => phoneMq.matches,
+    setSheet: s => { if (sheets.reviewPanel) sheets.reviewPanel.set(s); },
     onClose: () => closePanelSheet(),
     confirm: opts => mapMenu.confirm(opts),
     loadProposals: () => api.proposals(),
@@ -682,6 +685,9 @@ function start(me, overlay) {
     },
     onCompare: id => { compareWith = id; setMode("comparison"); },
   });
+  // phones: the Departments palette and the mode panels are bottom sheets with a peek / expanded grab bar
+  const sheets = {};
+  for (const id of ["palette", "comparePanel", "advisorPanel", ...(reviewPanel ? ["reviewPanel"] : [])]) sheets[id] = attachSheetGrab($("#" + id));
   function onReviewChange(what) {
     if (state.mode !== "review" || !reviewPanel) return;
     if (what === "docs") {
@@ -766,7 +772,6 @@ function start(me, overlay) {
   $("#acctBtn").addEventListener("click", () => { if (isAdmin) loadAdminSettings(); });
 
   /* ================= maps: loading, switching, autosave ================= */
-  const draftKey = () => state.map.id;
   const mapMenu = createMapMenu({
     me: () => me,
     list: () => api.maps(),
@@ -784,7 +789,7 @@ function start(me, overlay) {
     },
     onDelete: async id => {
       await api.deleteMap(id);
-      clearDraft(storage, id);
+      drafts.clear(id);
       if (id === state.map.id) { autosave.reset(); await openMap("master"); }
       toast("Map deleted.");
     },
@@ -792,18 +797,21 @@ function start(me, overlay) {
   mapMenu.setSharing(isAdmin);
 
   async function saveNow() {
-    const data = session.doc;
+    // the map and the document being saved are captured now: the response arrives later, after more edits or
+    // even after the person opened another map, and only what was saved may be updated
+    const map = state.map, data = session.doc;
     try {
-      if (state.map.id === "master") {
-        const r = await api.putMaster(state.map.version, data);
-        state.map.version = r.version; state.map.updatedAt = r.updatedAt; state.map.ownerName = me.name;
+      let version;
+      if (map.id === "master") {
+        const r = await api.putMaster(map.version, data);
+        map.version = r.version; map.updatedAt = r.updatedAt; map.ownerName = me.name; version = r.version;
         mapMenu.setMaster({version: r.version, updatedAt: r.updatedAt, ownerName: me.name});
       } else {
-        const r = await api.saveMap(state.map.id, state.map.version, data);
-        state.map.version = r.version; state.map.updatedAt = r.updatedAt;
-        mapMenu.setCurrent({...state.map});
+        const r = await api.saveMap(map.id, map.version, data);
+        map.version = r.version; map.updatedAt = r.updatedAt; version = r.version;
+        if (state.map === map) mapMenu.setCurrent({...map});
       }
-      clearDraft(storage, draftKey());
+      drafts.saved(map.id, data, version, state.map === map ? session.doc : null);
       return {ok: true};
     } catch (e) {
       if (e instanceof ApiError) return {ok: false, status: e.status, error: e.message};
@@ -847,6 +855,9 @@ function start(me, overlay) {
     editor.cancelGesture(); cancelPlacing();
     $("#mapError").hidden = true;
     try {
+      // edits made in the last 1.5 s are saved before the other map opens (a conflict / lock / failed save leaves them
+      // in the draft kept on this device instead; a reload after a conflict starts clean on purpose)
+      if (!opts.reload && state.map && state.map.canEdit && autosave.pending) await autosave.flush();
       let next;
       if (id === "master") {
         const m = opts.fresh || await api.master();
@@ -894,13 +905,13 @@ function start(me, overlay) {
   $("#mapErrorMaster").addEventListener("click", () => openMap("master"));
   /** Unsaved edits kept on this device for this map: restored when they match the loaded version, offered otherwise. */
   function restoreDraft() {
-    const d = loadDraft(storage, draftKey());
+    const d = loadDraft(storage, state.map.id);
     if (!d) return;
-    const apply = () => { suppressSave = true; session.replace(d.data); suppressSave = false; autosave.change(); saveDraft(storage, draftKey(), {version: state.map.version, data: session.doc}); banner.hide("draft"); };
+    const apply = () => { suppressSave = true; session.replace(d.data); suppressSave = false; autosave.change(); drafts.write(state.map.id, state.map.version, session.doc); banner.hide("draft"); };
     if (d.version === state.map.version) { apply(); toast("Restored unsaved edits from this device.", {icon: "i-check"}); }
     else banner.show("draft", "You have unsaved edits on this device from an older copy of this map.", [
       {label: "Use my edits", primary: true, onClick: apply},
-      {label: "Discard", onClick: () => { clearDraft(storage, draftKey()); banner.hide("draft"); }},
+      {label: "Discard", onClick: () => { drafts.clear(state.map.id); banner.hide("draft"); }},
     ]);
   }
 

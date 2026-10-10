@@ -244,11 +244,13 @@ body{font:var(--text-md)/var(--leading-md) var(--font-body);overflow:hidden;over
   background:color-mix(in srgb,var(--surface) 86%,transparent);color:var(--ink-heading);box-shadow:var(--shadow-1);
   font-family:var(--font-display);font-size:12px;font-weight:600;letter-spacing:.12em;white-space:nowrap;}
 .lbl3d.door{background:var(--accent);color:var(--accent-ink);}
-/* the hanging sign: category colour background, white Barlow 700 text (large, 3:1 on every light value) */
-.lbl3d.sign{display:grid;justify-items:center;line-height:1.1;padding:4px 10px 3px;border-radius:var(--radius-sm);background:var(--c,#677a8b);color:#fff;letter-spacing:.06em;font-size:13px;font-weight:700;box-shadow:var(--shadow-1);
+/* the hanging sign: the category colour behind its name and area. --sign-bg / --sign-fg come from
+ * core/contrast.js (white or dark ink, whichever reads better, the colour nudged only as far as needed for
+ * 4.5:1) so it reads in both themes on any department colour, custom ones included */
+.lbl3d.sign{display:grid;justify-items:center;line-height:1.1;padding:4px 10px 3px;border-radius:var(--radius-sm);background:var(--sign-bg,var(--c,#677a8b));color:var(--sign-fg,#fff);letter-spacing:.06em;font-size:13px;font-weight:700;box-shadow:var(--shadow-1);
   transform:translate(calc(var(--x, 0) * 1px - 50%),calc(var(--y, 0) * 1px - 100%));}
 .lbl3d.sign::after{content:"";position:absolute;left:50%;top:100%;width:2px;height:10px;margin-left:-1px;background:var(--c,#677a8b);}
-.lbl3d.sign span{font-family:var(--font-body);font-size:11px;font-weight:600;letter-spacing:0;opacity:.95;}
+.lbl3d.sign span{font-family:var(--font-body);font-size:11px;font-weight:600;letter-spacing:0;}
 .lbl3d.sign.selected{outline:2px solid var(--sel-stroke);outline-offset:2px;}
 .lbl3d.sign.ghost{opacity:.85;outline:2px dashed #fff;outline-offset:-3px;}
 
@@ -379,7 +381,8 @@ select.f-in{appearance:auto;}
 /* ---------- Departments palette (Categories tab) ---------- */
 .palette{position:relative;min-width:0;min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto;background:var(--surface);border-right:1px solid var(--line);z-index:var(--z-panel);}
 .pal-head{display:grid;gap:8px;padding:14px 16px 10px;border-bottom:1px solid var(--line);}
-.pal-title-row{display:flex;align-items:center;justify-content:space-between;}
+.pal-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.pal-title-actions{display:flex;align-items:center;gap:6px;}
 .pal-title{margin:0;font-size:var(--display-sm);}
 .pal-progress{margin:0;font-size:var(--text-md);color:var(--ink);}
 .pal-progress b{color:var(--ink-heading);}
@@ -538,7 +541,7 @@ dialog::backdrop{background:var(--scrim);}
   .map-menu{position:fixed;left:var(--gutter);right:var(--gutter);top:calc(var(--header-h) + var(--safe-t) + 4px);width:auto;max-height:calc(100dvh - var(--header-h) - var(--bottombar-h) - 32px);}
   .save-status{padding:0;width:var(--hit);justify-content:center;}
   .save-status span{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);}
-  /* the bottom bar: 5 slots (Undo, Redo, Add / Departments, Measure, More) */
+  /* the bottom bar: 5 slots (Undo, Redo, Add, Measure, More), 6 in the Plan with Departments */
   /* above the sheets (z-sheet + 1 is the inspector), so the Layers / Add / More bottom sheets paint on top */
   .toolbar{border-bottom:0;border-top:1px solid var(--line);padding:0 calc(var(--space-1) + var(--safe-r)) var(--safe-b) calc(var(--space-1) + var(--safe-l));gap:0;justify-content:space-around;z-index:calc(var(--z-sheet) + 2);}
   .toolbar > *{flex:1 1 0;min-width:0;}
@@ -550,11 +553,16 @@ dialog::backdrop{background:var(--scrim);}
   .tool,.layers-wrap > .tool,.more-wrap > .tool{flex-direction:column;justify-content:center;gap:3px;height:56px;width:100%;padding:4px 2px;font-size:var(--text-xs);border-radius:var(--radius-md);}
   .tool span{display:block!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:-.02em;}
   .tool .i{width:22px;height:22px;}
-  /* the 5 slots in DESIGN order: Undo, Redo, Add (or Departments), Measure, More */
-  #btnUndo{order:1;} #btnRedo{order:2;} .add-wrap,#deptBtn{order:3;} #toolMeasure{order:4;} .more-wrap{order:5;} #btnSpin{order:3;} #btnStart{order:4;}
+  /* the slots in DESIGN order: Undo, Redo, Add, Measure, More; the Plan adds Departments after Add (6 slots, each 62px+ wide) */
+  #deptBtn{flex:1.5 1 0;}
+  #btnUndo{order:1;} #btnRedo{order:2;} .add-wrap{order:3;} #deptBtn,#panelBtn{order:4;} #toolMeasure{order:5;} .more-wrap{order:6;} #btnSpin{order:3;} #btnStart{order:4;}
   .tool[aria-pressed="true"]{background:transparent;box-shadow:none;color:var(--accent-text);}
   .layers-wrap,.more-wrap,.add-wrap{display:flex;}
   .add-wrap .add-btn{flex-direction:column;justify-content:center;gap:3px;height:56px;width:100%;padding:4px 2px;border:0;background:transparent;color:var(--accent-text);font-size:var(--text-xs);font-weight:500;border-radius:var(--radius-md);}
+  /* base.css gives .btn.primary a filled :hover / :active; a tap leaves :hover stuck on touch screens, which turned the whole slot blue
+   * behind its --accent-text label (unreadable) while the Add sheet was open */
+  .add-wrap .add-btn:hover,.add-wrap .add-btn:active{background:transparent;border:0;color:var(--accent-text);}
+  .add-wrap .add-btn[aria-expanded="true"]{background:var(--surface-2);}
   .add-wrap .add-btn .i{width:22px;height:22px;padding:2px 10px;box-sizing:content-box;border-radius:var(--radius-full);background:var(--accent);color:var(--accent-ink);}
   .add-wrap .add-btn span{display:block;}
   .pop{position:fixed;left:var(--gutter);right:var(--gutter);top:auto;bottom:calc(var(--bottombar-h) + var(--safe-b) + 8px);width:auto;
@@ -585,16 +593,24 @@ dialog::backdrop{background:var(--scrim);}
   .insp-name{font-size:22px;}
   .f-in,.dialog .input{min-height:var(--hit);font-size:16px;}
   /* the Departments palette is a sheet too, opened from the bottom bar */
-  .palette{position:absolute;left:0;right:0;bottom:0;top:auto;height:60%;border-right:0;border-top:1px solid var(--line);border-radius:var(--radius-xl) var(--radius-xl) 0 0;box-shadow:var(--shadow-3);z-index:var(--z-sheet);
-    transform:translateY(100%);transition:transform var(--dur-slow) var(--ease-standard);}
+  /* the sheet scrolls as ONE piece (head, list, foot): a fixed head and foot left the list 43px tall on a 667px
+   * screen. Peek is 76% of the canvas (the title, progress, finder and the first rows), expanded is 92%; the
+   * grab bar switches them (js/ui/sheet.js). The mode panels (Comparison, Advisor, Review) are the same sheet. */
+  .palette{position:absolute;left:0;right:0;bottom:0;top:auto;height:76%;display:block;overflow-y:auto;overscroll-behavior:contain;scroll-padding:24px 0 76px;
+    border-right:0;border-top:1px solid var(--line);border-radius:var(--radius-xl) var(--radius-xl) 0 0;box-shadow:var(--shadow-3);z-index:var(--z-sheet);
+    transform:translateY(100%);transition:transform var(--dur-slow) var(--ease-standard),height var(--dur-slow) var(--ease-standard);}
+  .palette[data-sheet="expanded"]{height:92%;}
   .palette.open{transform:none;}
+  .palette .pal-list,.palette .mp-body{overflow:visible;}
+  .palette .pal-head,.palette .mp-head{padding-top:4px;}
+  .palette .mp-foot{position:sticky;bottom:0;z-index:2;}
+  .pal-row,.cmp-row,.rv-row{scroll-margin:24px 0 76px;}
+  /* the "No departments placed yet" card sits behind the sheet while it is open: leave it out */
+  .stage:has(#palette.open) #catsEmpty{display:none;}
   .inspector[data-sheet="peek"],.inspector[data-sheet="expanded"]{z-index:calc(var(--z-sheet) + 1);}
   .add-list{grid-template-columns:1fr 1fr;}
   .add-row{min-height:var(--hit);}
-  .app[data-mode="planning"][data-view="plan"] .add-wrap{display:none!important;}
   /* the mode panels (Comparison, Advisor) are sheets too, opened from the bottom bar */
-  .mode-panel{height:72%;}
-  .mode-panel.open{transform:none;}
   /* header row 2: the modes scroll sideways, the display toggle stays put */
   .hdr .modes{order:10;flex:1 1 60%;min-width:0;margin:6px 0 0 calc(-1 * var(--space-3));padding:6px 4px 6px var(--space-3);border-radius:0;background:var(--surface);box-shadow:none;border-top:1px solid var(--line);
     overflow-x:auto;overflow-y:hidden;scrollbar-width:none;gap:4px;}
@@ -611,6 +627,10 @@ dialog::backdrop{background:var(--scrim);}
 @media (max-width:420px){
   .map-chip-text span{display:none;}
 }
+/* 320px phones: six bottom-bar labels at 11px so Measure and Departments are not cut off */
+@media (max-width:340px){
+  .toolbar .tool span,.add-wrap .add-btn span{font-size:11px;letter-spacing:-.04em;}
+}
 /* landscape phones: a smaller HUD, the sheet docked to the side so the selection stays in view */
 @media (max-height:500px){
   #mini{width:150px;height:86px;}
@@ -618,9 +638,17 @@ dialog::backdrop{background:var(--scrim);}
   .loc b{font-size:var(--display-sm);}
   .inspector{left:auto;right:0;top:0;bottom:0;height:auto;width:min(320px,48vw);border-radius:0;border-left:1px solid var(--line);border-top:0;transform:translateX(100%);}
   .inspector[data-sheet="peek"],.inspector[data-sheet="expanded"]{transform:none;height:auto;}
-  .palette{left:0;right:auto;top:0;bottom:0;height:auto;width:min(300px,48vw);border-radius:0;border-right:1px solid var(--line);transform:translateX(-100%);}
+  .palette,.palette[data-sheet="expanded"]{left:0;right:auto;top:0;bottom:0;height:auto;width:min(340px,46vw);border-radius:0;border-right:1px solid var(--line);transform:translateX(-100%);scroll-padding:8px 0 64px;}
   .palette.open{transform:none;}
-  .sheet-grab{display:none;}
+  .sheet-grab,.palette > .sheet-grab{display:none;}
+  /* short screens: the head is as compact as it can be, so more of the list shows before the first scroll */
+  .pal-head{gap:2px;padding:4px 12px;}
+  .pal-title{font-size:var(--display-xs);}
+  .pal-progress{font-size:var(--text-sm);line-height:1.2;}
+  .pal-main{min-height:44px;padding:2px 8px;}
+  .pal-place-t{display:none;}
+  .pal-place{padding:0 6px;}
+
   .hdr .modes,.hdr .tabs{border-top:0;margin-top:6px;}
   .mode-panel{height:auto;width:min(360px,50vw);}
   /* the side drawer covers the middle of the plan: shift the empty-state card into the space that's left */
@@ -843,9 +871,14 @@ details[open] > summary .adv-chev{transform:rotate(180deg);}
 .rv-status.info{background:var(--accent-soft);border-color:var(--accent-line);}
 .rv-check{display:grid;place-items:center;width:28px;min-height:44px;flex:none;}
 .rv-check input{width:18px;height:18px;accent-color:var(--accent);}
-.rv-tickrow{display:flex;justify-content:flex-end;margin:0 8px;}
+.rv-countrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 8px 2px;}
+.rv-countrow .cmp-count{margin:0;min-width:0;}
+.rv-tickall{flex:none;}
 .rv-foot-row{display:flex;gap:8px;}
-.rv-foot-row .btn{flex:1;}
+.rv-foot-row .btn{flex:1 1 0;min-width:0;padding:0 8px;line-height:1.15;text-align:center;white-space:normal;}
+.rv-foot-row .rv-approve{flex:1.5 1 0;}
+.rv-note{margin:10px 8px 0;}
+.rv-hint{margin:6px 8px 0;}
 .mp-foot .field label{font-size:var(--text-xs);font-weight:500;color:var(--ink-muted);}
 .mp-foot textarea{font-size:var(--text-sm);}
 .btn-link{border:0;background:transparent;padding:0;color:var(--accent-text);font-size:inherit;font-weight:600;text-decoration:underline;cursor:pointer;}
@@ -916,4 +949,11 @@ details[open] > summary .adv-chev{transform:rotate(180deg);}
   .swatch,.swatch-wrap{position:relative;}
   .swatch::after{content:"";position:absolute;inset:-9px;}
   .swatch-wrap .swatch-other{inset:-9px;width:auto;height:auto;}
+}
+
+/* ---------- fix round 2: the phone sheets on short screens (these come after the Phase 3 / 4 panel rules above) ---------- */
+@media (max-height:500px){
+  .mp-head{gap:4px;padding:8px 12px 6px;}
+  .mp-foot{padding:6px 12px;}
+  .mp-foot:has(.btn) .pal-hint{display:none;}
 }

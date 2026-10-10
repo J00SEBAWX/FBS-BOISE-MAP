@@ -84,12 +84,19 @@ export function createDeptPalette(o) {
   function render() {
     const S = summary(session.doc, {merged: session.categories});
     const T = S.totals;
+    // On a phone the palette is a bottom sheet (or a side drawer in landscape) that scrolls as a whole: the head
+    // keeps only the title, the progress and the finder so the first departments are in reach, and the totals and
+    // the fixtures switch follow the list.
+    const touch = o.isTouch();
     clear(head);
     head.appendChild(h("div", {class: "pal-title-row"}, h("h2", {class: "pal-title", text: "Departments"}),
-      o.isTouch() ? h("button", {type: "button", class: "icon-btn", aria: {label: "Close"}, onclick: () => o.onClose && o.onClose()}, icon("i-close")) : null));
+      touch ? h("div", {class: "pal-title-actions"},
+        o.canEdit() ? h("button", {type: "button", class: "btn small", aria: {label: "New category"}, onclick: () => o.onNew()}, icon("i-add"), "New") : null,
+        h("button", {type: "button", class: "icon-btn", aria: {label: "Close"}, onclick: () => o.onClose && o.onClose()}, icon("i-close"))) : null));
     head.appendChild(h("p", {class: "pal-progress"}, h("b", {text: `${T.placed} of ${T.total}`}), ` departments placed`));
     head.appendChild(h("div", {class: "progress", role: "progressbar", aria: {valuemin: 0, valuemax: T.total, valuenow: T.placed, label: "Departments placed"}}, h("span", {class: "progress-fill", style: {"--p": T.total ? (T.placed / T.total).toFixed(3) : 0}})));
-    head.appendChild(h("p", {class: "pal-total", text: `${formatSqft(T.plannedSqft)} planned of ${formatSqft(T.availableSqft)} sales floor · targets ${formatSqft(T.targetSqft)}`, title: T.method}));
+    const totals = h("p", {class: "pal-total", text: `${formatSqft(T.plannedSqft)} planned of ${formatSqft(T.availableSqft)} sales floor · targets ${formatSqft(T.targetSqft)}`, title: T.method});
+    if (!touch) head.appendChild(totals);
     head.appendChild(finder.el);
     // the fixtures on the plan: shown (and selectable), a faint backdrop, or hidden (the blank-slate look)
     const fm = o.getFixtures ? o.getFixtures() : "on";
@@ -103,9 +110,9 @@ export function createDeptPalette(o) {
       e.preventDefault(); e.stopPropagation();
       const list = ["on", "faint", "off"], n = list[(list.indexOf(fm) + d + 3) % 3];
       o.onFixtures && o.onFixtures(n);
-      const b = head.querySelector(`[data-fix="${n}"]`); if (b) b.focus();
+      const b = el.querySelector(`[data-fix="${n}"]`); if (b) b.focus();
     });
-    head.appendChild(seg);
+    if (!touch) head.appendChild(seg);
     clear(list);
     const selIds = new Set(session.selection);
     for (const r of S.rows) {
@@ -119,7 +126,7 @@ export function createDeptPalette(o) {
           onclick: () => (r.placed ? o.onSelectBlock(r.blocks[0]) : (o.canEdit() ? o.onPlace(r.key) : o.toast && o.toast("This map is view only. Make your own copy to place departments.")))},
           h("span", {class: "swatch-sm", style: {"--c": col}, aria: {hidden: true}}),
           h("span", {class: "pal-text"}, h("b", {text: cat.name}), h("span", {class: "pal-meta" + (r.status === "under" || r.status === "over" ? " warn" : ""), text: meta})),
-          r.placed ? h("span", {class: "pal-ok"}, icon("i-check"), h("span", {class: "sr-only", text: "Placed"})) : (o.canEdit() ? h("span", {class: "pal-place", aria: {hidden: true}}, icon("i-add", "i i-sm"), "Place") : null)),
+          r.placed ? h("span", {class: "pal-ok"}, icon("i-check"), h("span", {class: "sr-only", text: "Placed"})) : (o.canEdit() ? h("span", {class: "pal-place", aria: {hidden: true}}, icon("i-add", "i i-sm"), h("span", {class: "pal-place-t", text: "Place"})) : null)),
         h("button", {type: "button", class: "pal-edit", aria: {label: `Edit category ${cat.name}`}, title: "Edit category", onclick: () => o.onEdit(r.key)}, icon("i-pencil")));
       list.appendChild(row);
     }
@@ -132,7 +139,8 @@ export function createDeptPalette(o) {
       })));
     }
     clear(foot);
-    if (o.canEdit()) foot.appendChild(h("button", {type: "button", class: "btn small wide", onclick: () => o.onNew()}, icon("i-add"), "New category"));
+    if (touch) { foot.appendChild(totals); foot.appendChild(seg); }
+    else if (o.canEdit()) foot.appendChild(h("button", {type: "button", class: "btn small wide", onclick: () => o.onNew()}, icon("i-add"), "New category"));
     foot.appendChild(h("p", {class: "pal-hint", text: o.canEdit() ? "Tap a department to drop it in the middle of the view, then drag it into place." : "View only: tap a placed department to see it."}));
   }
   return {render, focusFinder: () => finder.focus()};

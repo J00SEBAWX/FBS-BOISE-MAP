@@ -292,8 +292,13 @@ Rotate / Delete never scroll away.
   (`i-fit`), Layers (`i-layers`). Scale bar top-left. No zoom buttons: pinch to zoom.
 - **Bottom toolbar** (`--bottombar-h` 64 + `env(safe-area-inset-bottom)`, `--surface`, top `--line`, always visible,
   5 equal slots, each ≥ 44px with a 22px icon over a 12px 500 label): Undo, Redo, **Add** (centre, 48 x 32
-  `--accent` pill around the icon, label in `--accent-text`), Measure, More. Categories tab swaps Add for
-  **Departments** (`i-blocks`), which opens the palette sheet.
+  `--accent` pill around the icon, label in `--accent-text`), Measure, More. Add stays in every Plan; in Area
+  planning (the v3.1 merge of Plan and Categories) **Departments** (`i-blocks`) is a sixth slot after Add, a little
+  wider than the others so its label fits (the bar is then 6 slots, each ≥ 44px down to 320px wide), and opens the
+  palette sheet. The palette and the mode panels (Comparison, Advisor, Review) are bottom sheets that scroll as one
+  piece (head, list and foot together; a foot with actions, such as Review's Approve / Needs changes / Decline row,
+  stays pinned at the bottom): *peek* is 76% of the canvas, *expanded* 92%, switched by the 36 x 4 grab bar; in
+  landscape they dock to the left edge, 340px wide, full height.
 - **More** sheet: Structure locked/unlocked switch, Snap switch, Select several (multi-select mode, since there is
   no Shift key), Layers, Keyboard & help, Fit to store.
 - **Gestures** (no hover, no right-click): tap = select (tap empty floor = clear); drag a selected item = move;

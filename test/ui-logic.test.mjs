@@ -5,7 +5,10 @@ import assert from "node:assert/strict";
 
 import { parseHash, buildHash, isMapId, VIEWS } from "../public/js/core/route.js";
 import { createAutosave } from "../public/js/core/autosave.js";
-import { saveDraft, loadDraft, clearDraft, draftIds, clearAllDrafts } from "../public/js/core/drafts.js";
+import { saveDraft, loadDraft, clearDraft, draftIds, clearAllDrafts, createDraftKeeper } from "../public/js/core/drafts.js";
+import { ariaValue, h } from "../public/js/ui/dom.js";
+import { readableOn, contrastRatio } from "../public/js/core/contrast.js";
+import { CATALOG } from "../public/js/shared/catalog.js";
 import { createSession, toLayout } from "../public/js/core/session.js";
 import { wallGaps, readoutsFor } from "../public/js/core/readouts.js";
 import { buildSnapTargets } from "../public/js/core/snap.js";
@@ -161,6 +164,118 @@ describe("drafts: unsaved edits kept on the device", () => {
     assert.equal(st.length, 1);
     assert.equal(clearAllDrafts(undefined), 0);
     assert.equal(clearAllDrafts({ get length() { throw new Error("blocked"); } }), 0);
+  });
+});
+
+describe("drafts: a finished save only clears a draft it fully covers (autosave race)", () => {
+  const docOf = (n) => ({ items: [{ id: "a", x: n }] });
+  test("no edits during the flight: the draft is cleared", () => {
+    const st = memStorage(), k = createDraftKeeper(st);
+    const d1 = docOf(1);
+    k.write("m_1", 3, d1);
+    assert.deepEqual(draftIds(st), ["m_1"]);
+    assert.equal(k.saved("m_1", d1, 4, d1), "cleared");
+    assert.deepEqual(draftIds(st), []);
+  });
+  test("an edit made while the save was in flight keeps its draft, rebased on the new version", () => {
+    const st = memStorage(), k = createDraftKeeper(st);
+    const d1 = docOf(1), d2 = docOf(2);
+    k.write("m_1", 3, d1);
+    k.write("m_1", 3, d2); // the person nudged again while the PUT of d1 was out
+    assert.equal(k.saved("m_1", d1, 4, d2), "rebased");
+    const left = loadDraft(st, "m_1");
+    assert.equal(left.data.items[0].x, 2, "the newer edit is still on the device");
+    assert.equal(left.version, 4, "against the version the server has now, so a reload restores it instead of warning");
+    assert.equal(k.saved("m_1", d2, 5, d2), "cleared", "and the next save clears it");
+    assert.deepEqual(draftIds(st), []);
+  });
+  test("a save that finishes after the person opened another map leaves the other map and a newer draft alone", () => {
+    const st = memStorage(), k = createDraftKeeper(st);
+    const a1 = docOf(1), b1 = docOf(9);
+    k.write("m_a", 1, a1); k.write("m_b", 1, b1);
+    assert.equal(k.saved("m_a", a1, 2, null), "cleared", "map A is not open any more: its own draft is covered, so it goes");
+    assert.equal(loadDraft(st, "m_b").data.items[0].x, 9, "map B's draft is untouched");
+    const a2 = docOf(2), a3 = docOf(3);
+    k.write("m_a", 2, a2); k.write("m_a", 2, a3);
+    assert.equal(k.saved("m_a", a2, 3, null), "kept", "newer edits to A made in flight stay on the device");
+    assert.equal(loadDraft(st, "m_a").data.items[0].x, 3);
+  });
+  test("a save of a document that was never drafted, a missing storage and clear() never throw", () => {
+    const k = createDraftKeeper(null);
+    k.write("m_1", 1, docOf(1));
+    assert.equal(k.saved("m_1", docOf(1), 2, null), "kept");
+    k.clear("m_1");
+    const st = memStorage(), k2 = createDraftKeeper(st);
+    k2.write("m_1", 1, docOf(1)); k2.clear("m_1");
+    assert.deepEqual(draftIds(st), []);
+  });
+});
+
+/* ======================================================================= ui/dom.js: aria state attributes */
+describe("dom: aria state attributes are written when false", () => {
+  test("pressed / checked / selected / expanded / current keep an explicit \"false\"; everything else false or unset is left off", () => {
+    for (const n of ["pressed", "checked", "selected", "expanded", "current"]) {
+      assert.equal(ariaValue(n, false), "false", n);
+      assert.equal(ariaValue(n, true), "true", n);
+      assert.equal(ariaValue(n, undefined), null, n);
+      assert.equal(ariaValue(n, null), null, n);
+    }
+    assert.equal(ariaValue("hidden", false), null);
+    assert.equal(ariaValue("disabled", false), null);
+    assert.equal(ariaValue("label", "Close"), "Close");
+    assert.equal(ariaValue("valuenow", 0), "0");
+    assert.equal(ariaValue("controls", ""), "");
+  });
+  test("h() puts aria-pressed / aria-checked =\"false\" on the element", () => {
+    const made = [];
+    const prev = globalThis.document;
+    globalThis.document = { createElement: (tag) => { const el = { tag, attrs: {}, children: [], dataset: {}, style: { setProperty() {} }, setAttribute(k, v) { this.attrs[k] = v; }, appendChild(c) { this.children.push(c); }, addEventListener() {} }; made.push(el); return el; }, createTextNode: (t) => ({ text: t }) };
+    try {
+      const off = h("button", { type: "button", aria: { pressed: false, label: "Show me", hidden: false } }, "Show");
+      assert.equal(off.attrs["aria-pressed"], "false");
+      assert.equal(off.attrs["aria-label"], "Show me");
+      assert.equal("aria-hidden" in off.attrs, false);
+      const sw = h("button", { role: "switch", aria: { checked: false } });
+      assert.equal(sw.attrs["aria-checked"], "false");
+      const on = h("button", { aria: { checked: true } });
+      assert.equal(on.attrs["aria-checked"], "true");
+      const none = h("button", { aria: { pressed: undefined } });
+      assert.equal("aria-pressed" in none.attrs, false);
+    } finally { if (prev === undefined) delete globalThis.document; else globalThis.document = prev; }
+  });
+});
+
+/* ======================================================================= core/contrast.js: 3D sign text */
+describe("contrast: department signs read on every department colour", () => {
+  const all = [];
+  for (const p of CATALOG.palette) { all.push(p.light, p.dark); }
+  for (const a of CATALOG.areas) { all.push(a.color); if (a.colorDark) all.push(a.colorDark); }
+  test("every palette and default department colour, light and dark theme, gets 4.5:1 text", () => {
+    assert.ok(all.length >= 24);
+    for (const c of all) {
+      const r = readableOn(c);
+      assert.ok(r.ratio >= 4.5, `${c} -> ${r.bg} / ${r.fg} = ${r.ratio.toFixed(2)}`);
+      assert.ok(contrastRatio(r.bg, r.fg) >= 4.5 - 1e-9, `${c} measured again from the returned colours`);
+      assert.match(r.bg, /^#[0-9A-F]{6}$/); assert.match(r.fg, /^#[0-9A-F]{6}$/);
+    }
+  });
+  test("a colour that already reads is kept exactly; mid-tones move only as far as they must", () => {
+    const navy = readableOn("#086082");
+    assert.equal(navy.bg, "#086082"); assert.equal(navy.fg, "#FFFFFF");
+    const pale = readableOn("#FC9252");
+    assert.equal(pale.bg, "#FC9252"); assert.equal(pale.fg, "#15212D", "light fills take the dark ink");
+    const orange = readableOn("#CD5811"); // 4.20:1 with white, 3.88:1 with the ink: nudged darker, white text
+    assert.equal(orange.fg, "#FFFFFF");
+    assert.notEqual(orange.bg, "#CD5811");
+    assert.ok(orange.ratio >= 4.5 && orange.ratio < 4.7, "just over the line, not much darker than the department");
+  });
+  test("custom categories: any hex works, a bad value falls back to the neutral slate, short hex is expanded", () => {
+    for (const c of ["#777777", "#808080", "#ff0000", "#00ff00", "#0000ff", "#fff", "#000", "#123"]) assert.ok(readableOn(c).ratio >= 4.5, c);
+    const bad = readableOn("rebeccapurple");
+    assert.ok(bad.ratio >= 4.5);
+    assert.equal(readableOn(undefined).bg, bad.bg);
+    assert.equal(contrastRatio("nope", "#fff"), 1);
+    assert.ok(Math.abs(contrastRatio("#000000", "#ffffff") - 21) < 1e-9);
   });
 });
 
