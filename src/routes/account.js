@@ -150,8 +150,8 @@ export async function logout(env, sess) {
   return json({ ok: true }, 200, { "Set-Cookie": clearSessionCookie() });
 }
 
-/** GET /api/me -> {name, role} */
+/** GET /api/me -> {id, name, role} */
 export function me(sess) {
   if (!sess) throw new HttpError(401, "Please sign in.");
-  return json({ name: sess.user.first_name, role: sess.user.role });
+  return json({ id: sess.user.id, name: sess.user.first_name, role: sess.user.role });
 }

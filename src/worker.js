@@ -7,6 +7,9 @@ import { prune } from "./lib/ratelimit.js";
 import * as ACCESS from "./routes/access.js";
 import * as ACCOUNT from "./routes/account.js";
 import * as ADMIN from "./routes/admin.js";
+import * as MAPS from "./routes/maps.js";
+import * as MASTER from "./routes/master.js";
+import * as PROPOSALS from "./routes/proposals.js";
 
 // ---------- what is public ----------
 // Styles and scripts get the same short life (public before sign-in, private after), so tokens.css, base.css and
@@ -136,19 +139,66 @@ async function api(request, env, url, ctx) {
   const sess = await loadSession(env, request);
   if (m === "POST" && path === "/api/logout") return ACCOUNT.logout(env, sess);
   if (m === "GET" && path === "/api/me") return ACCOUNT.me(sess);
-  requireUser(sess);
+  const me = requireUser(sess);
+
+  // ----- store maps, the master map, proposals (each handler checks who may do what) -----
+  const v3 = await mapsApi(request, env, url, sess, me);
+  if (v3) return v3;
 
   // ----- admin only -----
   if (path.startsWith("/api/admin/")) {
     const admin = requireAdmin(sess);
     const p = path.slice("/api/admin".length);
     if (m === "GET" && p === "/overview") return ADMIN.overview(env);
+    if (m === "GET" && p === "/settings") return MASTER.getAdminSettings(env);
+    if (m === "PUT" && p === "/settings") return MASTER.putAdminSettings(request, env, admin);
     if (m === "POST" && p === "/codes/new-set") return ADMIN.newSet(env, admin);
     if (m === "POST" && p === "/password") return ACCOUNT.changePassword(request, env, sess);
     const pm = p.match(/^\/people\/([^/]+)$/);
     if (pm && m === "DELETE") return ADMIN.removePerson(env, admin, pm[1]);
   }
   throw new HttpError(404, "Not found.");
+}
+
+/** The maps / master / proposals API for a signed-in person, or null when the path isn't one of these. */
+async function mapsApi(request, env, url, sess, me) {
+  const path = url.pathname;
+  const m = request.method;
+  if (path === "/api/catalog") return m === "GET" ? MASTER.catalog() : null;
+  if (path === "/api/advisor-config") {
+    if (m === "GET") return MASTER.getAdvisorConfig(env);
+    if (m === "PUT") return MASTER.putAdvisorConfig(request, env, sess);
+    return null;
+  }
+  if (path === "/api/master") {
+    if (m === "GET") return MASTER.getMaster(env);
+    if (m === "PUT") return MASTER.putMaster(request, env, sess);
+    return null;
+  }
+  if (m === "POST" && path === "/api/master/apply") return MASTER.applyToMaster(request, env, sess);
+  if (m === "POST" && path === "/api/master/restore") return MASTER.restore(request, env, sess);
+  if (m === "GET" && path === "/api/master/history") return MASTER.history(env, sess);
+  let r = path.match(/^\/api\/master\/history\/([^/]+)$/);
+  if (r && m === "GET") return MASTER.historyVersion(env, sess, r[1]);
+
+  if (path === "/api/maps") {
+    if (m === "GET") return MAPS.list(env, me);
+    if (m === "POST") return MAPS.create(request, env, me);
+    return null;
+  }
+  if ((r = path.match(/^\/api\/maps\/([^/]+)$/))) {
+    if (m === "GET") return MAPS.get(env, me, r[1]);
+    if (m === "PUT") return MAPS.update(request, env, me, r[1]);
+    if (m === "DELETE") return MAPS.remove(env, me, r[1]);
+    return null;
+  }
+  if ((r = path.match(/^\/api\/maps\/([^/]+)\/submit$/)) && m === "POST") return PROPOSALS.submit(request, env, me, r[1]);
+
+  if (path === "/api/proposals" && m === "GET") return PROPOSALS.list(env, me, url);
+  if ((r = path.match(/^\/api\/proposals\/([^/]+)$/)) && m === "GET") return PROPOSALS.get(env, me, r[1]);
+  if ((r = path.match(/^\/api\/proposals\/([^/]+)\/withdraw$/)) && m === "POST") return PROPOSALS.withdraw(env, me, r[1]);
+  if ((r = path.match(/^\/api\/proposals\/([^/]+)\/decision$/)) && m === "POST") return PROPOSALS.decide(request, env, sess, r[1]);
+  return null;
 }
 
 // ---------- pages and files ----------
@@ -214,7 +264,11 @@ export default {
       res = await route(request, env, ctx);
     } catch (e) {
       if (e instanceof HttpError) res = json({ error: e.message, ...(e.extra || {}) }, e.status);
-      else {
+      else if (/no such table/i.test(String(e && e.message))) {
+        // a database without the newest migration: fail closed, like missing secrets
+        console.error("database not migrated");
+        res = json({ error: "The site isn't set up yet." }, 503);
+      } else {
         console.error("unhandled error:", e && e.message ? e.message : String(e));
         res = json({ error: "Something went wrong on the server. Try again in a minute." }, 500);
       }

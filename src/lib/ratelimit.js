@@ -50,4 +50,14 @@ export async function prune(db) {
   ]);
   // separate statement: keeps the rest working on a database that doesn't have access_codes yet
   await db.prepare("DELETE FROM access_codes WHERE revoked_at IS NOT NULL AND revoked_at < ?1").bind(now - 90 * day).run();
+  await pruneMasterVersions(db);
+}
+
+/** Keeps the newest `keep` master versions (the current master is always the newest). Never throws. */
+export async function pruneMasterVersions(db, keep = 200) {
+  try {
+    await db.prepare("DELETE FROM master_versions WHERE version <= (SELECT MAX(version) FROM master_versions) - ?1").bind(keep).run();
+  } catch {
+    /* no master_versions table yet (migration 0005 not applied) */
+  }
 }

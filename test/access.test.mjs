@@ -38,7 +38,6 @@ const visitor = () => new Client(dev.base, { ip: freshIp() });
 
 before(async () => {
   dev = await startDev({
-    port: 8795,
     seed: ({ pepper, phoneKey }) => {
       const now = Date.now();
       const tok = (code, exp, used = null) =>
@@ -209,7 +208,7 @@ test("a password row made by hand with the documented formula works; every failu
   assert.equal(ok.status, 200, JSON.stringify(ok.data));
   assert.equal(ok.data.redirect, "/admin/");
   assert.ok(c.cookie);
-  assert.deepEqual((await c.get("/api/me")).data, { name: "Second", role: "admin" });
+  assert.deepEqual((await c.get("/api/me")).data, { id: "u_hand", name: "Second", role: "admin" });
   assert.equal((await c.post("/api/logout", {})).status, 200);
   for (const body of [
     { username: "handmade", password: "wrong password 1" },
@@ -247,7 +246,7 @@ test("setup with a good code keeps the existing admin row and signs in; the code
   assert.equal(r.data.redirect, "/admin/");
   assert.match(admin.cookie, /^__Host-fbs_s=[A-Za-z0-9_-]{40,}$/);
   // the oldest admin row (the old one, first name "AJ") got the new username and password
-  assert.deepEqual((await admin.get("/api/me")).data, { name: "AJ", role: "admin" });
+  assert.deepEqual((await admin.get("/api/me")).data, { id: "u_legacy", name: "AJ", role: "admin" });
   const again = await visitor().post("/api/admin/setup", { setupCode: SETUP_A, username: "mallory", password: "correct horse battery" });
   assert.equal(again.status, 400);
   assert.equal(again.data.error, BAD_SETUP);
@@ -385,7 +384,9 @@ test("checking a code doesn't use it; redeeming uses it exactly once", async () 
   assert.equal(r.status, 200, JSON.stringify(r.data));
   assert.deepEqual(r.data, { ok: true, redirect: "/" });
   assert.ok(v.cookie);
-  assert.deepEqual((await v.get("/api/me")).data, { name: "Ann Example", role: "member" });
+  const meAnn = (await v.get("/api/me")).data;
+  assert.match(meAnn.id, /^u_[A-Za-z0-9_-]+$/);
+  assert.deepEqual(meAnn, { id: meAnn.id, name: "Ann Example", role: "member" });
 
   const w = visitor();
   const again = await w.post("/api/access/redeem", { code, name: "Ben", phone: "2085550102" });
@@ -591,7 +592,7 @@ test("removing a member signs them out on their very next request", async () => 
 
 test("the admin can't be removed through the API", async () => {
   for (const id of ["u_legacy", "u_hand"]) assert.equal((await admin.del(`/api/admin/people/${id}`)).status, 404, id);
-  assert.deepEqual((await admin.get("/api/me")).data, { name: "AJ", role: "admin" });
+  assert.deepEqual((await admin.get("/api/me")).data, { id: "u_legacy", name: "AJ", role: "admin" });
 });
 
 test("the same phone with a new code reuses the person's row (even an old denied one)", async () => {
@@ -629,7 +630,7 @@ test("the admin's phone can't be used, the code stays unused, and a wrong code s
   assert.equal(v.cookie, null);
   assert.equal((await v.post("/api/access/check", { code })).status, 200, "the code still works");
   assert.equal((await overview()).codes.find((c) => c.code === code).status, "available");
-  assert.deepEqual((await admin.get("/api/me")).data, { name: "AJ", role: "admin" }, "the admin row is untouched");
+  assert.deepEqual((await admin.get("/api/me")).data, { id: "u_legacy", name: "AJ", role: "admin" }, "the admin row is untouched");
 });
 
 test("wrong access codes are rate limited per IP (successes don't count)", async () => {
@@ -724,7 +725,7 @@ test("setting up again (forgotten password) keeps the row and signs out every se
   assert.equal((await admin.get("/api/me")).status, 401, "old admin sessions are signed out");
   const c = visitor();
   assert.equal((await c.post("/api/admin/login", { username: "boss2", password: "another fine password" })).status, 200);
-  assert.deepEqual((await c.get("/api/me")).data, { name: "AJ", role: "admin" });
+  assert.deepEqual((await c.get("/api/me")).data, { id: "u_legacy", name: "AJ", role: "admin" });
   admin = c;
 });
 
