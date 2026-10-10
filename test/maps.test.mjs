@@ -859,8 +859,16 @@ test("removing a person deletes their maps and proposals; the dashboard counts m
   assert.equal(cara.mapCount, 2);
   assert.equal(o.people.find((p) => p.id === "u_dan").mapCount, 0);
   assert.ok(ok(await admin.get("/api/proposals")).proposals.some((p) => p.ownerName === "Cara"));
+  // apply one of Cara's items to the master first: the history must not keep naming her after removal
+  const caraMap = ok(await C.get(`/api/maps/${one.meta.id}`));
+  const firstId = caraMap.data.items.find((it) => !["floor", "zone", "wall", "door", "opening", "arch", "column", "ceiling", "stairs"].includes(it.type)).id;
+  const mv = ok(await admin.get("/api/master")).version;
+  ok(await admin.post("/api/master/apply", { mapId: one.meta.id, baseVersion: mv, changes: [{ id: firstId, action: "upsert" }], note: "one item applied" }));
+  assert.equal(ok(await admin.get("/api/master")).sourceOwnerName, "Cara");
   ok(await admin.del("/api/admin/people/u_cara"));
   assert.equal((await C.get("/api/maps")).status, 401, "signed out");
+  assert.equal(ok(await admin.get("/api/master")).sourceOwnerName, "Removed member");
+  assert.ok(!JSON.stringify(ok(await admin.get("/api/master/history"))).includes("Cara"), "the history no longer names her");
   assert.deepEqual(await dev.sql("SELECT COUNT(*) AS n FROM maps WHERE owner_id = 'u_cara'"), [{ n: 0 }]);
   assert.deepEqual(await dev.sql("SELECT COUNT(*) AS n FROM proposals WHERE owner_id = 'u_cara'"), [{ n: 0 }]);
   assert.equal((await admin.get(`/api/maps/${one.meta.id}`)).status, 404);

@@ -39,11 +39,13 @@ async function seesTeam(env, me) {
 /** The map row if this person may see it (with its data when asked), else 404. */
 export async function visibleMap(env, me, id, withData = false) {
   requireId(id);
-  const row = await env.DB.prepare(`SELECT ${META_COLS}${withData ? ", m.data" : ""} FROM maps m LEFT JOIN users u ON u.id = m.owner_id WHERE m.id = ?1`)
+  const row = await env.DB.prepare(`SELECT ${META_COLS}, u.status AS owner_status${withData ? ", m.data" : ""} FROM maps m LEFT JOIN users u ON u.id = m.owner_id WHERE m.id = ?1`)
     .bind(id)
     .first();
   if (!row) throw NOT_FOUND();
-  if (row.owner_id !== me.id && !(await seesTeam(env, me))) throw NOT_FOUND();
+  // someone else's map: only while sharing is on (or for the admin), and only an approved member's, like the team list
+  if (row.owner_id !== me.id && (row.owner_status !== "approved" || !(await seesTeam(env, me)))) throw NOT_FOUND();
+  delete row.owner_status;
   return row;
 }
 

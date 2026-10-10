@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS master_versions (
   created_by TEXT,
   created_by_name TEXT,
   source_map_id TEXT,
+  source_owner_id TEXT,
   source_owner_name TEXT,
   note TEXT
 );

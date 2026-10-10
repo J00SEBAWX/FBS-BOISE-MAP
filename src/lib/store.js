@@ -120,18 +120,23 @@ export async function assertUnlocked(env) {
 /**
  * The INSERT that adds master version base+1, only if the current master is still `base` and the master isn't
  * locked (both checked inside the statement, so two writers can never both win). `also` (optional SQL, ANDed
- * into the condition) lets a caller add one more requirement. Returns the prepared statement.
+ * into the condition) lets a caller add one more requirement; its placeholders start at ?12. Returns the prepared statement.
  */
-export function masterInsert(env, { base, data, now, user, sourceMapId = null, sourceOwnerName = null, note = null, also = "", alsoArgs = [] }) {
+export function masterInsert(env, { base, data, now, user, sourceMapId = null, sourceOwnerId = null, sourceOwnerName = null, note = null, also = "", alsoArgs = [] }) {
   const text = JSON.stringify(data);
-  const args = [base + 1, text, data.items.length, now, user.id, user.first_name, sourceMapId, sourceOwnerName, note, base, ...alsoArgs];
+  const args = [base + 1, text, data.items.length, now, user.id, user.first_name, sourceMapId, sourceOwnerName, note, base, sourceOwnerId, ...alsoArgs];
   return env.DB.prepare(
-    `INSERT INTO master_versions (version, data, item_count, created_at, created_by, created_by_name, source_map_id, source_owner_name, note)
-     SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9
+    `INSERT INTO master_versions (version, data, item_count, created_at, created_by, created_by_name, source_map_id, source_owner_name, note, source_owner_id)
+     SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?11
       WHERE (SELECT COALESCE(MAX(version), 0) FROM master_versions) = ?10
         AND COALESCE((SELECT value FROM settings WHERE key = 'master_locked'), '0') = '0'
         ${also}`
   ).bind(...args);
+}
+
+/** True for the error D1 raises when two writers insert the same master version at once (the loser gets 409). */
+export function isVersionRace(e) {
+  return /UNIQUE|PRIMARY KEY|constraint/i.test(String(e && e.message || e));
 }
 
 /** After a master INSERT changed nothing: 423 if locked, else 409 with the current version. */

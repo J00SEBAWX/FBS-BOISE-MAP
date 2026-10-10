@@ -50,6 +50,7 @@ const FAMILIES = new Set(FAMILY_KEYS);
 
 // C0/C1 control characters, bidi overrides/isolates and the BOM: never stored
 const CTRL_ALL = /[\u0000-\u001f\u007f-\u009f‪-‮⁦-⁩﻿]/g;
+const INVISIBLE = /\p{Cf}/gu;
 const CTRL_KEEP_NL = /[\u0000-\u0009\u000b-\u001f\u007f-\u009f‪-‮⁦-⁩﻿]/g;
 
 /**
@@ -59,7 +60,7 @@ const CTRL_KEEP_NL = /[\u0000-\u0009\u000b-\u001f\u007f-\u009f‪-‮⁦-⁩﻿]
 export function cleanText(v, max, multiline = false) {
   if (typeof v !== "string") return null;
   let s = multiline ? v.replace(/\r\n?/g, "\n").replace(CTRL_KEEP_NL, "") : v.replace(CTRL_ALL, "");
-  s = s.trim();
+  s = s.replace(INVISIBLE, "").trim(); // zero-width and other format characters would make a blank-looking name
   if ([...s].length > max) return null;
   return s;
 }

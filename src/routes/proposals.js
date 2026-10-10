@@ -10,7 +10,7 @@ import { validateChanges, applyChanges } from "../shared/apply.js";
 import { ownMap } from "./maps.js";
 import {
   SMALL_BODY_MAX, DECISION_BODY_MAX, NO_MASTER,
-  writeLimit, checkData, intField, noteField, parseData, masterVersion, masterInsert, masterConflict, masterForWrite, assertUnlocked,
+  writeLimit, checkData, intField, noteField, parseData, masterVersion, masterInsert, masterConflict, masterForWrite, assertUnlocked, isVersionRace,
 } from "../lib/store.js";
 
 const NOT_FOUND = () => new HttpError(404, "Not found.");
@@ -176,13 +176,19 @@ export async function decide(request, env, sess, id) {
   const masterNote = note || `Approved ${r.owner_name ? r.owner_name + "'s" : "a"} proposal`;
   // one transaction: the new master version only if the proposal is still open, and the proposal marked approved
   // only if that exact version row went in
-  const [ins] = await env.DB.batch([
+  let ins;
+  try {
+    [ins] = await env.DB.batch([
     masterInsert(env, {
-      base, data, now, user: admin, sourceMapId: r.map_id, sourceOwnerName: r.owner_name || null, note: masterNote,
-      also: "AND EXISTS (SELECT 1 FROM proposals WHERE id = ?11 AND status = 'submitted')", alsoArgs: [id],
+      base, data, now, user: admin, sourceMapId: r.map_id, sourceOwnerId: r.owner_id, sourceOwnerName: r.owner_name || null, note: masterNote,
+      also: "AND EXISTS (SELECT 1 FROM proposals WHERE id = ?12 AND status = 'submitted')", alsoArgs: [id],
     }),
     decided("AND EXISTS (SELECT 1 FROM master_versions WHERE version = ?8 AND created_at = ?2 AND created_by = ?3)", [version, id, version]),
-  ]);
+    ]);
+  } catch (e) {
+    if (!isVersionRace(e)) throw e;
+    ins = { meta: { changes: 0 } }; // another writer took this version number first: treated as a stale base
+  }
   if (ins.meta?.changes !== 1) {
     const still = await env.DB.prepare("SELECT status FROM proposals WHERE id = ?1").bind(id).first();
     if (!still || still.status !== "submitted") throw new HttpError(409, DECIDED);

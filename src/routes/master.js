@@ -11,7 +11,7 @@ import { defaultAdvisorConfig, validateAdvisorConfig, ADVISOR_RULES, ADVISOR_THR
 import {
   MAP_BODY_MAX, SMALL_BODY_MAX, KEEP_MASTER_VERSIONS, NO_MASTER,
   writeLimit, checkData, intField, noteField, parseData, getSettings, setSetting,
-  currentMaster, masterInsert, masterConflict, masterForWrite, assertUnlocked,
+  currentMaster, masterInsert, masterConflict, masterForWrite, assertUnlocked, isVersionRace,
 } from "../lib/store.js";
 
 /** GET /api/catalog: the default departments, families, palette, thresholds, product map and item types. */
@@ -57,7 +57,13 @@ export async function getMaster(env) {
 /** Writes master version base+1 (or 409 / 423) and records it. */
 async function writeMaster(env, admin, fields, action) {
   const now = Date.now();
-  const res = await masterInsert(env, { ...fields, now, user: admin }).run();
+  let res;
+  try {
+    res = await masterInsert(env, { ...fields, now, user: admin }).run();
+  } catch (e) {
+    if (!isVersionRace(e)) throw e;
+    await masterConflict(env); // two writers raced for the same version: the loser is simply stale
+  }
   if (res.meta?.changes !== 1) await masterConflict(env);
   const version = fields.base + 1;
   await audit(env.DB, admin.id, action, `v${version}`);
@@ -91,7 +97,7 @@ export async function applyToMaster(request, env, sess) {
   const note = noteField(body.note);
   const mapId = requireId(body.mapId);
   const map = await env.DB.prepare(
-    "SELECT m.id, m.data, u.first_name AS owner_name FROM maps m LEFT JOIN users u ON u.id = m.owner_id WHERE m.id = ?1"
+    "SELECT m.id, m.owner_id, m.data, u.first_name AS owner_name FROM maps m LEFT JOIN users u ON u.id = m.owner_id WHERE m.id = ?1"
   )
     .bind(mapId)
     .first();
@@ -100,7 +106,7 @@ export async function applyToMaster(request, env, sess) {
   const r = applyChanges(cur ? parseData(cur.data) : { items: [], categories: [] }, parseData(map.data), vc.changes);
   if (!r.ok) throw new HttpError(400, r.error, { field: r.field, itemId: r.itemId ?? null, ...(r.category ? { category: r.category } : {}) });
   const data = checkData(r.data);
-  const out = await writeMaster(env, admin, { base, data, note, sourceMapId: map.id, sourceOwnerName: map.owner_name || null }, "master.apply");
+  const out = await writeMaster(env, admin, { base, data, note, sourceMapId: map.id, sourceOwnerId: map.owner_id, sourceOwnerName: map.owner_name || null }, "master.apply");
   return json({ ...out, applied: r.applied, addedCategories: r.addedCategories });
 }
 
