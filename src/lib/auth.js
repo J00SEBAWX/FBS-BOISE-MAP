@@ -93,8 +93,11 @@ export async function loadSession(env, request) {
     .first();
   if (!row) return null;
   if (now - row.last_seen_at > SLIDE_EVERY) {
+    // only the first of several requests arriving together writes: the others find last_seen_at already moved
     const exp = Math.min(now + SESSION_DAYS * DAY, row.absolute_expires_at);
-    await env.DB.prepare("UPDATE sessions SET last_seen_at = ?1, expires_at = ?2 WHERE token_hash = ?3").bind(now, exp, hash).run();
+    await env.DB.prepare("UPDATE sessions SET last_seen_at = ?1, expires_at = ?2 WHERE token_hash = ?3 AND last_seen_at < ?4")
+      .bind(now, exp, hash, now - SLIDE_EVERY)
+      .run();
   }
   return { user: row, tokenHash: hash };
 }

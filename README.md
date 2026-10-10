@@ -1,18 +1,31 @@
 # FBS Boise Store Map
 
-A private website that lets you look around the FBS Boise store the way a
-customer would. It lives at **https://franklinmap-boise.com**.
+A private website that shows the FBS Boise store in 3D and on a floor plan,
+in Franklin Building Supply's colours. It lives at
+**https://franklinmap-boise.com**.
 
-There are two views:
+The header has three displays:
 
-- **Walk** (opens first): you stand just inside the front door at eye height
-  and can look and walk around the store in 3D. The card in the top-right
-  corner tells you which part of the store you are in and what you are near.
-  The small map in the bottom-left shows where you are; tap it to walk there.
-- **Map**: the floor plan from above. Click any fixture to see what it is and
-  its size, then press **Go look at it** to walk over and face it.
+- **3D** (opens first): the whole store from above. Drag to turn around it,
+  right-drag (or two fingers) to move, scroll or pinch to zoom, double-click to
+  focus a spot. **Top view** looks straight down with north at the top;
+  **Reset view** goes back to the whole store. The 3D scan of the store is
+  drawn as a translucent purple "ghost" over the walls so you can see they line
+  up.
+- **Plan**: the floor plan from above. Click any fixture to see what it is,
+  its size and where it is, then press **Go look at it** to walk over and face it.
+- **Walk**: you stand just inside the front door at a customer's eye height and
+  can look and walk around. The card in the top-right corner tells you which
+  part of the store you are in; tap the small map to walk there.
 
-The map is view only. Nobody can change the layout from the website.
+**Measure / place** (in 3D and Plan) puts a cursor on the floor that snaps to
+the 6-inch grid, to wall faces and to columns, and shows where it is and how
+far it is to the nearest wall; click once for A and again for B to measure.
+**Layers** turns things on and off: the scan (Off / Ghost / Solid), structure,
+fixtures, ceiling, labels and (in Plan) the scan lines. The account menu has
+Theme (System / Light / Dark).
+
+The map is view only for now. Nobody can change the layout from the website yet.
 
 ## How people get in
 
@@ -93,32 +106,57 @@ These old secrets are no longer used and can be deleted: `MESHY_API_KEY`,
 
 | On a computer | |
 | --- | --- |
-| Drag with the mouse | Look around |
-| W A S D or the arrow keys | Walk (hold Shift to go faster) |
-| Q / E | Turn left / right |
-| Double-click the floor | Walk there |
-| Mouse wheel | Zoom in or out |
-| Space | Slow 360° look |
-| M | Switch between Walk and Map |
-| F (in Map) | Fit the whole store on screen |
+| 1 / 2 / 3 | Plan / 3D / Walk |
+| Drag, right-drag, wheel (3D) | Turn around the store, move across it, zoom |
+| Arrow keys | Move the view (3D, Plan) |
+| W A S D or the arrow keys (Walk) | Walk (hold Shift to go faster) |
+| Q / E (Walk) | Turn left / right |
+| Double-click | Focus that spot (3D) or walk there (Plan, Walk) |
+| F / T (3D) | Reset the view / top view, north up |
+| M | Measure / place (click A, then B; Esc clears) |
+| S | Snap on / off (3D, Plan) |
+| L | Labels on / off |
+| Space (Walk) | Slow 360° look |
 | ? | Show the controls |
 
-On a phone or tablet: drag to look around, tap the floor to walk there, and
-pinch to zoom. In the Map, drag to move around, pinch to zoom, tap a fixture
-for details and double-tap the floor to walk there.
+On a phone or tablet the tools are along the bottom of the screen: drag to
+turn or look around, two fingers to move, pinch to zoom, tap a fixture for
+details, tap the floor to walk there (Walk) or to place A and B (Measure).
 
 The button with your name (or the person icon on a phone) in the top-right
 corner has **Sign out**, and for you, **Admin dashboard**.
 
-## Changing the store layout
+## How the map is built
 
-Everything in the store (walls, doors, shelves, desks) is listed in
-`public/js/store-data.js`, one line per item. Each line gives the item's
-position (`x` = feet from the west wall, `y` = feet from the south wall),
-its size (`w` long, `d` deep, `h` tall) and its rotation in degrees (`rot`).
-Change the numbers, save the file, and the change shows up the next time the
-site is deployed (see below). The photos used on shelves and desks are in
-`public/tex/`.
+1. **The photo survey is the source of truth** for what is in the store: every
+   wall, door, column, shelf, rack, desk and display, with its position
+   (`x` = feet east of the inside of the west wall, `y` = feet north of the
+   inside of the south wall), size (`w` long, `d` deep, `h` tall) and
+   rotation (`rot`, degrees).
+2. **The 3D scan (Polycam / Apple RoomPlan) measured the building**: wall lines,
+   the recessed front wall with its covered porch, the north-east step,
+   Von's door and the ceiling heights. Where the scan agrees with the photos it
+   confirmed them; where it clearly measured something the photos can't show,
+   the master uses the scan and marks the item `src` and `toConfirm`. The
+   scanner's furniture guesses ("tables", "chairs", a "bed", a "fridge") and
+   its phantom walls (display faces it took for walls) were deleted: they are
+   never shown. Every change and every open question is in
+   `docs/measurements/` (start with its README).
+3. **The owner's marked-up original blueprint** (kept private, not in this
+   repository) was lined up with the map and used to confirm walls, doors and
+   raised floors the photos could not show: the stair core and old restroom
+   walls behind the cedar desk, Von's partition, the 1-step floor, the porch
+   piers and the north-east back room. See `docs/measurements/BLUEPRINT-RECON.md`.
+4. **The master layout** is the result: `public/data/master.json`, the one and
+   only copy (the database will be seeded from this same file later). The 3D
+   store, the plan and the walk are all drawn from it.
+5. **What is immutable**: the cleaned scan (`public/data/scan.glb`, and its plan
+   lines in `public/data/scan-overlay.json`) is the fixed reference. It is
+   drawn as it was measured, can only be shown or hidden (Off / Ghost /
+   Solid), and is never selectable or editable. The photos on shelves and desks
+   are in `public/tex/`.
+
+To change the layout today, edit `public/data/master.json` and deploy.
 
 ## Running it on your own computer
 
@@ -136,8 +174,9 @@ and open http://localhost:8787. To sign in as admin locally, run
 `--remote`, then open http://localhost:8787/login?setup=1.
 
 - `npm run check` runs a quick self-check of the files.
-- `npm test` starts a private local copy of the site with an empty database
-  and checks the sign-in rules, codes, removing people and security settings.
+- `npm test` checks the map's geometry, measuring and snapping code, then starts
+  a private local copy of the site with an empty database and checks the
+  sign-in rules, codes, removing people and security settings.
 
 ## How it gets published
 
@@ -160,9 +199,14 @@ once it has.)
 
 ## What's in this folder
 
-- `public/` – the website: the map (`index.html`, `css/`, `js/`, the store
-  photos in `tex/`, three.js in `vendor/`), the sign-in page (`login.*`), the
-  dashboard (`admin/`) and the shared fonts and styles (`assets/`).
+- `public/` – the website: the map (`index.html`, `css/app.css`, and `js/`:
+  `main.js` plus small ES modules in `core/` (geometry, feet and inches,
+  the layout model, snapping; no browser code, so the tests can load them),
+  `view3d/` (3D store, scan, cameras, picking), `plan2d/` (floor plan) and
+  `ui/`), the data in `data/`, the store photos in `tex/`, three.js r128 and
+  its glTF loader and orbit controls in `vendor/`, the sign-in page
+  (`login.*`), the dashboard (`admin/`) and the FBS design tokens, icons,
+  logo, fonts and shared styles (`assets/`, see `docs/DESIGN.md`).
 - `src/` – the Worker: it checks every request before anything is served
   (`worker.js`), plus sign-in, codes and dashboard code (`routes/`, `lib/`).
 - `migrations/` – the database tables.
@@ -170,4 +214,5 @@ once it has.)
 - `scripts/` – `check.mjs` (`npm run check`) and `setup-code.mjs`
   (`npm run setup-code`).
 - `test/` – the automatic checks behind `npm test`.
-- `docs/` – background notes from earlier work.
+- `docs/` – the UI design spec (`DESIGN.md`), the scan measurements
+  (`measurements/`) and background notes from earlier work (`handoff/`).

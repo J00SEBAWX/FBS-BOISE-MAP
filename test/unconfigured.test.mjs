@@ -26,7 +26,8 @@ test("without valid secrets every sign-in and session check answers 503", async 
     ["GET", "/api/me"],
     ["GET", "/api/admin/overview"],
     ["GET", "/"],
-    ["GET", "/js/app.js"],
+    ["GET", "/js/main.js"],
+    ["GET", "/data/scan.glb"],
     ["GET", "/admin/"],
   ]) {
     const r = await c.req(m, p, body);
