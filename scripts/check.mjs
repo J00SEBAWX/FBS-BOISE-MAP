@@ -1,5 +1,6 @@
 // Quick, dependency-free checks for the site. Run: npm run check
-//  1. every script parses (public/ classic scripts with vm, Worker/test/script modules with node --check)
+//  1. every script parses (public/ ES modules with node --check and their relative imports resolve; public/
+//     classic scripts with vm; Worker/test/script modules with node --check)
 //  2. nothing published mentions the old walk-around character
 //  3. no HTML page has inline scripts, inline styles or inline event handlers (the CSP blocks them)
 //  4. every src/href in the HTML pages points at a file in public/
@@ -27,10 +28,26 @@ function walk(dir) {
 const files = walk(pub);
 const isVendor = f => /^vendor[\\/]/.test(relative(pub, f));
 
-// 1a. browser scripts are classic scripts (no modules): parse them as such
+// 1a. browser scripts: the map's ES modules (public/js/**, they use import / export) are checked as modules
+// and every relative import must point at a file; the sign-in and admin pages are classic scripts
+const IS_MODULE = /^\s*(?:import\s*(?:[\w*{]|["'])|export\s)/m;
+const browserModules = [];
 for (const f of files.filter(f => f.endsWith(".js") && !isVendor(f))) {
-  try { new vm.Script(readFileSync(f, "utf8"), {filename: f}); }
-  catch (e) { fail(`${rel(f)}: syntax error: ${e.message}`); }
+  const src = readFileSync(f, "utf8");
+  if (IS_MODULE.test(src)) {
+    browserModules.push(f);
+    try { execFileSync(process.execPath, ["--check", f], {stdio: "pipe"}); }
+    catch (e) { fail(`${rel(f)}: syntax error (module)\n${String(e.stderr || e.message).trim()}`); }
+    for (const m of src.matchAll(/^\s*(?:import|export)\b[^"';]*?from\s*["']([^"']+)["']|^\s*import\s*["']([^"']+)["']/gm)) {
+      const spec = m[1] || m[2];
+      if (!spec.startsWith("./") && !spec.startsWith("../")) { fail(`${rel(f)}: import "${spec}" is not a relative path (no bare imports, no CDNs)`); continue; }
+      const target = resolve(dirname(f), spec);
+      if (!existsSync(target)) fail(`${rel(f)}: import "${spec}" points at a missing file`);
+    }
+  } else {
+    try { new vm.Script(src, {filename: f}); }
+    catch (e) { fail(`${rel(f)}: syntax error: ${e.message}`); }
+  }
 }
 // 1b. Worker code, tests and scripts are ES modules: node --check
 const modules = [...walk(join(root, "src")), ...walk(join(root, "test")), ...walk(join(root, "scripts"))].filter(f => /\.m?js$/.test(f));
@@ -101,4 +118,4 @@ if (problems.length) {
   console.error("check failed:\n  - " + problems.join("\n  - "));
   process.exit(1);
 }
-console.log(`check passed (${files.length} files in public/, ${modules.length} modules)`);
+console.log(`check passed (${files.length} files in public/, ${browserModules.length} browser modules, ${modules.length} Worker/test/script modules)`);

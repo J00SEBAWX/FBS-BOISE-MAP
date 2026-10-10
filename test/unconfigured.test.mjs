@@ -7,7 +7,7 @@ import { Client } from "./helpers/client.mjs";
 let dev;
 before(async () => {
   // deliberately bad values (a short PEPPER and a PHONE_KEY that isn't 32 bytes); they override any .dev.vars
-  dev = await startDev({ port: 8794, secrets: { pepper: "too-short", phoneKey: "bm90LTMyLWJ5dGVz" } });
+  dev = await startDev({ secrets: { pepper: "too-short", phoneKey: "bm90LTMyLWJ5dGVz" } });
 });
 after(async () => {
   if (dev) await dev.stop();

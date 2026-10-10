@@ -49,6 +49,14 @@ export async function overview(env) {
       WHERE u.role = 'member' AND u.status = 'approved'
       ORDER BY u.created_at DESC`
   ).all();
+  // map counts come from the maps table (migration 0005); without it the dashboard still works (mapCount null)
+  let counts = null;
+  try {
+    const { results } = await env.DB.prepare("SELECT owner_id, COUNT(*) AS n FROM maps GROUP BY owner_id").all();
+    counts = new Map((results || []).map((r) => [r.owner_id, r.n]));
+  } catch {
+    counts = null;
+  }
   const people = [];
   for (const u of members) {
     const e164 = (await decrypt(env, u.phone_enc)) || "";
@@ -59,6 +67,7 @@ export async function overview(env) {
       tel: e164,
       joinedAt: u.created_at,
       lastSeenAt: Math.max(u.last_seen_at || 0, u.last_login_at || 0) || null,
+      mapCount: counts ? counts.get(u.id) || 0 : null,
     });
   }
   return json({ codes, batchCreatedAt: latest ? latest.created_at : null, people });
@@ -92,14 +101,23 @@ export async function newSet(env, admin) {
   return json({ ok: true });
 }
 
-/** DELETE /api/admin/people/:id: removes a member and signs them out at once. The admin can't be removed. */
+/**
+ * DELETE /api/admin/people/:id: removes a member and signs them out at once, and deletes their maps and
+ * proposals. The admin can't be removed.
+ */
 export async function removePerson(env, admin, id) {
   requireId(id);
   const u = await env.DB.prepare("SELECT id FROM users WHERE id = ?1 AND role = 'member'").bind(id).first();
   if (!u) throw new HttpError(404, "Not found.");
-  // Sessions first, then anything left from the old planner (in case foreign keys aren't enforced), then the person.
+  // the maps tables exist once migration 0005 is applied; removing people must keep working before that
+  const { results: tables } = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('maps', 'proposals')").all();
+  const has = new Set((tables || []).map((t) => t.name));
+  // Sessions first, then their maps and proposals, then anything left from the old planner (in case foreign
+  // keys aren't enforced), then the person. One transaction.
   await env.DB.batch([
     env.DB.prepare("DELETE FROM sessions WHERE user_id = ?1").bind(id),
+    ...(has.has("proposals") ? [env.DB.prepare("DELETE FROM proposals WHERE owner_id = ?1").bind(id)] : []),
+    ...(has.has("maps") ? [env.DB.prepare("DELETE FROM maps WHERE owner_id = ?1").bind(id)] : []),
     env.DB.prepare("DELETE FROM grants WHERE viewer_id = ?1 OR owner_id = ?1").bind(id),
     env.DB.prepare("DELETE FROM grants WHERE build_id IN (SELECT id FROM builds WHERE owner_id = ?1)").bind(id),
     env.DB.prepare("DELETE FROM builds WHERE owner_id = ?1").bind(id),
