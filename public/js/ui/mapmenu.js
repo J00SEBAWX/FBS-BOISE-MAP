@@ -2,6 +2,7 @@
  * with the Master map, My maps (+ New map, Rename, Make a copy, Delete) and Team maps grouped by person, the save
  * status, and the New map / Rename / Delete dialogs. Names come from the API and are set with textContent. */
 import {h, icon, setIcon, clear, relTime, menuKeys, modal} from "./dom.js";
+import {statusInfo, proposalFor} from "../core/review.js";
 
 const MAX_MAPS = 30;
 
@@ -13,7 +14,7 @@ export function createMapMenu(o) {
   const btn = document.getElementById("mapBtn"), menu = document.getElementById("mapMenu");
   const nameEl = document.getElementById("mapName"), metaEl = document.getElementById("mapMeta"), icoEl = document.getElementById("mapBtnIcon");
   const status = document.getElementById("saveStatus"), statusIcon = document.getElementById("saveIcon"), statusText = document.getElementById("saveText");
-  let maps = {mine: [], team: []}, current = {id: "master"}, loaded = false, sharing = false;
+  let maps = {mine: [], team: []}, current = {id: "master"}, loaded = false, sharing = false, proposals = [];
 
   /* ---------- the button ---------- */
   function setCurrent(c) {
@@ -57,12 +58,20 @@ export function createMapMenu(o) {
         h("b", {text: master ? "Master map" : m.name}),
         h("span", {text: master ? [m.ownerName ? `${m.ownerName}` : "Confirmed layout", m.updatedAt ? relTime(m.updatedAt) : ""].filter(Boolean).join(" · ") : `Changed ${relTime(m.updatedAt) || "recently"}${m.itemCount != null ? ` · ${m.itemCount} items` : ""}`})),
       selected ? icon("i-check", "i mm-check") : null,
-      !mine && !master ? h("span", {class: "badge", text: "View only"}) : null);
+      !mine && !master ? h("span", {class: "badge", text: "View only"}) : null,
+      mine ? propBadge(m.id) : null);
     if (!mine) return h("div", {class: "mm-item"}, b);
     // own maps: a More menu (Rename, Make a copy, Delete)
     const more = h("button", {type: "button", class: "mm-more", role: "menuitem", tabindex: -1, aria: {label: `More actions for ${m.name}`, haspopup: "menu"},
       onclick: e => { e.stopPropagation(); openRowMenu(m, more); }}, icon("i-more"));
     return h("div", {class: "mm-item"}, b, more);
+  }
+  /** The review status of a map of your own ("Submitted", "Approved"…), as a small badge on its row. */
+  function propBadge(id) {
+    const p = proposalFor(id, proposals);
+    if (!p) return null;
+    const s = statusInfo(p.status);
+    return h("span", {class: "badge prop-badge " + s.cls, title: p.decisionNote ? `${s.label}: ${p.decisionNote}` : s.label}, icon(s.icon, "i i-sm"), s.label);
   }
   let rowMenu = null;
   function openRowMenu(m, anchor) {
@@ -230,6 +239,8 @@ export function createMapMenu(o) {
     get maps() { return maps; },
     setMaster(meta) { maps = {...maps, master: meta}; if (current.id === "master") setCurrent({...current, ...meta, id: "master"}); },
     setSharing(on) { sharing = !!on; },
+    /** The person's own proposals, so their map rows show "Submitted" / "Approved" / … */
+    setProposals(list) { proposals = list || []; if (isOpen()) render(); },
     /** The meta of a map in the lists (mine or team), or null. */
     find: id => maps.mine.find(m => m.id === id) || maps.team.find(m => m.id === id) || null,
   };

@@ -42,3 +42,11 @@ export function draftIds(storage) {
   } catch { /* no storage */ }
   return out;
 }
+
+/** Removes every draft (sign-out, or a 401: the next person on this device must not see this person's edits).
+ *  Returns how many were removed. */
+export function clearAllDrafts(storage) {
+  let n = 0;
+  try { for (const id of draftIds(storage)) { clearDraft(storage, id); n++; } } catch { /* no storage */ }
+  return n;
+}

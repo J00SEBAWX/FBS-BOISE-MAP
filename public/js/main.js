@@ -56,6 +56,8 @@ import {createInspector} from "./ui/inspector.js";
 import {createAddMenu, createDeptPalette, createCategoryDialog} from "./ui/palette.js";
 import {createComparePanel} from "./ui/compare.js";
 import {createAdvisorPanel} from "./ui/advisor.js";
+import {createReviewPanel} from "./ui/review.js";
+import {createProposalControl} from "./ui/proposals.js";
 import {h, icon} from "./ui/dom.js";
 import {initAccount} from "./account.js";
 
@@ -113,6 +115,10 @@ function start(me, overlay) {
     master: null, // {version, data, layout, cats, updatedAt, ownerName}: the master as Current layout / Comparison show it
     issues: collectIssues({items: []})};
   const isAdmin = me.role === "admin";
+  // the Review mode (proposals, master history) is the admin's; its tab is unhidden before the tabs are wired
+  app.dataset.admin = String(isAdmin); // six mode tabs need more header room than five (css collapses labels)
+  if (isAdmin) $("#mode-review").hidden = false;
+  else if (state.mode === "review") state.mode = "planning";
   const measure = createMeasure();
   const readout = createReadout();
   const help = initHelp();
@@ -133,6 +139,7 @@ function start(me, overlay) {
   function shown() {
     if (state.mode === "current" && state.master) return {layout: state.master.layout, cats: state.master.cats, doc: state.master.data};
     if (state.mode === "comparison") { const l = comparePanel.layoutOf("b"), d = comparePanel.docOf("b"); if (l && d) return {layout: l, cats: A.categoriesOf(d), doc: d}; }
+    if (state.mode === "review" && reviewPanel) { const l = reviewPanel.shownLayout(), d = reviewPanel.shownDoc(); if (l && d) return {layout: l, cats: A.categoriesOf(d), doc: d}; }
     return {layout: session.layout, cats: session.categories, doc: session.doc};
   }
   const shownLayout = () => shown().layout;
@@ -304,6 +311,7 @@ function start(me, overlay) {
   /** What a click on the plan does outside the editor: select (Blank slate, Advisor), pick a difference (Comparison), nothing (Current layout). */
   function planClick(it, opts) {
     if (state.mode === "comparison") { if (it) compareClick(it.id); return; }
+    if (state.mode === "review") { if (it && reviewPanel) reviewClick(it.id); return; }
     if (!allows().select) return;
     if (!it) session.clearSelection(); else session.select(it.id, {toggle: !!(opts && opts.toggle)});
   }
@@ -318,6 +326,8 @@ function start(me, overlay) {
       if (res) drawOverlays(ctx, V, res.overlays, advisorPanel.overlays, tok);
       drawIssues(ctx, V, session.layout, state.issues, tok, {markers: false});
       if (advisorPanel.shown) drawHighlight(ctx, V, advisorPanel.shown.show, session.layout, tok);
+    } else if (state.mode === "review" && reviewPanel && reviewPanel.diff) {
+      drawDiffOverlay(ctx, V, reviewPanel.diff, tok, {selected: reviewPanel.state.selected});
     }
   }
   let fitScale = 0;
@@ -644,9 +654,116 @@ function start(me, overlay) {
     onClose: () => closePanelSheet(),
   });
   let advisorLoaded = false;
-  function openPanelSheet() { const p = $(state.mode === "comparison" ? "#comparePanel" : "#advisorPanel"); p.classList.add("open"); $("#panelBtn").setAttribute("aria-expanded", "true"); const f = p.querySelector("button, select, input"); if (f) f.focus(); }
-  function closePanelSheet() { for (const p of [$("#comparePanel"), $("#advisorPanel")]) p.classList.remove("open"); $("#panelBtn").setAttribute("aria-expanded", "false"); }
+  function openPanelSheet() { const p = $(state.mode === "comparison" ? "#comparePanel" : state.mode === "review" ? "#reviewPanel" : "#advisorPanel"); p.classList.add("open"); $("#panelBtn").setAttribute("aria-expanded", "true"); const f = p.querySelector("button, select, input"); if (f) f.focus(); }
+  function closePanelSheet() { for (const p of [$("#comparePanel"), $("#advisorPanel"), $("#reviewPanel")]) p.classList.remove("open"); $("#panelBtn").setAttribute("aria-expanded", "false"); }
   $("#panelBtn").addEventListener("click", () => { const open = $("#panelBtn").getAttribute("aria-expanded") === "true"; if (open) closePanelSheet(); else openPanelSheet(); });
+
+  /* ================= Review (admin): proposals, any map vs the master, master history ================= */
+  let compareWith = null; // "open this map in Comparison" from the Review panel
+  const reviewPanel = !isAdmin ? null : createReviewPanel({
+    el: $("#reviewPanel"), toast, announce, isTouch: () => phoneMq.matches,
+    onClose: () => closePanelSheet(),
+    confirm: opts => mapMenu.confirm(opts),
+    loadProposals: () => api.proposals(),
+    loadProposal: id => api.proposal(id),
+    decide: (id, body) => api.decideProposal(id, body),
+    listMaps: () => api.maps(),
+    loadMap: id => api.map(id),
+    loadMasterMeta: () => api.master(),
+    history: () => api.masterHistory(),
+    historyVersion: v => api.masterVersion(v),
+    restore: (version, baseVersion) => api.restoreMaster(version, baseVersion),
+    onChange: what => onReviewChange(what),
+    onMasterChanged: () => {
+      state.master = null;
+      mapMenu.refresh();
+      refreshProposals();
+      if (state.map.id === "master" && !autosave.pending) openMap("master", {reload: true});
+    },
+    onCompare: id => { compareWith = id; setMode("comparison"); },
+  });
+  function onReviewChange(what) {
+    if (state.mode !== "review" || !reviewPanel) return;
+    if (what === "docs") {
+      plan.setLayout(shownLayout());
+      if (R) { dirty3D = true; if (!planView()) rebuild3D(); }
+    }
+    if (what === "selection") {
+      const row = reviewPanel.selectedRow(), b = row ? rowBounds(row) : null;
+      if (b) {
+        if (planView()) plan.fitBox({...b, x0: b.x0 - 12, x1: b.x1 + 12, y0: b.y0 - 12, y1: b.y1 + 12});
+        else if (orbit) orbit.focus({x: b.cx, y: b.cy});
+        if (R) { const id = row.id, after = row.after; blocks3d.setSelected(id && after && after.type === "area" ? [id] : []); const it = id ? shownLayout().byId.get(id) : null; cursor && cursor.select(it && it.type !== "area" ? it : null, it ? drawnHeight(it) : 0, it ? baseOf(shownLayout(), it) : 0); }
+      } else if (R) { blocks3d.setSelected([]); if (cursor) cursor.select(null); }
+      if (phoneMq.matches && row) closePanelSheet();
+    }
+    plan.draw();
+  }
+  /** A click on an item in Review picks its difference row, if it has one. */
+  function reviewClick(id) {
+    const diff = reviewPanel.diff; if (!diff) return;
+    const row = diff.rows.find(r => r.id === id);
+    if (row) { reviewPanel.select(rowKey(row)); reviewPanel.reveal(rowKey(row)); }
+  }
+
+  /* ================= proposals: "Submit for review" on a map of your own (rule 7) ================= */
+  const propCtl = createProposalControl({
+    chip: $("#propChip"), fab: null, dlg: $("#propDlg"), toast, announce,
+    flushSave: () => (autosave.pending ? autosave.flush() : Promise.resolve()),
+    submit: (mapId, note) => api.submitProposal(mapId, note),
+    withdraw: id => api.withdrawProposal(id),
+    refresh: () => refreshProposals(),
+    getMap: () => ({id: state.map.id, name: state.map.name, mine: state.map.mine, master: state.map.id === "master", canEdit: state.map.canEdit}),
+  });
+  let proposalsLoading = null;
+  function refreshProposals() {
+    if (proposalsLoading) return proposalsLoading;
+    proposalsLoading = (async () => {
+      try {
+        const r = await api.proposals();
+        const mine = (r.proposals || []).filter(p => p.mine);
+        propCtl.setProposals(mine);
+        mapMenu.setProposals(mine);
+      } catch { /* offline: the chip keeps what it has */ }
+      proposalsLoading = null;
+    })();
+    return proposalsLoading;
+  }
+
+  /* ================= admin settings: sharing and the master lock (in the account menu) ================= */
+  let adminSettings = null;
+  async function loadAdminSettings() {
+    if (!isAdmin) return;
+    try { adminSettings = await api.settings(); renderAcctSettings(); } catch { /* the dashboard still has them */ }
+  }
+  function renderAcctSettings() {
+    if (!isAdmin || !adminSettings) return;
+    const box = $("#acctSettings");
+    $("#setLabel").hidden = false;
+    box.hidden = false;
+    box.textContent = "";
+    const row = (label, hint, on, onToggle) => {
+      const b = h("button", {type: "button", class: "acct-set", role: "menuitemcheckbox", aria: {checked: on}, tabindex: -1,
+        onclick: async () => { b.disabled = true; try { await onToggle(!on); } catch (e) { toast(e instanceof ApiError && e.message ? e.message : "Couldn't change that setting."); } b.disabled = false; }},
+        h("span", {class: "as-text"}, h("b", {text: label}), h("span", {text: hint})),
+        h("span", {class: "sw-track", aria: {hidden: true}}, h("span", {class: "sw-knob"})));
+      return b;
+    };
+    box.appendChild(row("Share everyone's maps", adminSettings.shareMaps ? "The team sees each other's maps, read-only" : "Only you see the team's maps", !!adminSettings.shareMaps, async v => {
+      adminSettings = await api.putSettings({shareMaps: v});
+      renderAcctSettings(); mapMenu.refresh();
+      toast(v ? "Sharing is on: everyone sees everyone's maps, read-only." : "Sharing is off: people see only their own maps and the master.", {icon: "i-check"});
+    }));
+    box.appendChild(row("Lock the master map", adminSettings.masterLocked ? "Nobody can change it, you included" : "Changes to the master save new versions", !!adminSettings.masterLocked, async v => {
+      adminSettings = await api.putSettings({masterLocked: v});
+      renderAcctSettings();
+      toast(v ? "The master map is locked. Nobody can change it until you unlock it." : "The master map is unlocked.", {icon: v ? "i-lock" : "i-unlock"});
+      if (state.map.id === "master") openMap("master", {reload: true});
+      else syncLockBadge();
+    }));
+  }
+  function syncLockBadge() { $("#lockBadge").hidden = !(state.map.id === "master" && state.map.locked); }
+  $("#acctBtn").addEventListener("click", () => { if (isAdmin) loadAdminSettings(); });
 
   /* ================= maps: loading, switching, autosave ================= */
   const draftKey = () => state.map.id;
@@ -710,6 +827,15 @@ function start(me, overlay) {
   function syncReadOnlyBanner() {
     if (banner.kind && banner.kind !== "readonly") return;
     if (state.mode !== "planning" || state.map.canEdit) { banner.hide("readonly"); return; }
+    // the locked master: the admin would normally edit it here, so say why they can't (and offer the key)
+    if (state.map.id === "master" && state.map.locked && isAdmin) {
+      banner.show("readonly", [{text: "The master map is locked", bold: true}, {text: `${state.map.lockedByName ? ` by ${state.map.lockedByName}` : ""}. Nobody can change it until it's unlocked.`}],
+        [{label: "Unlock", primary: true, onClick: async () => {
+          try { adminSettings = await api.putSettings({masterLocked: false}); toast("The master map is unlocked.", {icon: "i-unlock"}); openMap("master", {reload: true}); }
+          catch (e) { toast(e instanceof ApiError ? e.message : "Couldn't unlock the master map."); }
+        }}]);
+      return;
+    }
     const id = state.map.id, who = id === "master" ? "the master map" : `${state.map.ownerName || "someone"}'s map`;
     banner.show("readonly", [{text: `Viewing ${who}`, bold: true}, {text: " (read-only)"}], [{label: "Make my own copy", primary: true, onClick: () => mapMenu.newMap({from: id === "master" ? "master" : "map", mapId: id === "master" ? null : id, name: id === "master" ? `My master copy` : `Copy of ${state.map.name}`.slice(0, 60)})}]);
   }
@@ -733,6 +859,9 @@ function start(me, overlay) {
       autosave.reset();
       state.map = next;
       state.master = null;
+      syncLockBadge();
+      propCtl.setMap({id: next.id, name: next.name, mine: next.mine, master: next.id === "master", canEdit: next.canEdit});
+      refreshProposals();
       suppressSave = true;
       session.setUnlocked(false);
       session.load(next.data, {building: next.data.building});
@@ -827,6 +956,7 @@ function start(me, overlay) {
       current: "Current layout: the master map as confirmed · hover an item for its name",
       comparison: "Tap a difference in the list, or click a changed item on the plan",
       advisor: "Show me highlights a recommendation · Apply makes the change on this map",
+      review: "Open a proposal in the list to see its changes against the master",
     }[state.mode];
     readout.hint({
       plan: m ? "Click to set A, click again for B · Esc clears" : modeHint || (edit ? "Click an item · drag to move · Shift-click adds · Delete removes · Ctrl+Z undoes · tap a department in the list to place it" : "Click an item for details · N steps through the items · double-click the floor to walk there"),
@@ -1040,6 +1170,7 @@ function start(me, overlay) {
   /** Switches the view mode (OWNER RULES v3.1 rule 4). The display stays; the layout shown and what is allowed follow the mode. */
   function setMode(m) {
     if (!isMode(m) || m === state.mode) return;
+    if (m === "review" && !isAdmin) return;
     const was = state.mode;
     editor.cancelGesture(); cancelPlacing(); editor.setShapeEdit(false);
     layers.close(false); addMenu.close(false); closeMore(); closePanelSheet();
@@ -1048,13 +1179,13 @@ function start(me, overlay) {
     app.dataset.mode = m;
     tabs.setMode(m);
     const a = allows();
-    if (!a.select || was === "comparison" || was === "advisor") session.clearSelection();
+    if (!a.select || was === "comparison" || was === "advisor" || was === "review") session.clearSelection();
     if (was === "advisor") { advisorPanel.clearShow(); if (overlays3d) { overlays3d.setOverlays(null, null, overlayColours()); overlays3d.setHighlight(null, overlayColours()); } }
     planOpts.editor = a.edit ? editor : null;
     app.dataset.edit = String(canEdit());
-    $("#panelBtnLabel").textContent = m === "comparison" ? "Changes" : "Advisor";
-    $("#panelBtn").setAttribute("aria-label", m === "comparison" ? "Changes: the comparison list" : "Advisor: scores and recommendations");
-    $("#panelBtn").querySelector("use").setAttribute("href", "/assets/icons.svg#" + (m === "comparison" ? "i-review" : "i-info"));
+    $("#panelBtnLabel").textContent = m === "comparison" ? "Changes" : m === "review" ? "Review" : "Advisor";
+    $("#panelBtn").setAttribute("aria-label", m === "comparison" ? "Changes: the comparison list" : m === "review" ? "Review: the proposals and the master's history" : "Advisor: scores and recommendations");
+    $("#panelBtn").querySelector("use").setAttribute("href", "/assets/icons.svg#" + (m === "advisor" ? "i-info" : m === "comparison" ? "i-duplicate" : "i-review"));
     mapMenu.setStatus(state.map.canEdit ? autosave.status() : "hidden");
     syncReadOnlyBanner();
     toolbar.sync();
@@ -1064,7 +1195,8 @@ function start(me, overlay) {
   /** Loads what a mode needs (the master, the comparison's maps, the advisor's settings) and redraws. */
   async function enterMode(m) {
     if (m === "current") { await loadMaster(false); if (state.mode !== "current") return; }
-    if (m === "comparison") { await comparePanel.open({a: "master", b: state.map.id !== "master" ? state.map.id : "master"}); if (state.mode !== "comparison") return; }
+    if (m === "comparison") { const b = compareWith || (state.map.id !== "master" ? state.map.id : "master"); compareWith = null; await comparePanel.open({a: "master", b}); if (state.mode !== "comparison") return; }
+    if (m === "review") { await reviewPanel.open(); if (state.mode !== "review") return; }
     if (m === "advisor") { if (!advisorLoaded) { advisorLoaded = true; await advisorPanel.loadConfig(); } else advisorPanel.run(); if (state.mode !== "advisor") return; }
     plan.setLayout(shownLayout());
     syncSide();
@@ -1129,7 +1261,7 @@ function start(me, overlay) {
     }
     if (e.altKey) return;
     if (e.key === "?") { e.preventDefault(); help.open(); return; }
-    const modeKeys = {Digit1: "blank", Digit2: "current", Digit3: "planning", Digit4: "comparison", Digit5: "advisor"};
+    const modeKeys = {Digit1: "blank", Digit2: "current", Digit3: "planning", Digit4: "comparison", Digit5: "advisor", Digit6: "review"};
     const viewKeys = {Digit1: "plan", Digit2: "3d", Digit3: "walk"};
     if (e.shiftKey && viewKeys[e.code]) { setView(viewKeys[e.code]); return; }
     if (modeKeys[e.code] && !e.shiftKey) { setMode(modeKeys[e.code]); return; }
@@ -1141,6 +1273,7 @@ function start(me, overlay) {
       if (editor.shapeEdit) { editor.setShapeEdit(false); inspector.render(true); return; }
       if (state.mode === "advisor" && advisorPanel.shown) { advisorPanel.clearShow(); plan.draw(); sync3DOverlays(); return; }
       if (state.mode === "comparison" && comparePanel.state.selected) { comparePanel.select(comparePanel.state.selected); return; }
+      if (state.mode === "review" && reviewPanel && reviewPanel.state.selected) { reviewPanel.select(reviewPanel.state.selected); return; }
       if ($("#panelBtn").getAttribute("aria-expanded") === "true") { closePanelSheet(); return; }
       session.clearSelection(); return;
     }
@@ -1189,7 +1322,7 @@ function start(me, overlay) {
     Promise.all(["600 12px 'Barlow Condensed'", "700 15px 'Barlow Condensed'", "500 11px 'IBM Plex Sans'", "600 11px 'IBM Plex Sans'"].map(f => document.fonts.load(f)))
       .then(() => { plan.retheme(); planA.retheme(); if (hud) hud.refresh(); }, () => {});
   }
-  phoneMq.addEventListener("change", () => { inspector.render(true); palette.render(); comparePanel.render(); advisorPanel.render(); });
+  phoneMq.addEventListener("change", () => { inspector.render(true); palette.render(); comparePanel.render(); advisorPanel.render(); if (reviewPanel) reviewPanel.render(); });
 
   /* ================= the frame loop: draws only when something changed ================= */
   let lastT = performance.now(), firstOrbit = true;
@@ -1227,7 +1360,8 @@ function start(me, overlay) {
     app.dataset.mode = state.mode;
     tabs.setMode(state.mode);
     planOpts.editor = allows().edit ? editor : null;
-    $("#panelBtnLabel").textContent = state.mode === "comparison" ? "Changes" : "Advisor";
+    $("#panelBtnLabel").textContent = state.mode === "comparison" ? "Changes" : state.mode === "review" ? "Review" : "Advisor";
+    if (isAdmin) loadAdminSettings();
     await openMap(isMapId(hs.map) ? hs.map : "master");
     if (webglAvailable() && session.layout.items.length) {
       try { init3D(); }
@@ -1252,7 +1386,7 @@ function start(me, overlay) {
     if (navigator.webdriver === true) {
       Object.defineProperty(window, "__fbsMap", {value: Object.freeze({state, session, get layout() { return session.layout; }, get frames() { return R ? R.frames : 0; }, get orbit() { return orbit; }, get walk() { return walk; },
         get scan() { return scan; }, get R() { return R; }, plan, planA, editor, layers, measure, autosave, setView, setMode, openMap, placeDepartment, startPlacing, act,
-        get compare() { return comparePanel; }, get advisor() { return advisorPanel; }, get issues() { return state.issues; }, get shownLayout() { return shownLayout(); },
+        get compare() { return comparePanel; }, get advisor() { return advisorPanel; }, get review() { return reviewPanel; }, get proposals() { return propCtl; }, get issues() { return state.issues; }, get shownLayout() { return shownLayout(); },
         snapPoint: p => snapPoint(p, session.snapTargets, {tol: 0.75}),
         pick: (cx, cy, opts) => (picker ? picker.pick(cx, cy, orbit.camera, opts) : null)})});
     }

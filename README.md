@@ -108,7 +108,7 @@ The header's map switcher opens the **master map** (the confirmed layout; only t
 your own maps (**New map**: a copy of the master, a blank store, or a copy of any map you can see). Your maps save
 by themselves about 1.5 s after each change ("Saved" in the header); unsaved edits are also kept on your device.
 
-Next to the switcher are two controls. The **view mode** (keys 1 to 5):
+Next to the switcher are two controls. The **view mode** (keys 1 to 6):
 
 | Mode | What it shows |
 | --- | --- |
@@ -117,13 +117,14 @@ Next to the switcher are two controls. The **view mode** (keys 1 to 5):
 | **Area planning** | Edit this map: place and shape the departments (the list on the left), move fixtures, unlock the structure. Blocks that overlap a wall, column, stairs, desk, doorway clearance or another block get a red outline, a message in the panel's Checks and a "3 warnings" chip that takes you to the first one. |
 | **Comparison** | Two layouts (the master and this map by default; any two you can see) side by side with the plans locked together, or as an overlay (green = added, grey dashed = removed, blue = moved / resized / rotated), with every difference listed in plain words. The admin can **Apply** a row, or **Apply all**, to the master. |
 | **Advisor** | Retail-flow checks on this map: an overall score, each principle with its reasoning, ranked recommendations with **Show me** (highlights the spot) and **Apply** (a one-tap move or resize you can undo), overlays (heat, sight lines, traffic paths, choke points, door zones, cold spots) and the assumptions behind every number (the admin can change and save them). |
+| **Review** (admin only) | The team's proposals (filter by status), any map against the master, and the master's history. Opening a proposal shows its differences from today's master with before/after ghosts; tick the rows to apply and **Approve**, or send it back with **Needs changes** or **Decline**, each with a note. Old master versions can be previewed and **Restored** (a restore saves a new version; nothing is deleted). |
 
 and the **display** (Shift+1 / 2 / 3): **Plan** (the floor from above), **3D** (orbit around the store) or **Walk**
 (a customer's eye height). Every mode works in every display.
 
 | On a computer | |
 | --- | --- |
-| 1 / 2 / 3 / 4 / 5 | Blank slate / Current layout / Area planning / Comparison / Advisor |
+| 1 / 2 / 3 / 4 / 5 / 6 | Blank slate / Current layout / Area planning / Comparison / Advisor / Review (admin) |
 | Shift+1 / 2 / 3 | Plan / 3D / Walk |
 | Click, Shift-click, drag on the floor (Plan) | Select, add to the selection, marquee select |
 | Arrows / Shift+arrows (something selected) | Nudge 6" / 5' |
@@ -143,11 +144,37 @@ and the **display** (Shift+1 / 2 / 3): **Plan** (the floor from above), **3D** (
 
 On a phone or tablet the modes scroll sideways under the header and the tools are along the bottom of the
 screen: drag to turn or look around, two fingers to move, pinch to zoom, tap a fixture for details, tap the floor
-to walk there (Walk) or to place A and B (Measure). In Comparison and Advisor the **Changes** / **Advisor** button
-opens the list as a sheet.
+to walk there (Walk) or to place A and B (Measure). In Comparison, Advisor and Review the **Changes** /
+**Advisor** / **Review** button opens the list as a sheet.
 
-The button with your name (or the person icon on a phone) in the top-right
-corner has **Sign out**, and for you, **Admin dashboard**.
+The button with your name (or the person icon on a phone) in the top-right corner has **Sign out**, and for you,
+**Admin dashboard** and the two **Map settings** switches (sharing, master lock).
+
+## How the planner works (for the team)
+
+- **Everyone gets their own maps.** Tap the map name in the header, then **New map**: a full copy of the master,
+  a blank store (walls, doors, columns, floors and stairs only), or a copy of any map you can see. You can have
+  30; rename or delete them from the same menu. Only you can change your maps, and they save by themselves —
+  "Saved" in the header means it's on the site, and unsaved edits are kept on your device even offline.
+- **The master map is the confirmed layout** the store will actually use. Everyone can open it (it's read-only
+  for members); only the admin can change it, and every change makes a new numbered version, so nothing is ever
+  lost.
+- **Propose your idea.** On a map of your own, press **Submit for review** in the header, say what you changed,
+  and send it. The chip then shows where it stands: **Submitted**, **Approved**, **Needs changes** or
+  **Declined**, with the admin's note. You can withdraw or re-submit any time; your map stays yours throughout.
+- **The admin reviews in the Review mode** (key 6): every proposal is listed with its differences from today's
+  master in plain words ("Moved 'SAFETY ISLE' 4' 6" north"). The admin can approve all of it, tick just the rows
+  to apply, ask for changes, or decline — always with a note back to you. Approved rows land on the master as a
+  new version that records whose map it came from.
+- **The master lock**: the admin can lock the master (admin dashboard or the account menu) so nobody — the admin
+  included — can change it while the team talks something over. The header shows a **Locked** badge and every
+  save answers "The master map is locked."
+- **Sharing**: normally you see only your own maps and the master. The admin can turn on "Share everyone's maps
+  with the team"; then everyone can open everyone's maps read-only (with a **View only** badge) and copy them.
+  The admin always sees all maps.
+- **View modes**: Blank slate to picture the empty floor, Current layout for today's confirmed store, Area
+  planning to edit, Comparison to see two layouts' differences, Advisor for retail-flow scores and one-tap
+  fixes, Review (admin) for proposals and history. The Plan / 3D / Walk displays work in every mode.
 
 ## How the map is built
 
@@ -179,7 +206,9 @@ corner has **Sign out**, and for you, **Admin dashboard**.
    Solid), and is never selectable or editable. The photos on shelves and desks
    are in `public/tex/`.
 
-To change the layout today, edit `public/data/master.json` and deploy.
+`public/data/master.json` seeds master version 1 (locally by `npm run seed-master`, in production by the steps
+in `docs/DEPLOY-PHASE2.md`); after that the layout lives in the database and is changed in the app (the admin
+edits the master or approves proposals — every change is a new version).
 
 ## Running it on your own computer
 

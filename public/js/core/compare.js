@@ -87,9 +87,10 @@ export function applyErrorText(status, message) {
 }
 
 /** "8 differences" / "1 difference" / "No differences" plus the from/to names. */
+const cap = s => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 export function countText(diff, aName, bName) {
   const n = diff ? diff.count.total : 0;
-  if (!n) return `No differences. ${bName} matches ${aName}.`;
+  if (!n) return `No differences. ${cap(bName)} matches ${aName}.`;
   return `${n} difference${n === 1 ? "" : "s"} in ${bName} from ${aName}. Tap one to see it on the plan.`;
 }
 

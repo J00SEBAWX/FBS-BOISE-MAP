@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 
 import { parseHash, buildHash, isMapId, VIEWS } from "../public/js/core/route.js";
 import { createAutosave } from "../public/js/core/autosave.js";
-import { saveDraft, loadDraft, clearDraft, draftIds } from "../public/js/core/drafts.js";
+import { saveDraft, loadDraft, clearDraft, draftIds, clearAllDrafts } from "../public/js/core/drafts.js";
 import { createSession, toLayout } from "../public/js/core/session.js";
 import { wallGaps, readoutsFor } from "../public/js/core/readouts.js";
 import { buildSnapTargets } from "../public/js/core/snap.js";
@@ -148,6 +148,19 @@ describe("drafts: unsaved edits kept on the device", () => {
     clearDraft(undefined, "m_1");
     const full = { setItem() { throw new Error("QuotaExceeded"); }, getItem: () => null, removeItem() {} };
     assert.equal(saveDraft(full, "m_1", { version: 1, data: { items: [] } }), false);
+  });
+
+  test("clearAllDrafts (sign-out) removes every draft and nothing else; a missing storage never throws", () => {
+    const st = memStorage();
+    saveDraft(st, "m_1", { version: 1, data: { items: [] } });
+    saveDraft(st, "m_2", { version: 4, data: { items: [{ id: "a" }] } });
+    st.setItem("fbs-layers-v2", "{}"); // an unrelated preference stays
+    assert.equal(clearAllDrafts(st), 2);
+    assert.deepEqual(draftIds(st), []);
+    assert.equal(st.getItem("fbs-layers-v2"), "{}");
+    assert.equal(st.length, 1);
+    assert.equal(clearAllDrafts(undefined), 0);
+    assert.equal(clearAllDrafts({ get length() { throw new Error("blocked"); } }), 0);
   });
 });
 

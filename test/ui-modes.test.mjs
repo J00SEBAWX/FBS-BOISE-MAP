@@ -43,7 +43,7 @@ describe("modes: what each mode shows and allows", () => {
     assert.equal(modeAllows("current").usesMaster, true);
     assert.equal(modeAllows("comparison").panel, "compare");
     assert.equal(modeAllows("advisor").panel, "advisor");
-    assert.ok(isMode("advisor") && !isMode("review"));
+    assert.ok(isMode("advisor") && isMode("review") && !isMode("nope")); // review is the Phase 4 admin mode
     for (const m of MODES) assert.ok(MODE_INFO[m].label && MODE_INFO[m].icon && MODE_INFO[m].hint);
   });
   test("modeLayers applies the rules over the person's choices", () => {
@@ -98,9 +98,9 @@ describe("compare: two layouts and the change list", () => {
     assert.deepEqual(groups.map(g => g.key), ["added", "removed", "changed", "category"]);
     const added = groups[0].rows[0], removed = groups[1].rows[0], changed = groups[2].rows[0], cat = groups[3].rows[0];
     assert.equal(rowKey(added), "i:new"); assert.equal(rowKey(cat), "c:c_seasonal");
-    assert.match(changed.text, /Moved 'Power Tools' 4'6" east/);
+    assert.match(changed.text, /Moved “Power Tools” 4'6" east/);
     assert.match(removed.text, /Removed department block/);
-    assert.match(cat.text, /New category 'Seasonal'/);
+    assert.match(cat.text, /New category “Seasonal”/);
     assert.equal(kindIcon(added), "i-add"); assert.equal(kindIcon(removed), "i-minus"); assert.equal(kindIcon(changed), "i-pencil"); assert.equal(kindIcon(cat), "i-add");
     assert.equal(kindIcon({ group: "changed", kinds: ["rotated"] }), "i-rotate");
     assert.deepEqual(ghostOf(cat), { before: null, after: null });
@@ -110,6 +110,8 @@ describe("compare: two layouts and the change list", () => {
     assert.equal(rowBounds(cat), null);
     assert.match(countText(diff, "the master map", "Dana's map"), /^4 differences in Dana's map from the master map/);
     assert.match(countText(compareDocs(A, A), "A", "B"), /^No differences/);
+    // the sentence after the count starts capitalised even when the name is "the master map"
+    assert.equal(countText(compareDocs(A, A), "the master map", "the master map"), "No differences. The master map matches the master map.");
     assert.equal(compareDocs(null, B), null);
   });
   test("state, pickers, who may apply and the error sentences", () => {

@@ -61,7 +61,7 @@ async function writeMaster(env, admin, fields, action) {
   try {
     res = await masterInsert(env, { ...fields, now, user: admin }).run();
   } catch (e) {
-    if (!isVersionRace(e)) throw e;
+    if (!(await isVersionRace(env, e, fields.base))) throw e;
     await masterConflict(env); // two writers raced for the same version: the loser is simply stale
   }
   if (res.meta?.changes !== 1) await masterConflict(env);

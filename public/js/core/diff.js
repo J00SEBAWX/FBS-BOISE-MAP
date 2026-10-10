@@ -37,7 +37,7 @@ const sqftText = v => `${Math.round(v).toLocaleString("en-US")} sq ft`;
 const signedSqft = v => (Math.abs(v) < 0.5 ? "same area" : `${v > 0 ? "+" : "-"}${Math.round(Math.abs(v)).toLocaleString("en-US")} sq ft`);
 const angleDiff = (a, b) => ((((b - a) % 360) + 540) % 360) - 180; // signed, in (-180, 180]
 const degText = v => `${Math.round(v * 10) / 10}°`;
-const q = s => `'${s}'`;
+const q = s => `“${s}”`; // curly quotes around names (DESIGN 6), like the Review panel
 const label = it => displayName(it).replace(/\s+/g, " ").trim() || (TYPES[it.type] || {}).label || "item";
 const typeWord = it => (it.type === "area" ? "department block" : ((TYPES[it.type] || {}).label || it.type).toLowerCase());
 const areaOf = it => (it.type === "area" ? blockArea(it) : it.w * it.d);

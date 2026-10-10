@@ -135,8 +135,10 @@ export function masterInsert(env, { base, data, now, user, sourceMapId = null, s
 }
 
 /** True for the error D1 raises when two writers insert the same master version at once (the loser gets 409). */
-export function isVersionRace(e) {
-  return /UNIQUE|PRIMARY KEY|constraint/i.test(String(e && e.message || e));
+export async function isVersionRace(env, e, base) {
+  if (/UNIQUE|PRIMARY KEY|constraint/i.test(String(e && e.message || e))) return true;
+  // any other database error while the master has moved past `base` also means another writer won
+  try { return (await masterVersion(env)) !== base; } catch { return false; }
 }
 
 /** After a master INSERT changed nothing: 423 if locked, else 409 with the current version. */

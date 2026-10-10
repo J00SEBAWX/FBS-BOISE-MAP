@@ -107,10 +107,16 @@ body{font:var(--text-md)/var(--leading-md) var(--font-body);overflow:hidden;over
 .menu [role="menuitem"] .i{color:var(--ink-muted);width:18px;height:18px;}
 .menu [role="menuitem"]:focus{background:var(--surface-3);outline:none;}
 .menu [role="menuitem"]:focus-visible,.menu-group button:focus-visible{outline:2px solid var(--focus);outline-offset:-2px;}
+/* the map menu's per-row "…" button is a menuitem too: keep it a narrow square (the generic rule above
+ * would stretch it to width:100% and crush the row's name beside it) */
+.menu .mm-more[role="menuitem"]{display:grid;place-items:center;width:36px;flex:none;padding:0;white-space:normal;}
 
 /* ---------- toolbar ---------- */
+/* one above --z-panel: the toolbar's popovers (Layers, Add, More) must paint over the inspector and the
+ * palette, which share --z-panel and come later in the DOM (the popovers' own --z-dropdown can't escape
+ * the toolbar's stacking context). */
 .toolbar{grid-area:tools;display:flex;align-items:center;gap:2px;padding:0 calc(var(--space-2) + var(--safe-r)) 0 calc(var(--space-2) + var(--safe-l));
-  background:var(--surface);border-bottom:1px solid var(--line);position:relative;z-index:var(--z-panel);min-width:0;}
+  background:var(--surface);border-bottom:1px solid var(--line);position:relative;z-index:calc(var(--z-panel) + 1);min-width:0;}
 .tool{display:inline-flex;align-items:center;gap:6px;height:var(--control-h);padding:0 10px;border:1px solid transparent;border-radius:var(--radius-sm);
   background:transparent;color:var(--ink);font-size:var(--text-sm);font-weight:500;white-space:nowrap;
   transition:background var(--dur-fast) var(--ease-standard);}
@@ -139,7 +145,8 @@ body{font:var(--text-md)/var(--leading-md) var(--font-body);overflow:hidden;over
 .app[data-mode="current"] [data-modes]:not([data-modes~="current"]),
 .app[data-mode="planning"] [data-modes]:not([data-modes~="planning"]),
 .app[data-mode="comparison"] [data-modes]:not([data-modes~="comparison"]),
-.app[data-mode="advisor"] [data-modes]:not([data-modes~="advisor"]){display:none!important;}
+.app[data-mode="advisor"] [data-modes]:not([data-modes~="advisor"]),
+.app[data-mode="review"] [data-modes]:not([data-modes~="review"]){display:none!important;}
 .app:not([data-view="walk"]) .only-walk{display:none!important;}
 .app:not([data-view="3d"]) .only-3d{display:none!important;}
 .app:not([data-side="true"]) .only-side{display:none!important;}
@@ -196,9 +203,9 @@ body{font:var(--text-md)/var(--leading-md) var(--font-body);overflow:hidden;over
 /* ---------- stage: palette | plan / 3D | inspector ---------- */
 .stage{grid-area:stage;position:relative;min-height:0;min-width:0;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) var(--inspector-w);background:var(--plan-bg);}
 .app[data-mode="planning"][data-view="plan"] .stage{grid-template-columns:var(--palette-w) minmax(0,1fr) var(--inspector-w);}
-.app[data-mode="comparison"] .stage,.app[data-mode="advisor"] .stage{grid-template-columns:var(--panel-w) minmax(0,1fr);}
+.app[data-mode="comparison"] .stage,.app[data-mode="advisor"] .stage,.app[data-mode="review"] .stage{grid-template-columns:var(--panel-w) minmax(0,1fr);}
 .app[data-view="walk"] .stage{grid-template-columns:minmax(0,1fr);}
-.app[data-mode="comparison"][data-view="walk"] .stage,.app[data-mode="advisor"][data-view="walk"] .stage{grid-template-columns:var(--panel-w) minmax(0,1fr);}
+.app[data-mode="comparison"][data-view="walk"] .stage,.app[data-mode="advisor"][data-view="walk"] .stage,.app[data-mode="review"][data-view="walk"] .stage{grid-template-columns:var(--panel-w) minmax(0,1fr);}
 .stage-main{position:relative;min-width:0;min-height:0;overflow:hidden;}
 .view{position:absolute;inset:0;overflow:hidden;}
 .three{position:absolute;inset:0;touch-action:none;cursor:grab;background:#d9dee0;}
@@ -499,7 +506,7 @@ dialog::backdrop{background:var(--scrim);}
   .wordmark{display:none;}
   .stage{grid-template-columns:minmax(0,1fr);}
   .app[data-mode="planning"][data-view="plan"] .stage{grid-template-columns:var(--palette-w) minmax(0,1fr);}
-  .app[data-mode="comparison"] .stage,.app[data-mode="advisor"] .stage,.app[data-mode="comparison"][data-view="walk"] .stage,.app[data-mode="advisor"][data-view="walk"] .stage{grid-template-columns:min(var(--panel-w),44vw) minmax(0,1fr);}
+  .app[data-mode="comparison"] .stage,.app[data-mode="advisor"] .stage,.app[data-mode="review"] .stage,.app[data-mode="comparison"][data-view="walk"] .stage,.app[data-mode="advisor"][data-view="walk"] .stage,.app[data-mode="review"][data-view="walk"] .stage{grid-template-columns:min(var(--panel-w),44vw) minmax(0,1fr);}
   /* the inspector becomes a right-hand drawer that slides in on selection */
   .inspector{position:absolute;right:0;top:0;bottom:0;width:var(--inspector-w);box-shadow:var(--shadow-3);z-index:var(--z-sheet);transform:translateX(100%);transition:transform var(--dur-slow) var(--ease-standard);}
   .inspector[data-sheet="peek"],.inspector[data-sheet="expanded"]{transform:none;}
@@ -510,6 +517,7 @@ dialog::backdrop{background:var(--scrim);}
   .icon-btn.small{width:var(--hit);height:var(--hit);}
   .pal-main{min-height:56px;}
   .mm-more,.pal-edit{opacity:1;width:var(--hit);}
+  .menu .mm-more[role="menuitem"]{width:var(--hit);}
 }
 
 /* ---------- phones (and touch windows under 1024px): tabs under the header, tools at the bottom ---------- */
@@ -517,17 +525,27 @@ dialog::backdrop{background:var(--scrim);}
   .app{grid-template-rows:auto minmax(0,1fr) calc(var(--bottombar-h) + var(--safe-b));grid-template-areas:"hdr" "stage" "tools";}
   .hdr{flex-wrap:wrap;gap:0 var(--space-2);padding-right:calc(var(--space-2) + var(--safe-r));padding-left:calc(var(--space-3) + var(--safe-l));}
   .hdr > *{margin-top:6px;}
+  /* a forced line break before the mode row (order 10/11 below): without it the modes only wrap when row 1
+   * happens to overflow (the map switcher shrinks to nothing), which crushed the map name for members and
+   * in landscape */
+  .hdr::after{content:"";order:9;flex-basis:100%;height:0;}
   .hdr-brand{height:44px;}
   .hdr-div,.hide-phone{display:none!important;}
   .only-phone{display:flex!important;}
-  .map-switch{flex:1 1 auto;min-width:0;}
+  .map-switch{flex:1 1 0;min-width:0;} /* basis 0: a long map name never wraps the avatar onto the next row */
+  .hdr > .spacer{flex:0 0 0;} /* the switcher takes the free width instead */
   .map-chip{width:100%;max-width:none;border:0;padding-left:0;}
   .map-menu{position:fixed;left:var(--gutter);right:var(--gutter);top:calc(var(--header-h) + var(--safe-t) + 4px);width:auto;max-height:calc(100dvh - var(--header-h) - var(--bottombar-h) - 32px);}
   .save-status{padding:0;width:var(--hit);justify-content:center;}
   .save-status span{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);}
   /* the bottom bar: 5 slots (Undo, Redo, Add / Departments, Measure, More) */
-  .toolbar{border-bottom:0;border-top:1px solid var(--line);padding:0 calc(var(--space-1) + var(--safe-r)) var(--safe-b) calc(var(--space-1) + var(--safe-l));gap:0;justify-content:space-around;z-index:var(--z-sheet);}
+  /* above the sheets (z-sheet + 1 is the inspector), so the Layers / Add / More bottom sheets paint on top */
+  .toolbar{border-bottom:0;border-top:1px solid var(--line);padding:0 calc(var(--space-1) + var(--safe-r)) var(--safe-b) calc(var(--space-1) + var(--safe-l));gap:0;justify-content:space-around;z-index:calc(var(--z-sheet) + 2);}
   .toolbar > *{flex:1 1 0;min-width:0;}
+  /* the Layers button lives in the fab + More menu on phones, but its popover (a bottom sheet) must stay
+   * in the page: only the button is hidden, and its wrap takes no slot in the bottom bar */
+  .toolbar > .layers-wrap{flex:0 0 0;}
+  .layers-wrap > #layersBtn{display:none!important;}
   .toolbar > .tb-div,.toolbar > .spacer{display:none!important;}
   .tool,.layers-wrap > .tool,.more-wrap > .tool{flex-direction:column;justify-content:center;gap:3px;height:56px;width:100%;padding:4px 2px;font-size:var(--text-xs);border-radius:var(--radius-md);}
   .tool span{display:block!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:-.02em;}
@@ -553,8 +571,10 @@ dialog::backdrop{background:var(--scrim);}
   .lbl3d{font-size:11px;}
   .map-banner{left:var(--gutter);right:var(--gutter);transform:none;width:auto;max-width:none;flex-wrap:wrap;padding:8px 10px;font-size:var(--text-sm);}
   .map-banner-actions{width:100%;justify-content:flex-end;}
+  /* the banner spans the top on phones and would cover the Fit / Layers fabs: move them below it */
+  .stage-main:has(> .map-banner:not([hidden])) .fabs{top:calc(var(--space-3) + 108px);}
   /* the inspector is a bottom sheet over the canvas, above the bottom bar */
-  .stage,.app[data-mode="planning"][data-view="plan"] .stage,.app[data-mode="comparison"] .stage,.app[data-mode="advisor"] .stage,.app[data-mode="comparison"][data-view="walk"] .stage,.app[data-mode="advisor"][data-view="walk"] .stage{grid-template-columns:minmax(0,1fr);}
+  .stage,.app[data-mode="planning"][data-view="plan"] .stage,.app[data-mode="comparison"] .stage,.app[data-mode="advisor"] .stage,.app[data-mode="review"] .stage,.app[data-mode="comparison"][data-view="walk"] .stage,.app[data-mode="advisor"][data-view="walk"] .stage,.app[data-mode="review"][data-view="walk"] .stage{grid-template-columns:minmax(0,1fr);}
   .inspector{position:absolute;left:0;right:0;top:auto;bottom:0;width:auto;height:46%;max-height:none;border-left:0;border-top:1px solid var(--line);border-radius:var(--radius-xl) var(--radius-xl) 0 0;box-shadow:var(--shadow-3);
     transform:translateY(100%);transition:transform var(--dur-slow) var(--ease-standard),height var(--dur-slow) var(--ease-standard);}
   .inspector[data-sheet="peek"]{transform:none;}
@@ -603,6 +623,8 @@ dialog::backdrop{background:var(--scrim);}
   .sheet-grab{display:none;}
   .hdr .modes,.hdr .tabs{border-top:0;margin-top:6px;}
   .mode-panel{height:auto;width:min(360px,50vw);}
+  /* the side drawer covers the middle of the plan: shift the empty-state card into the space that's left */
+  .app[data-sheet="peek"] #catsEmpty,.app[data-sheet="expanded"] #catsEmpty{left:calc(50% - min(160px,24vw));}
 }
 
 /* ---------- motion ---------- */
@@ -752,6 +774,8 @@ details[open] > summary .adv-chev{transform:rotate(180deg);}
 @media (max-width:767px),(pointer:coarse) and (max-width:1023px){
   .issue-chip.float-chip{display:inline-flex;}
   .issue-chip.float-chip[hidden]{display:none;}
+  /* while the inspector sheet is up it covers the chip (and holds the same warnings list): hide it */
+  .app[data-sheet="peek"] .issue-chip.float-chip,.app[data-sheet="expanded"] .issue-chip.float-chip{display:none;}
   .cmp-pick{grid-template-columns:1fr 1fr;}
   .cmp-swap{grid-column:1/-1;justify-self:start;}
   .app[data-side="true"] #viewPlanA{right:0;bottom:50%;border-right:0;border-bottom:2px solid var(--line-strong);}
@@ -761,4 +785,135 @@ details[open] > summary .adv-chev{transform:rotate(180deg);}
   .cmp-main:hover,.adv-prin-sum:hover,.adv-config-sum:hover{background:var(--surface-3);}
   .issue-chip:hover{background:var(--danger);color:#fff;}
   .issue-chip:hover .i{color:#fff;}
+}
+
+/* ---------- Phase 4: proposals, the Review mode, lock + sharing ---------- */
+/* the "Submit for review" / status chip in the header */
+.prop-chip{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 12px 0 9px;border:1px solid var(--line-strong);border-radius:var(--radius-full);background:var(--surface);color:var(--ink);font-size:var(--text-sm);font-weight:600;white-space:nowrap;}
+.prop-chip .i{color:var(--ink-muted);}
+.prop-chip.none{border-color:var(--accent-line);color:var(--accent-text);}
+.prop-chip.none .i{color:var(--accent-text);}
+.prop-chip.info{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-soft-ink);}
+.prop-chip.info .i{color:var(--accent-soft-ink);}
+.prop-chip.ok{background:var(--success-soft);border-color:var(--success);color:var(--success-soft-ink);}
+.prop-chip.ok .i{color:var(--success-text);}
+.prop-chip.warn{background:var(--warning-soft);border-color:var(--warning);color:var(--warning-soft-ink);}
+.prop-chip.warn .i{color:var(--warning);}
+.prop-chip.err{background:var(--danger-soft);border-color:var(--danger);color:var(--danger-soft-ink);}
+.prop-chip.err .i{color:var(--danger-text);}
+/* the proposal dialog */
+#propDlg .dialog{display:grid;gap:10px;}
+.prop-map{margin:-6px 0 0;font-size:var(--text-sm);}
+.prop-status{display:flex;align-items:center;gap:6px;margin:0;font-size:var(--text-sm);}
+.prop-status.ok .i{color:var(--success-text);}
+.prop-status.warn .i{color:var(--warning);}
+.prop-status.err .i{color:var(--danger-text);}
+.prop-status.info .i{color:var(--accent-text);}
+.prop-note{margin:0;padding:8px 10px;border-radius:var(--radius-md);background:var(--surface-2);font-size:var(--text-sm);white-space:pre-wrap;overflow-wrap:anywhere;}
+.prop-answer{background:var(--accent-soft);color:var(--accent-soft-ink);}
+/* status badges on the map menu's own rows */
+.badge.prop-badge{gap:4px;}
+.badge.prop-badge .i{width:12px;height:12px;}
+.badge.prop-badge.ok{background:var(--success-soft);border-color:var(--success);color:var(--success-soft-ink);}
+.badge.prop-badge.warn{background:var(--warning-soft);border-color:var(--warning);color:var(--warning-soft-ink);}
+.badge.prop-badge.err{background:var(--danger-soft);border-color:var(--danger);color:var(--danger-soft-ink);}
+.badge.prop-badge.info{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-soft-ink);}
+/* the master's lock badge in the header */
+.lock-badge{gap:4px;flex:none;background:var(--warning-soft);border-color:var(--warning);color:var(--warning-soft-ink);}
+.lock-badge .i{width:12px;height:12px;color:var(--warning);}
+/* the Review panel */
+.rv-sec-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 8px 4px;}
+.rv-sec-head .mp-group{margin:0;}
+.rv-filter,.rv-mapsel{min-height:36px;padding:4px 8px;font-size:var(--text-sm);}
+.rv-filter{width:auto;}
+.rv-pick{padding:0 8px;}
+.rv-row{display:flex;align-items:center;gap:10px;width:calc(100% - 0px);min-height:52px;padding:8px;border:0;border-top:1px solid var(--line);border-radius:var(--radius-md);background:transparent;color:var(--ink);text-align:left;}
+.rv-row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px;}
+.rv-go{flex:none;color:var(--ink-subtle);}
+.rv-current{align-self:center;flex:none;margin-right:6px;background:var(--success-soft);border-color:var(--success);color:var(--success-soft-ink);}
+.rv-hist .btn.small{flex:none;margin-right:4px;}
+.rv-back{display:inline-flex;align-items:center;gap:6px;margin:4px 8px;min-height:32px;padding:0 10px 0 6px;border:0;border-radius:var(--radius-md);background:transparent;color:var(--accent-text);font-size:var(--text-sm);font-weight:600;}
+.rv-detail-head{display:grid;gap:6px;margin:2px 8px 6px;}
+.rv-title-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.rv-title{margin:0;font-family:var(--font-display);font-size:var(--display-md);line-height:1.1;text-transform:uppercase;letter-spacing:var(--tracking-display);color:var(--ink-heading);overflow-wrap:anywhere;}
+.rv-status{min-height:22px;padding:0 8px;border-radius:var(--radius-full);border:1px solid var(--line);background:var(--surface-2);}
+.rv-status.ok{background:var(--success-soft);border-color:var(--success);}
+.rv-status.warn{background:var(--warning-soft);border-color:var(--warning);}
+.rv-status.err{background:var(--danger-soft);border-color:var(--danger);}
+.rv-status.info{background:var(--accent-soft);border-color:var(--accent-line);}
+.rv-check{display:grid;place-items:center;width:28px;min-height:44px;flex:none;}
+.rv-check input{width:18px;height:18px;accent-color:var(--accent);}
+.rv-tickrow{display:flex;justify-content:flex-end;margin:0 8px;}
+.rv-foot-row{display:flex;gap:8px;}
+.rv-foot-row .btn{flex:1;}
+.mp-foot .field label{font-size:var(--text-xs);font-weight:500;color:var(--ink-muted);}
+.mp-foot textarea{font-size:var(--text-sm);}
+.btn-link{border:0;background:transparent;padding:0;color:var(--accent-text);font-size:inherit;font-weight:600;text-decoration:underline;cursor:pointer;}
+.btn-link:focus-visible{outline:2px solid var(--focus);outline-offset:2px;}
+/* admin settings in the account menu */
+.acct-settings{display:grid;gap:2px;padding:0 4px 6px;border-bottom:1px solid var(--line);margin-bottom:4px;}
+.acct-set{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:var(--hit);padding:6px 8px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--ink);text-align:left;font-size:var(--text-sm);}
+.acct-set .as-text{display:grid;gap:1px;min-width:0;}
+.acct-set .as-text b{font-weight:600;}
+.acct-set .as-text span{font-size:var(--text-xs);color:var(--ink-muted);}
+.acct-set[aria-checked="true"] .sw-track{background:var(--accent);}
+.acct-set[aria-checked="true"] .sw-knob{transform:translateX(16px);}
+.acct-set:disabled{opacity:.6;}
+.acct-set:focus-visible{outline:2px solid var(--focus);outline-offset:-2px;}
+@media (max-width:767px),(pointer:coarse) and (max-width:1023px){
+  /* the chip collapses to its icon, like the save status */
+  .prop-chip{width:var(--hit);min-height:var(--hit);padding:0;justify-content:center;border:0;background:transparent!important;}
+  .prop-chip span{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);}
+  .prop-chip .i{width:20px;height:20px;}
+  .lock-badge span{display:none;}
+  .rv-row{min-height:56px;}
+}
+@media (hover:hover){
+  .rv-row:hover,.rv-back:hover{background:var(--surface-3);}
+  .prop-chip:hover{filter:brightness(.97);}
+}
+
+/* the header holds 6 mode tabs for the admin: below 1650px their labels fold into the icons (title + aria-label
+ * keep the names); for everyone the same happens below 1250px, where even 5 labelled tabs would squeeze the
+ * map switcher out. Phones (<768px) keep their own labelled, scrollable row. */
+@media (min-width:768px) and (max-width:1649px){
+  .app[data-admin="true"] .modes .mode-tab span{display:none;}
+  .app[data-admin="true"] .modes .mode-tab{padding:0 11px;}
+  .app[data-admin="true"] .hdr .modes .mode-tab .i{display:block;}
+}
+@media (min-width:768px) and (max-width:1449px){
+  .modes .mode-tab span{display:none;}
+  .modes .mode-tab{padding:0 11px;}
+  .hdr .modes .mode-tab .i{display:block;}
+}
+/* the account menu holds the admin's settings switches: a little wider so their hints breathe */
+.acct-menu{min-width:248px;}
+
+/* ---------- fixes from review round 1 ---------- */
+/* dark theme: the status fills (--success, --warning, --ink-subtle) are light there, so the score chips and
+ * the overall ring take dark ink instead of white (AA in both themes); .poor keeps white on the dark red,
+ * which is the same in both themes. */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .adv-overall-score:not(.poor),:root:not([data-theme="light"]) .score:not(.poor){color:var(--ink-inverse);}
+}
+:root[data-theme="dark"] .adv-overall-score:not(.poor),:root[data-theme="dark"] .score:not(.poor){color:var(--ink-inverse);}
+
+/* members see the advisor's assumptions read-only: the rule names are content to read, not disabled actions,
+ * so they keep readable ink (the switch track still looks inert) */
+.switch-row.readonly:disabled{color:var(--ink-muted);}
+
+/* touch screens: every Phase 2-4 control reaches the 44px target (the Phase 1 rules above cover the rest) */
+@media (pointer:coarse){
+  .btn.small,.link.small{min-height:var(--hit);}
+  .f-in,.finder-in{min-height:var(--hit);}
+  .seg button,.seg-wide button,.menu-group button{min-height:var(--hit);}
+  .cmp-pick select,.cmp-swap,.rv-filter,.rv-mapsel,.adv-margin{min-height:var(--hit);}
+  .adv-chip{min-height:var(--hit);}
+  .issue-chip.float-chip{min-height:var(--hit);}
+  .adv-rule .switch-row{min-height:var(--hit);}
+  /* colour swatches: 26px dots with a 44px hit area (the ::after) on a 44px pitch */
+  .swatches{gap:18px;}
+  .swatch,.swatch-wrap{position:relative;}
+  .swatch::after{content:"";position:absolute;inset:-9px;}
+  .swatch-wrap .swatch-other{inset:-9px;width:auto;height:auto;}
 }

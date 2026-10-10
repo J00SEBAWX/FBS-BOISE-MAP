@@ -29,25 +29,30 @@
       <button type="button" class="map-chip" id="mapBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="mapMenu" aria-label="Open map: Master map. Switch maps">
         <span class="map-chip-ico is-master"><svg class="i" id="mapBtnIcon" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-star"/></svg></span>
         <span class="map-chip-text"><b id="mapName">Master map</b><span id="mapMeta">Confirmed layout</span></span>
+        <span class="badge lock-badge" id="lockBadge" hidden><svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-lock"/></svg><span>Locked</span></span>
         <svg class="i i-sm hide-phone" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-chevron"/></svg>
       </button>
       <div class="menu map-menu" id="mapMenu" role="menu" aria-labelledby="mapBtn" hidden></div>
     </div>
     <div class="modes" role="tablist" aria-label="View mode">
-      <button type="button" class="tab mode-tab" role="tab" id="mode-blank" data-mode="blank" aria-selected="false" tabindex="-1" title="Blank slate: only the building's structure (1)">
+      <button type="button" class="tab mode-tab" role="tab" id="mode-blank" data-mode="blank" aria-selected="false" tabindex="-1" aria-label="Blank slate" title="Blank slate: only the building's structure (1)">
         <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-grid"/></svg><span>Blank slate</span>
       </button>
-      <button type="button" class="tab mode-tab" role="tab" id="mode-current" data-mode="current" aria-selected="false" tabindex="-1" title="Current layout: the master map as confirmed, read-only (2)">
+      <button type="button" class="tab mode-tab" role="tab" id="mode-current" data-mode="current" aria-selected="false" tabindex="-1" aria-label="Current layout" title="Current layout: the master map as confirmed, read-only (2)">
         <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-star"/></svg><span>Current layout</span>
       </button>
-      <button type="button" class="tab mode-tab" role="tab" id="mode-planning" data-mode="planning" aria-selected="true" title="Area planning: place departments and move fixtures on this map (3)">
+      <button type="button" class="tab mode-tab" role="tab" id="mode-planning" data-mode="planning" aria-selected="true" aria-label="Area planning" title="Area planning: place departments and move fixtures on this map (3)">
         <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-blocks"/></svg><span>Area planning</span>
       </button>
-      <button type="button" class="tab mode-tab" role="tab" id="mode-comparison" data-mode="comparison" aria-selected="false" tabindex="-1" title="Comparison: two layouts side by side or on top of each other, with every difference (4)">
-        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-review"/></svg><span>Comparison</span>
+      <button type="button" class="tab mode-tab" role="tab" id="mode-comparison" data-mode="comparison" aria-selected="false" tabindex="-1" aria-label="Comparison" title="Comparison: two layouts side by side or on top of each other, with every difference (4)">
+        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-duplicate"/></svg><span>Comparison</span>
       </button>
-      <button type="button" class="tab mode-tab" role="tab" id="mode-advisor" data-mode="advisor" aria-selected="false" tabindex="-1" title="Advisor: retail-flow scores and recommendations for this map (5)">
+      <button type="button" class="tab mode-tab" role="tab" id="mode-advisor" data-mode="advisor" aria-selected="false" tabindex="-1" aria-label="Advisor" title="Advisor: retail-flow scores and recommendations for this map (5)">
         <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-info"/></svg><span>Advisor</span>
+      </button>
+      <!-- admin only: unhidden before the tabs are wired, so members never reach it -->
+      <button type="button" class="tab mode-tab" role="tab" id="mode-review" data-mode="review" aria-selected="false" tabindex="-1" hidden aria-label="Review" title="Review: the team's proposals and the master's history (6)">
+        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-review"/></svg><span>Review</span>
       </button>
     </div>
     <div class="tabs" role="tablist" aria-label="Display">
@@ -62,6 +67,9 @@
       </button>
     </div>
     <span class="spacer"></span>
+    <button type="button" class="prop-chip" id="propChip" hidden aria-haspopup="dialog" aria-controls="propDlg">
+      <svg class="i i-sm" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-review"/></svg><span>Submit for review</span>
+    </button>
     <div class="save-status" id="saveStatus" role="status" aria-live="polite" hidden>
       <svg class="i" id="saveIcon" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-cloud-check"/></svg><span id="saveText">Saved</span>
     </div>
@@ -78,6 +86,8 @@
         <a role="menuitem" href="/admin/" id="acctAdmin" tabindex="-1" hidden>
           <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-user"/></svg>Admin dashboard
         </a>
+        <p class="menu-label" role="none" id="setLabel" hidden>Map settings</p>
+        <div class="acct-settings" role="group" aria-labelledby="setLabel" id="acctSettings" hidden></div>
         <p class="menu-label" role="none" id="themeLabel">Theme</p>
         <div class="menu-group" role="group" aria-labelledby="themeLabel">
           <button type="button" role="menuitemradio" aria-checked="true" data-theme-choice="system" tabindex="-1">System</button>
@@ -112,7 +122,7 @@
     <button type="button" class="tool only-phone slot slot-add" id="deptBtn" data-views="plan" data-modes="planning" aria-haspopup="dialog" aria-expanded="false" aria-controls="palette" aria-label="Departments" title="Departments">
       <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-blocks"/></svg><span>Departments</span>
     </button>
-    <button type="button" class="tool only-phone slot slot-add" id="panelBtn" data-views="plan 3d walk" data-modes="comparison advisor" aria-haspopup="dialog" aria-expanded="false" aria-label="Changes" title="Changes">
+    <button type="button" class="tool only-phone slot slot-add" id="panelBtn" data-views="plan 3d walk" data-modes="comparison advisor review" aria-haspopup="dialog" aria-expanded="false" aria-label="Changes" title="Changes">
       <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-review"/></svg><span id="panelBtnLabel">Changes</span>
     </button>
     <span class="tb-div hide-phone edit-only" data-views="plan 3d" aria-hidden="true"></span>
@@ -151,7 +161,8 @@
     <button type="button" class="tool toggle hide-phone" id="toolSnap" data-views="plan 3d" aria-pressed="true" aria-label="Snap" aria-keyshortcuts="S" title="Snap to the 6-inch grid, walls, columns and other blocks (S)">
       <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-snap"/></svg><span>Snap</span>
     </button>
-    <div class="layers-wrap hide-phone">
+    <!-- not hide-phone: the button hides on phones (CSS), but the popover doubles as the phone Layers sheet -->
+    <div class="layers-wrap">
       <button type="button" class="tool toggle" id="layersBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="layersPop" aria-label="Layers" title="Layers: what the map shows">
         <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-layers"/></svg><span>Layers</span>
         <svg class="i i-sm hide-phone" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-chevron"/></svg>
@@ -230,6 +241,7 @@
     <aside class="palette" id="palette" data-views="plan" data-modes="planning" role="dialog" aria-modal="false" aria-label="Departments"></aside>
     <aside class="palette mode-panel" id="comparePanel" data-modes="comparison" role="dialog" aria-modal="false" aria-label="Comparison"></aside>
     <aside class="palette mode-panel" id="advisorPanel" data-modes="advisor" role="dialog" aria-modal="false" aria-label="Advisor"></aside>
+    <aside class="palette mode-panel" id="reviewPanel" data-modes="review" role="dialog" aria-modal="false" aria-label="Review"></aside>
     <div class="stage-main" id="stageMain">
       <!-- 3D: Orbit (3D tab) and the customer's-eye Walk share one WebGL view -->
       <section class="view view-3d" id="view3d" role="tabpanel" aria-labelledby="tab-3d">
@@ -362,6 +374,8 @@
         <span>Area planning</span><span>Edit this map: departments, fixtures, structure (when unlocked)</span>
         <span>Comparison</span><span>Two layouts side by side or as an overlay, with the change list (the admin can apply changes to the master)</span>
         <span>Advisor</span><span>Retail-flow scores, recommendations (Show me, Apply) and overlays</span>
+        <span>Review (<span class="kbd">6</span>, admin)</span><span>The team's proposals against the master, approve / needs changes / decline, and the master's history with Restore</span>
+        <span>Submit for review</span><span>On a map of your own, the chip in the header sends it to the admin with a note; the chip then shows the answer</span>
       </div>
       <div class="kg">
         <h3>Anywhere</h3>
@@ -414,6 +428,9 @@
       <button type="button" class="btn danger solid" id="cfOk">Delete map</button>
     </div>
   </div>
+</dialog>
+<dialog id="propDlg" class="small-dialog" aria-label="Review">
+  <div class="dialog"></div>
 </dialog>
 <dialog id="catDlg" aria-labelledby="cdTitle">
   <form class="dialog" novalidate>

@@ -43,8 +43,9 @@ function tablist(tabs, attr, onSelect) {
  * selected (no callback) and keeps the hash in step; getMap() returns "master" | map id | null for the hash.
  */
 export function initTabs({onSelect, onMode, getMap}) {
-  const views = [...document.querySelectorAll('.tabs [role="tab"][data-view]')];
-  const modes = [...document.querySelectorAll('.modes [role="tab"][data-mode]')];
+  // hidden tabs (the admin-only Review mode for members) never get wired, so arrow keys skip them
+  const views = [...document.querySelectorAll('.tabs [role="tab"][data-view]')].filter(t => !t.hidden);
+  const modes = [...document.querySelectorAll('.modes [role="tab"][data-mode]')].filter(t => !t.hidden);
   let view = null, mode = DEFAULT_MODE;
   function writeHash() {
     const h = buildHash({view, mode, map: getMap ? getMap() : null});

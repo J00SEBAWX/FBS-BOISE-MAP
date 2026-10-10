@@ -15,10 +15,12 @@ export const MODE_INFO = Object.freeze({
     hint: "The confirmed master map as it is today: its departments and fixtures, read-only."}),
   planning: Object.freeze({label: "Area planning", short: "Planning", icon: "i-blocks", key: "3",
     hint: "Place and shape the departments on this map; move fixtures; everything you change is saved to this map."}),
-  comparison: Object.freeze({label: "Comparison", short: "Compare", icon: "i-review", key: "4",
+  comparison: Object.freeze({label: "Comparison", short: "Compare", icon: "i-duplicate", key: "4",
     hint: "Two layouts side by side or on top of each other, with every difference listed."}),
   advisor: Object.freeze({label: "Advisor", short: "Advisor", icon: "i-info", key: "5",
     hint: "Retail-flow checks on this map: scores, reasons and one-tap fixes."}),
+  review: Object.freeze({label: "Review", short: "Review", icon: "i-review", key: "6", adminOnly: true,
+    hint: "The team's proposals against the master map, and the master's history."}),
 });
 export const DISPLAY_INFO = Object.freeze({
   plan: Object.freeze({label: "Plan", icon: "i-plan", key: "P", title: "Plan: the floor from above"}),
@@ -39,6 +41,7 @@ export function modeAllows(mode) {
     case "current": return {edit: false, select: false, palette: false, inspector: true, panel: null, showsBlocks: true, showsFixtures: true, usesMaster: true};
     case "comparison": return {edit: false, select: false, palette: false, inspector: false, panel: "compare", showsBlocks: true, showsFixtures: true, usesMaster: false};
     case "advisor": return {edit: false, select: true, palette: false, inspector: false, panel: "advisor", showsBlocks: true, showsFixtures: true, usesMaster: false};
+    case "review": return {edit: false, select: false, palette: false, inspector: false, panel: "review", showsBlocks: true, showsFixtures: true, usesMaster: true};
     default: return {edit: true, select: true, palette: true, inspector: true, panel: null, showsBlocks: true, showsFixtures: true, usesMaster: false};
   }
 }
@@ -52,7 +55,7 @@ export function modeLayers(mode, L) {
   const out = {...L};
   if (!a.showsFixtures) { out.fixtures = false; out.faint = false; }
   if (!a.showsBlocks) out.categories = false;
-  else if (mode === "current" || mode === "comparison") out.categories = true;
+  else if (mode === "current" || mode === "comparison" || mode === "review") out.categories = true;
   if (mode === "blank") out.structure = true;
   return out;
 }
@@ -64,6 +67,7 @@ export function modeNotice(mode, {master = false, canEdit = false} = {}) {
     case "current": return "Current layout: the master map as confirmed today. It can't be changed here" + (master || !canEdit ? "." : "; your own map stays as it is.");
     case "comparison": return "Comparison: pick two layouts in the panel on the left; tap a difference to see it on the plan.";
     case "advisor": return "Advisor: the scores and recommendations are in the panel on the left. Show me highlights a spot; Apply makes the change on this map.";
+    case "review": return "Review: the team's proposals are in the panel on the left. Open one to see its differences from the master map.";
     default: return null;
   }
 }

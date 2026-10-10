@@ -173,7 +173,8 @@ export function createAdvisorPanel(o) {
     wrap.appendChild(h("h4", {class: "eyebrow adv-sub", text: "Rules and their weight"}));
     for (const r of rows.rules) {
       const row = h("div", {class: "adv-rule"});
-      row.appendChild(h("button", {type: "button", class: "switch-row", role: "switch", aria: {checked: r.enabled}, disabled: !editable, title: r.why, onclick: () => edit(v => { v.rules[r.key] = {...(v.rules[r.key] || {weight: r.weight}), enabled: !r.enabled}; })},
+      // read-only (members): .readonly keeps the rule names readable (it's content, not a disabled action)
+      row.appendChild(h("button", {type: "button", class: "switch-row" + (editable ? "" : " readonly"), role: "switch", aria: {checked: r.enabled, readonly: editable ? undefined : "true"}, disabled: !editable, title: r.why, onclick: () => edit(v => { v.rules[r.key] = {...(v.rules[r.key] || {weight: r.weight}), enabled: !r.enabled}; })},
         h("span", {class: "sw-label"}, h("b", {text: r.label})), h("span", {class: "sw-track", aria: {hidden: true}}, h("span", {class: "sw-knob"}))));
       row.appendChild(numberField("adv-w-" + r.key, "Weight", r.weight, {min: 0, max: 5, step: 0.5, unit: "× ", editable, onChange: v => edit(d => { d.rules[r.key] = {...(d.rules[r.key] || {enabled: r.enabled}), weight: v}; })}));
       wrap.appendChild(row);

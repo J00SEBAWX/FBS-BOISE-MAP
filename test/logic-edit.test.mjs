@@ -654,7 +654,7 @@ describe("collisions", () => {
     assert.deepEqual(C.checkItem(doc, block("b", 5, 5, 10, 10)), []); // corner block flush on the west and south walls
     const into = C.checkItem(doc, block("b", 4.5, 5, 10, 10));
     assert.deepEqual(kinds(into).filter((k) => k.includes("wall")), ["error:wall:ww"]);
-    assert.match(into.find((i) => i.kind === "wall").message, /^Overlaps the wall 'West wall' (at|near) grid A\d$/);
+    assert.match(into.find((i) => i.kind === "wall").message, /^Overlaps the wall “West wall” (at|near) grid A\d$/);
   });
 
   test("columns: plain-language grid reference, exact rotated test, polygon notches", () => {
@@ -688,7 +688,7 @@ describe("collisions", () => {
     const op = C.checkItem(doc, block("b", 55, 30, 8, 8));
     const o = op.find((i) => i.kind === "opening");
     assert.equal(o.severity, "warning");
-    assert.equal(o.message, "Blocks the opening 'Milwaukee doorway' - keep 3 ft clear");
+    assert.equal(o.message, "Blocks the opening “Milwaukee doorway” - keep 3 ft clear");
   });
 
   test("other departments, stairs and the octagonal sales desk", () => {
@@ -699,11 +699,11 @@ describe("collisions", () => {
     const other = issues.find((i) => i.kind === "block");
     assert.equal(other.severity, "error");
     assert.equal(other.otherId, a.id);
-    assert.equal(other.message, "Overlaps 'Power Tools' by 88 sq ft"); // 25 x 3.5 = 87.5, rounded
+    assert.equal(other.message, "Overlaps “Power Tools” by 88 sq ft"); // 25 x 3.5 = 87.5, rounded
     close(other.sqft, 25 * 3.5, 1e-6);
     // stairs st1: x 45..55, y 33..37
     const st = C.checkItem(doc, block("s", 50, 31, 6, 6));
-    assert.equal(st.find((i) => i.kind === "stairs").message, "Covers the stairs 'Stairs up' - keep stairs clear");
+    assert.equal(st.find((i) => i.kind === "stairs").message, "Covers the stairs “Stairs up” - keep stairs clear");
     // the desk is an octagon: a block in the cut-off corner of its bounding box doesn't touch it
     // desk box: x 7.3..22.7, y 25..35; the north-east corner cut runs from (20.95, 35) to (22.7, 33.25)
     const corner = block("c", 23, 35.3, 0.9, 0.9);
@@ -773,7 +773,7 @@ describe("diff", () => {
     const r = D.moveItems(MASTER, [safety.id], 0, 4.5);
     const d = F.diffMaps(MASTER, r.doc);
     assert.equal(d.changed.length, 1);
-    assert.equal(d.changed[0].text, "Moved 'SAFETY ISLE' 4'6\" north");
+    assert.equal(d.changed[0].text, "Moved “SAFETY ISLE” 4'6\" north");
     assert.deepEqual(d.changed[0].kinds, ["moved"]);
     assert.deepEqual(d.changes, [{ id: safety.id, action: "upsert" }]);
     assert.equal(F.compassText(-6, -2.5), "6' west and 2'6\" south");
@@ -790,7 +790,7 @@ describe("diff", () => {
     const p = toWorld(b24, b24.w / 2 + 4, 0);
     other = D.resizeItem(other, id, "e", p[0], p[1]).doc;
     let d = F.diffMaps(before, other);
-    assert.equal(d.changed[0].text, "Resized 'Power Tools' from 24' x 25' to 28' x 25' (+100 sq ft)");
+    assert.equal(d.changed[0].text, "Resized “Power Tools” from 24' x 25' to 28' x 25' (+100 sq ft)");
     assert.deepEqual(d.changed[0].kinds, ["resized"]);
     other = D.rotateItems(other, id, 90).doc;
     other = D.renameItem(other, id, "Power Tools (big)").doc;
@@ -799,13 +799,13 @@ describe("diff", () => {
     d = F.diffMaps(before, other);
     assert.deepEqual(d.changed[0].kinds, ["resized", "rotated", "renamed", "recoloured", "other"]);
     assert.deepEqual(d.changed[0].details.slice(1), [
-      "Rotated 'Power Tools (big)' 90° counter-clockwise (0° to 90°)",
-      "Renamed 'Power Tools' to 'Power Tools (big)'",
-      "Recoloured 'Power Tools (big)' from #cd5811 to #ff0000",
-      "Changed 'Power Tools (big)': notes",
+      "Rotated “Power Tools (big)” 90° counter-clockwise (0° to 90°)",
+      "Renamed “Power Tools” to “Power Tools (big)”",
+      "Recoloured “Power Tools (big)” from #cd5811 to #ff0000",
+      "Changed “Power Tools (big)”: notes",
     ]);
     const st = F.diffMaps(before, D.setField(before, id, "status", "confirmed").doc);
-    assert.equal(st.changed[0].text, "Marked 'Power Tools' confirmed");
+    assert.equal(st.changed[0].text, "Marked “Power Tools” confirmed");
   });
 
   test("a reshaped polygon block is one 'resized' row", () => {
@@ -815,7 +815,7 @@ describe("diff", () => {
     const other = A.movePolyPoint(base, id, 2, 80 + 12 + 3, 60 + 7.5).doc;
     const d = F.diffMaps(base, other);
     assert.deepEqual(d.changed[0].kinds, ["resized"]);
-    assert.match(d.changed[0].text, /^Reshaped 'Woodworking & Specialty Wood' \(now 4 corners, \d+ sq ft, \+\d+ sq ft\)$/);
+    assert.match(d.changed[0].text, /^Reshaped “Woodworking & Specialty Wood” \(now 4 corners, \d+ sq ft, \+\d+ sq ft\)$/);
   });
 
   test("added and removed rows; applying every change to the base reproduces the other map", () => {
@@ -827,10 +827,10 @@ describe("diff", () => {
     other = D.moveItems(other, ["i52"], -2, 0).doc;
     const d = F.diffMaps(MASTER, other);
     assert.deepEqual(d.removed.map((r) => r.id).sort(), [...removedIds].sort());
-    assert.match(d.removed.find((r) => r.id === "i51").text, /^Removed shelving aisle 'SAFETY ISLE'$/);
+    assert.match(d.removed.find((r) => r.id === "i51").text, /^Removed shelving aisle “SAFETY ISLE”$/);
     assert.equal(d.added.length, 2);
-    assert.equal(d.added[1].text, "Added department block 'Power Tools' (700 sq ft) near grid F3");
-    assert.match(d.added[0].text, /^Added shelving aisle 'Gondola' \(16' x 4'\) (at|near) grid D2$/);
+    assert.equal(d.added[1].text, "Added department block “Power Tools” (700 sq ft) near grid F3");
+    assert.match(d.added[0].text, /^Added shelving aisle “Gondola” \(16' x 4'\) (at|near) grid D2$/);
     assert.equal(d.text, "2 added, 2 removed, 1 changed");
     const res = applyChanges(MASTER, valid(other), d.changes);
     assert.ok(res.ok);
@@ -856,16 +856,16 @@ describe("diff", () => {
     other = A.resetCategory(other, "paint_finishing").doc;
     const d = F.diffMaps(valid(base), valid(other));
     const row = (k) => d.categories.find((r) => r.category === k);
-    assert.equal(row(garden.key).text, "New category 'Garden Center' (target 300 sq ft)");
+    assert.equal(row(garden.key).text, "New category “Garden Center” (target 300 sq ft)");
     assert.deepEqual(row(garden.key).kinds, ["added"]);
     assert.deepEqual(row("hand_tools").kinds, ["renamed", "recoloured", "target"]);
-    assert.equal(row("hand_tools").details[0], "Renamed category 'Hand Tools & Measuring' to 'Hand Tools'");
-    assert.equal(row("hand_tools").details[2], "Target for 'Hand Tools' 200 sq ft to 260 sq ft");
+    assert.equal(row("hand_tools").details[0], "Renamed category “Hand Tools & Measuring” to “Hand Tools”");
+    assert.equal(row("hand_tools").details[2], "Target for “Hand Tools” 200 sq ft to 260 sq ft");
     assert.deepEqual(row("pneumatic_air").kinds, ["hidden"]);
-    assert.equal(row("pneumatic_air").text, "Hid 'Pneumatic & Air Systems'");
+    assert.equal(row("pneumatic_air").text, "Hid “Pneumatic & Air Systems”");
     assert.deepEqual(row("paint_finishing").kinds, ["target"]);
     assert.deepEqual(row("paint_finishing").changes, [{ category: "paint_finishing", action: "delete" }]);
-    assert.equal(row(old.key).text, "Removed category 'Old Stuff' and its 1 block");
+    assert.equal(row(old.key).text, "Removed category “Old Stuff” and its 1 block");
     assert.deepEqual(row(old.key).changes, [{ category: old.key, action: "delete" }, { id: oldBlock.id, action: "delete" }]);
     // apply everything: the master becomes the other map
     const res = applyChanges(valid(base), valid(other), d.changes);

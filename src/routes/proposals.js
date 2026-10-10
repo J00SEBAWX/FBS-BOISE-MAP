@@ -186,7 +186,7 @@ export async function decide(request, env, sess, id) {
     decided("AND EXISTS (SELECT 1 FROM master_versions WHERE version = ?8 AND created_at = ?2 AND created_by = ?3)", [version, id, version]),
     ]);
   } catch (e) {
-    if (!isVersionRace(e)) throw e;
+    if (!(await isVersionRace(env, e, base))) throw e;
     ins = { meta: { changes: 0 } }; // another writer took this version number first: treated as a stale base
   }
   if (ins.meta?.changes !== 1) {

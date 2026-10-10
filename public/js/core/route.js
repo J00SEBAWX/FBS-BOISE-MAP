@@ -6,7 +6,7 @@
  * Parts may come in any order; unknown parts are ignored. The old one-word hashes (#plan, #3d, #walk) still
  * work, and the Phase 2 "#categories" opens the plan in Area Planning. */
 export const VIEWS = Object.freeze(["plan", "3d", "walk"]);
-export const MODES = Object.freeze(["blank", "current", "planning", "comparison", "advisor"]);
+export const MODES = Object.freeze(["blank", "current", "planning", "comparison", "advisor", "review"]);
 export const DEFAULT_MODE = "planning";
 const MAP_ID = /^m_[A-Za-z0-9_-]{1,60}$/;
 

@@ -75,7 +75,8 @@ export function createLayers({btn, pop, onChange}) {
   }
   const fixRadios = () => [...pop.querySelectorAll("[data-fix]")];
   const isOpen = () => !pop.hidden;
-  const visible = el => !!el.offsetParent;
+  // getClientRects, not offsetParent: the popover is position:fixed on phones (a bottom sheet), where offsetParent is null
+  const visible = el => el.getClientRects().length > 0;
   function open() {
     sync(); pop.hidden = false; btn.setAttribute("aria-expanded", "true");
     const first = [...pop.querySelectorAll("button")].find(b => visible(b) && b.tabIndex >= 0);

@@ -191,7 +191,7 @@ const SEVERITY = {
 
 /* ---------- plain-language messages ---------- */
 const nameOf = it => displayName(it).replace(/\s+/g, " ").trim();
-const q = s => `'${s}'`;
+const q = s => `“${s}”`; // curly quotes around names, like the diff and Review panels
 const clearText = c => (Math.abs(c - Math.round(c)) < 1e-9 ? `${Math.round(c)} ft` : formatFtIn(c, {compact: true}));
 function message(kind, other, at, sqft, clear) {
   const n = nameOf(other), g = at ? gridRef(at[0], at[1]) : "";

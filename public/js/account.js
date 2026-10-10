@@ -5,6 +5,7 @@
  * The session is checked again whenever the tab comes back into view (and every few minutes while it's
  * visible), so someone the admin removed doesn't keep an open map. */
 import {getTheme, setTheme} from "./ui/theme.js";
+import {clearAllDrafts} from "./core/drafts.js";
 
 export function initAccount() {
   const box = document.getElementById("acct"), btn = document.getElementById("acctBtn"), menu = document.getElementById("acctMenu");
@@ -14,7 +15,7 @@ export function initAccount() {
   if (!box || !btn || !menu) return;
   let role = "member";
 
-  const items = () => [...menu.querySelectorAll("[role=menuitem],[role=menuitemradio]")].filter(el => !el.hidden);
+  const items = () => [...menu.querySelectorAll("[role=menuitem],[role=menuitemradio],[role=menuitemcheckbox]")].filter(el => !el.hidden);
   const isOpen = () => !menu.hidden;
   function open(focus) {
     syncTheme();
@@ -61,6 +62,8 @@ export function initAccount() {
     outItem.disabled = true;
     try { await fetch("/api/logout", {method: "POST", credentials: "same-origin", cache: "no-store", headers: {"X-FBS": "1"}}); }
     catch { /* the cookie may still be cleared; go to the sign-in page either way */ }
+    // unsaved drafts hold this person's map edits: never leave them for the next person on this device
+    try { clearAllDrafts(localStorage); } catch { /* no storage */ }
     location.replace("/login");
   }
   // members: ask first (in a modal, so the map's keys don't fire behind it)
@@ -87,7 +90,7 @@ export function initAccount() {
     checking = true;
     fetch("/api/me", {credentials: "same-origin", cache: "no-store"})
       .then(r => {
-        if (r.status === 401) { location.replace("/login"); return null; } // signed out or removed
+        if (r.status === 401) { try { clearAllDrafts(localStorage); } catch { /* no storage */ } location.replace("/login"); return null; } // signed out or removed
         return r.ok ? r.json() : null;
       })
       .then(m => {
