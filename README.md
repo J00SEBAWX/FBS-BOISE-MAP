@@ -104,9 +104,31 @@ These old secrets are no longer used and can be deleted: `MESHY_API_KEY`,
 
 ## Controls
 
+The header's map switcher opens the **master map** (the confirmed layout; only the admin changes it) or any of
+your own maps (**New map**: a copy of the master, a blank store, or a copy of any map you can see). Your maps save
+by themselves about 1.5 s after each change ("Saved" in the header); unsaved edits are also kept on your device.
+
+Next to the switcher are two controls. The **view mode** (keys 1 to 5):
+
+| Mode | What it shows |
+| --- | --- |
+| **Blank slate** | Only the building's structure: walls, columns, doors, stairs and the sales desks. Read-only. |
+| **Current layout** | The master map as confirmed today, with its departments and fixtures. Read-only. |
+| **Area planning** | Edit this map: place and shape the departments (the list on the left), move fixtures, unlock the structure. Blocks that overlap a wall, column, stairs, desk, doorway clearance or another block get a red outline, a message in the panel's Checks and a "3 warnings" chip that takes you to the first one. |
+| **Comparison** | Two layouts (the master and this map by default; any two you can see) side by side with the plans locked together, or as an overlay (green = added, grey dashed = removed, blue = moved / resized / rotated), with every difference listed in plain words. The admin can **Apply** a row, or **Apply all**, to the master. |
+| **Advisor** | Retail-flow checks on this map: an overall score, each principle with its reasoning, ranked recommendations with **Show me** (highlights the spot) and **Apply** (a one-tap move or resize you can undo), overlays (heat, sight lines, traffic paths, choke points, door zones, cold spots) and the assumptions behind every number (the admin can change and save them). |
+
+and the **display** (Shift+1 / 2 / 3): **Plan** (the floor from above), **3D** (orbit around the store) or **Walk**
+(a customer's eye height). Every mode works in every display.
+
 | On a computer | |
 | --- | --- |
-| 1 / 2 / 3 | Plan / 3D / Walk |
+| 1 / 2 / 3 / 4 / 5 | Blank slate / Current layout / Area planning / Comparison / Advisor |
+| Shift+1 / 2 / 3 | Plan / 3D / Walk |
+| Click, Shift-click, drag on the floor (Plan) | Select, add to the selection, marquee select |
+| Arrows / Shift+arrows (something selected) | Nudge 6" / 5' |
+| Ctrl+Z / Ctrl+Shift+Z, Ctrl+D, Delete, R | Undo / redo, duplicate, delete, rotate 90° |
+| V / H / M | Select / Pan / Measure tool |
 | Drag, right-drag, wheel (3D) | Turn around the store, move across it, zoom |
 | Arrow keys | Move the view (3D, Plan) |
 | W A S D or the arrow keys (Walk) | Walk (hold Shift to go faster) |
@@ -115,13 +137,14 @@ These old secrets are no longer used and can be deleted: `MESHY_API_KEY`,
 | F / T (3D) | Reset the view / top view, north up |
 | M | Measure / place (click A, then B; Esc clears) |
 | S | Snap on / off (3D, Plan) |
-| L | Labels on / off |
+| L / G | Labels / grid on / off |
 | Space (Walk) | Slow 360° look |
 | ? | Show the controls |
 
-On a phone or tablet the tools are along the bottom of the screen: drag to
-turn or look around, two fingers to move, pinch to zoom, tap a fixture for
-details, tap the floor to walk there (Walk) or to place A and B (Measure).
+On a phone or tablet the modes scroll sideways under the header and the tools are along the bottom of the
+screen: drag to turn or look around, two fingers to move, pinch to zoom, tap a fixture for details, tap the floor
+to walk there (Walk) or to place A and B (Measure). In Comparison and Advisor the **Changes** / **Advisor** button
+opens the list as a sheet.
 
 The button with your name (or the person icon on a phone) in the top-right
 corner has **Sign out**, and for you, **Admin dashboard**.

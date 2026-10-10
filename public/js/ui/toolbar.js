@@ -2,7 +2,7 @@
  * move between the tools that show in the current view (docs/DESIGN.md 10: "role=toolbar with roving tabindex").
  * The Layers popover inside it keeps its own keys. */
 export function initToolbar(bar) {
-  const all = () => [...bar.querySelectorAll(":scope > button, :scope > .layers-wrap > button")];
+  const all = () => [...bar.querySelectorAll(":scope > button, :scope > .layers-wrap > button, :scope > .add-wrap > button, :scope > .more-wrap > button")];
   const shown = () => all().filter(b => b.offsetParent);
   let current = null;
   function sync() {

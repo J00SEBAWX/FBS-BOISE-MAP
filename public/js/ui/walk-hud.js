@@ -7,6 +7,7 @@ import {drawPlan, drawWalker, readPlanTokens, s2w} from "../plan2d/plan.js";
 const SKIP_NEAR = new Set(STRUCTURE_TYPES.filter(t => t !== "door" && t !== "arch" && t !== "opening"));
 
 export function createWalkHud({layout, walk, getLayers, announce}) {
+  // `layout` is swapped by setLayout when the open map changes (Phase 2)
   const mini = document.getElementById("mini"), mctx = mini.getContext("2d");
   const zoneEl = document.getElementById("locZone"), nearEl = document.getElementById("locNear");
   const {L, W} = layout.building;
@@ -63,6 +64,7 @@ export function createWalkHud({layout, walk, getLayers, announce}) {
     frame(now) { updateLocation(now); drawMini(false); },
     refresh() { MN.base = null; tok = readPlanTokens(); drawMini(true); updateLocation(performance.now(), true); },
     invalidate() { MN.base = null; },
+    setLayout(l) { layout = l; MN.base = null; lastZone = null; },
     arrived,
   };
 }

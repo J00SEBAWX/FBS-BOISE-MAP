@@ -19,14 +19,15 @@ const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 /* ======================================================================================= */
 export function createWalk({R, layout, nav, toast, onArrive}) {
   const THREE = R.THREE;
+  // the open map can change (Phase 2: editing, switching maps): setLayout swaps these in place
   const camera = new THREE.PerspectiveCamera(62, 1, 0.2, 900);
   const start = startPose(layout);
   const ME = {x: start.x, y: start.y, z: 0, yaw: start.yaw, look: 0, heading: start.yaw, path: [], target: null, face: null};
   const CAM = {fov: 62, halfH: rad(45), zoomed: false, aspect: 1.6};
   const S = {spin: false, dragging: false, ceilingOn: true, moved: true};
   const keys = new Set();
-  const walls = layout.items.filter(it => it.type === "wall");
-  const solids = layout.items.filter(it => (TYPES[it.type] || {}).blocks || it.type === "door" || it.type === "opening" || it.type === "arch");
+  let walls = layout.items.filter(it => it.type === "wall");
+  let solids = layout.items.filter(it => (TYPES[it.type] || {}).blocks || it.type === "door" || it.type === "opening" || it.type === "arch");
 
   // destination ring on the floor (FBS Blue: "the tool talking")
   const markerGeo = new THREE.RingGeometry(0.7, 1.0, 40), markerMat = new THREE.MeshBasicMaterial({color: lin("#006CB4"), transparent: true, opacity: 0.9, side: THREE.DoubleSide});
@@ -221,6 +222,13 @@ export function createWalk({R, layout, nav, toast, onArrive}) {
     setCeiling(on) { S.ceilingOn = on; },
     resize(w, h) { CAM.aspect = w / h || 1.6; applyFov(); markMoved(); },
     show(on) { marker.visible = on && !!(ME.path.length && ME.target); if (on) markMoved(); },
+    /** A new layout (and its walkable grid): the walker stays where it is, but stops any path it was on. */
+    setLayout(l, n) {
+      layout = l; nav = n;
+      walls = l.items.filter(it => it.type === "wall");
+      solids = l.items.filter(it => (TYPES[it.type] || {}).blocks || it.type === "door" || it.type === "opening" || it.type === "arch");
+      ME.path = []; ME.target = null; marker.visible = false; markMoved();
+    },
     dispose() { detach(); R.scene.remove(marker); markerGeo.dispose(); markerMat.dispose(); },
   };
   return api;
