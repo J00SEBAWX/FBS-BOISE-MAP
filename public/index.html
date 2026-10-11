@@ -288,11 +288,13 @@
           <button type="button" class="fab" id="fabFit" aria-label="Fit the store" title="Fit the store"><svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-fit"/></svg></button>
           <button type="button" class="fab" id="fabLayers" aria-label="Layers" title="Layers"><svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-layers"/></svg></button>
         </div>
+        <!-- placing a department: which one, and what to do on the floor (main.js startPlacing) -->
+        <div class="place-chip" id="placeChip" role="status" aria-live="polite" hidden></div>
         <button type="button" class="issue-chip float-chip" id="issueFab" hidden title="Show the first warning"><svg class="i i-sm" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-warning"/></svg><span id="issueFabText">3 warnings</span></button>
         <div class="empty-state" id="catsEmpty" hidden>
           <span class="empty-ico"><svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-blocks"/></svg></span>
           <h2>No departments placed yet</h2>
-          <p>Tap a department in the list to place it on the plan.</p>
+          <p>Tap a department in the list, then drag on the floor where it goes.</p>
           <button type="button" class="btn primary only-phone" id="catsEmptyBtn">Show departments</button>
         </div>
       </section>

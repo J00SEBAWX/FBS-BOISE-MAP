@@ -46,7 +46,7 @@ export function createAddMenu(o) {
       const list = h("div", {class: "add-list one"});
       for (const c of o.session.categories.filter(c => !c.hidden)) list.appendChild(deptRow(c, placed.has(c.key)));
       pop.appendChild(list);
-      pop.appendChild(h("p", {class: "pop-hint", text: o.hint3d && o.hint3d() ? "Pick a department, then click the floor to place it." : "The block goes in the middle of the map you can see; drag it where it belongs."}));
+      pop.appendChild(h("p", {class: "pop-hint", text: o.hint3d && o.hint3d() ? "Pick a department, then click the floor to place it." : "Pick a department, then drag on the floor where it goes."}));
       return;
     }
     pop.appendChild(h("p", {class: "pop-title", text: "Add"}));
@@ -71,8 +71,10 @@ export function createAddMenu(o) {
 
 /* ======================================================================= the Departments palette (Categories tab) */
 /**
- * createDeptPalette({el, session, onPlace(key), onSelectBlock(id), onEdit(key), onNew(), onFixtures(mode), getFixtures() -> "on" | "faint" | "off",
- *                    isDark(), canEdit(), onFind(result)}) -> {render()}
+ * createDeptPalette({el, session, onPlace(key), placingKey() -> key | null, onSelectBlock(id), onEdit(key), onNew(), onFixtures(mode),
+ *                    getFixtures() -> "on" | "faint" | "off", isDark(), canEdit(), onFind(result)}) -> {render()}
+ * placingKey(): the department the person has picked and is about to draw on the floor; its row says so, and
+ * tapping it again calls off the placing (onPlace with the same key).
  */
 export function createDeptPalette(o) {
   const {el, session} = o;
@@ -116,18 +118,22 @@ export function createDeptPalette(o) {
     if (!touch) head.appendChild(seg);
     clear(list);
     const selIds = new Set(session.selection);
+    const placingKey = o.placingKey ? o.placingKey() : null;
     for (const r of S.rows) {
       if (r.hidden) continue;
       const cat = categoryFor(session.doc, r.key, session.categories);
       const col = colourOf(cat, o.isDark());
       const selected = r.blocks.some(id => selIds.has(id));
-      const meta = !r.placed ? "Not placed yet" : `${r.blocks.length > 1 ? `${r.blocks.length} spots · ` : ""}${formatSqft(r.sqft)}${r.targetSqft > 0 ? ` of ${formatSqft(r.targetSqft).replace(" sq ft", "")}` : ""}${r.status === "under" ? " · under" : r.status === "over" ? " · over" : ""}`;
-      const row = h("div", {class: "pal-row" + (selected ? " selected" : ""), role: "listitem"},
-        h("button", {type: "button", class: "pal-main", aria: {label: `${cat.name}: ${meta}. ${r.placed ? "Select it on the plan" : "Place it"}`},
-          onclick: () => (r.placed ? o.onSelectBlock(r.blocks[0]) : (o.canEdit() ? o.onPlace(r.key) : o.toast && o.toast("This map is view only. Make your own copy to place departments.")))},
+      const placing = placingKey === r.key;
+      const meta = placing ? "Drag on the floor where it goes" : !r.placed ? "Not placed yet" : `${r.blocks.length > 1 ? `${r.blocks.length} spots · ` : ""}${formatSqft(r.sqft)}${r.targetSqft > 0 ? ` of ${formatSqft(r.targetSqft).replace(" sq ft", "")}` : ""}${r.status === "under" ? " · under" : r.status === "over" ? " · over" : ""}`;
+      // a placed department can still get another spot (Shift-click, or its Place again button): the main button selects it
+      const row = h("div", {class: "pal-row" + (selected ? " selected" : "") + (placing ? " placing" : ""), role: "listitem"},
+        h("button", {type: "button", class: "pal-main", aria: {label: `${cat.name}: ${meta}. ${placing ? "Tap again to cancel" : r.placed ? "Select it on the plan" : "Place it"}`, pressed: placing || undefined},
+          onclick: () => (r.placed && !placing ? o.onSelectBlock(r.blocks[0]) : (o.canEdit() ? o.onPlace(r.key) : o.toast && o.toast("This map is view only. Make your own copy to place departments.")))},
           h("span", {class: "swatch-sm", style: {"--c": col}, aria: {hidden: true}}),
-          h("span", {class: "pal-text"}, h("b", {text: cat.name}), h("span", {class: "pal-meta" + (r.status === "under" || r.status === "over" ? " warn" : ""), text: meta})),
-          r.placed ? h("span", {class: "pal-ok"}, icon("i-check"), h("span", {class: "sr-only", text: "Placed"})) : (o.canEdit() ? h("span", {class: "pal-place", aria: {hidden: true}}, icon("i-add", "i i-sm"), h("span", {class: "pal-place-t", text: "Place"})) : null)),
+          h("span", {class: "pal-text"}, h("b", {text: cat.name}), h("span", {class: "pal-meta" + (placing ? " placing" : r.status === "under" || r.status === "over" ? " warn" : ""), text: meta})),
+          placing ? h("span", {class: "pal-place on", aria: {hidden: true}}, icon("i-close", "i i-sm"), h("span", {class: "pal-place-t", text: "Cancel"}))
+            : r.placed ? h("span", {class: "pal-ok"}, icon("i-check"), h("span", {class: "sr-only", text: "Placed"})) : (o.canEdit() ? h("span", {class: "pal-place", aria: {hidden: true}}, icon("i-add", "i i-sm"), h("span", {class: "pal-place-t", text: "Place"})) : null)),
         h("button", {type: "button", class: "pal-edit", aria: {label: `Edit category ${cat.name}`}, title: "Edit category", onclick: () => o.onEdit(r.key)}, icon("i-pencil")));
       list.appendChild(row);
     }
@@ -142,7 +148,7 @@ export function createDeptPalette(o) {
     clear(foot);
     if (touch) { foot.appendChild(totals); foot.appendChild(seg); }
     else if (o.canEdit()) foot.appendChild(h("button", {type: "button", class: "btn small wide", onclick: () => o.onNew()}, icon("i-add"), "New category"));
-    foot.appendChild(h("p", {class: "pal-hint", text: o.canEdit() ? "Tap a department to place it in the middle of the map you can see, then drag it where it belongs." : "View only: tap a placed department to see it."}));
+    foot.appendChild(h("p", {class: "pal-hint", text: o.canEdit() ? "Tap a department, then drag on the floor where it goes. A single tap on the floor drops it at its usual size." : "View only: tap a placed department to see it."}));
   }
   return {render};
 }

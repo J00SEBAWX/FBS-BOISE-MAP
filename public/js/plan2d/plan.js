@@ -493,7 +493,7 @@ export function createPlanView(o) {
     if (ed && o.getTool() === "select") ed.dblclick({wx, wy, item: it}); else o.onGo(wx, wy, it);
   });
   // touches are handled as pointer events above; stop the browser's follow-up mouse clicks / dblclick
-  canvas.addEventListener("touchend", e => e.preventDefault(), {passive: false});
+  canvas.addEventListener("touchend", e => { if (e.cancelable) e.preventDefault(); }, {passive: false}); // a touchend the browser already settled can't be cancelled (it only logs a warning)
   canvas.addEventListener("wheel", e => { e.preventDefault(); const [sx, sy] = offsetOf(e); zoomAt(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015)), sx, sy); }, {passive: false});
   canvas.addEventListener("contextmenu", e => { if (editor()) e.preventDefault(); });
 

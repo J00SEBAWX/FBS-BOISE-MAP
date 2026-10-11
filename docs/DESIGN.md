@@ -413,11 +413,17 @@ the right. Grid: `var(--palette-w) minmax(0,1fr) var(--inspector-w)`.
   meta (12px `--ink-muted`: "613 sq ft" or "Not placed yet"), and on the right either a `--success` `i-check`
   (with sr-only "Placed") or a "+ Place" affordance (28px, `--accent-line` border, `--accent-text`). Selected
   department row: `--accent-soft` with a 1px `--accent-line` inset.
-- Tap a not-placed department: places a block of its catalog starting size in the middle of the part of the map the
-  person can see (on a phone, above the open sheet), moved inside the building and to the nearest spot clear of walls,
-  columns, stairs, desks, doorways and other blocks, so repeats never stack; selects it. Tap a placed one: selects it and pans to it. A department can be placed more than once (Split into
-  two); the meta then reads "2 spots · 640 sq ft".
-- Footer hint: "Tap a department to place it in the middle of the map you can see, then drag it where it belongs."
+- Tap a not-placed department (or Place on any row): arms it. Its row turns `--accent-soft` with the meta "Drag on the
+  floor where it goes" and a Cancel affordance; a chip at the top of the plan (`--accent-soft`, swatch + name + "Drag on
+  the floor where it goes. A click drops its usual size." + Cancel) says what to do; the cursor is a crosshair; on a phone
+  the Departments sheet closes and the plan fits the screen. The next press on the floor draws the block (finger or
+  mouse): a dashed rectangle in the department's colour with a pill "20' 0" × 12' 0" · 240 sq ft" at its centre, corners
+  on the 6-inch grid while Snap is on (Alt = free). Lifting creates exactly that block, kept inside the walls, and selects it
+  (toast "Power Tools placed · 240 sq ft. 9 more to go."). A tap, or anything smaller than 2 × 2 ft, drops the catalog
+  starting size centred on the tap instead. Esc, Cancel, the row again or a second finger (pinch) cancels. In the 3D view the
+  same pick + click-the-floor flow with a ghost block applies. Tap a placed one: selects it and pans to it. A department can
+  be placed more than once (Split into two); the meta then reads "2 spots · 640 sq ft".
+- Footer hint: "Tap a department, then drag on the floor where it goes. A single tap on the floor drops it at its usual size."
 
 **Department inspector**: header = swatch + eyebrow "DEPARTMENT · <family>", name, "Placed by AJ · 12 min ago".
 Sections: **Area** (big number "613 sq ft" in Barlow Condensed 700 28px + "24' 6" × 25' 0"", and "Suggested size for

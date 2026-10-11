@@ -41,7 +41,7 @@ import {createBlocks3D} from "./view3d/blocks.js";
 import {createOverlays3D} from "./view3d/overlays.js";
 import {createPlanView} from "./plan2d/plan.js";
 import {createPlanEditor} from "./plan2d/editor.js";
-import {catMap} from "./plan2d/blocks.js";
+import {catMap, colourOf} from "./plan2d/blocks.js";
 import {drawIssues} from "./plan2d/issues-draw.js";
 import {drawDiffOverlay, drawSideGhost} from "./plan2d/compare-draw.js";
 import {drawOverlays, drawHighlight} from "./plan2d/advisor-draw.js";
@@ -306,6 +306,9 @@ function start(me, overlay) {
     snapOn: () => layers.get().snap, touch: isTouch, multiMode: () => state.multi, dimensionsOn: () => layers.get().dimensions,
     onDblClick: it => { if (it) { session.select(it.id); inspector.focusFirst(); } },
     onGesture: kind => { app.dataset.gesture = kind || ""; if (!kind) syncStatus(); },
+    // placing a department on the plan: the palette arms it (startPlacing), the editor draws it, placeDrawn drops it
+    placing: () => (state.placing && planView() ? state.placing : null),
+    onPlaced: (key, r) => placeDrawn(key, r),
   });
   planOpts.editor = editor; // the plan reads it at event time, so the two can know each other (null in read-only modes)
   // the second plan of Comparison's side-by-side display (the base layout A), locked to the main one
@@ -430,7 +433,8 @@ function start(me, overlay) {
       $("#planLive").textContent = `${displayName(it)}, ${(TYPES[it.type] || {}).label || it.type}, ${formatFtIn(it.w)} by ${formatFtIn(it.d)}, at ${formatFtIn(it.x)} east, ${formatFtIn(it.y)} north${warn}`;
     } else { readout.selection(`${items.length} selected`); $("#planLive").textContent = `${items.length} items selected`; }
   }
-  function syncEmpty() { $("#catsEmpty").hidden = !(state.mode === "planning" && planView() && canEdit() && !session.doc.items.some(it => it.type === "area")); }
+  // the "no departments yet" card steps aside while one is being placed: the floor under it is where it goes
+  function syncEmpty() { $("#catsEmpty").hidden = !(state.mode === "planning" && planView() && canEdit() && !state.placing && !session.doc.items.some(it => it.type === "area")); }
   function syncToolbar() {
     const n = session.selected().filter(it => !session.isLocked(it)).length;
     $("#btnUndo").disabled = !session.history.canUndo() || !canUndo();
@@ -573,7 +577,8 @@ function start(me, overlay) {
     el: $("#palette"), session, canEdit, toast, isDark, isTouch: () => phoneMq.matches,
     getFixtures: () => layers.fixMode(),
     onFixtures: mode => layers.setFixtures(mode),
-    onPlace: key => placeDepartment(key),
+    onPlace: key => (planView() || state.view === "3d" ? startPlacing(key) : placeDepartment(key)),
+    placingKey: () => (state.placing ? state.placing.key : null),
     onSelectBlock: id => { session.select(id); const it = session.layout.byId.get(id); if (it && planView()) plan.ensureVisible(it); },
     onEdit: key => catDialog.open(key),
     onNew: () => catDialog.open(null),
@@ -607,7 +612,7 @@ function start(me, overlay) {
     hint3d: () => state.view === "3d",
     unlockHint: () => unlockHint({touch: phoneMq.matches, plan: planView()}),
     onAdd: type => addItem(type),
-    onDepartment: key => { if (state.view === "3d") startPlacing(key); else placeDepartment(key); },
+    onDepartment: key => startPlacing(key),
   });
   function showFound(r) {
     const blocks = session.doc.items.filter(it => it.type === "area" && it.cat === r.key);
@@ -1092,30 +1097,71 @@ function start(me, overlay) {
       review: "Open a proposal in the list to see its changes against the master",
     }[state.mode];
     readout.hint({
-      plan: m ? "Click to set A, click again for B · Esc clears" : modeHint || (edit ? "Click an item · drag to move · Shift-click adds · Delete removes · Ctrl+Z undoes · tap a department in the list to place it" : "Click an item for details · N steps through the items · double-click the floor to walk there"),
+      plan: state.placing ? `Placing ${state.placing.name} · drag on the floor where it goes · a click drops its usual size · Esc cancels` : m ? "Click to set A, click again for B · Esc clears" : modeHint || (edit ? "Click an item · drag to move · Shift-click adds · Delete removes · Ctrl+Z undoes · tap a department in the list, then drag on the floor" : "Click an item for details · N steps through the items · double-click the floor to walk there"),
       "3d": state.placing ? "Click the floor to place the block · Esc cancels" : m ? "Click to set A, click again for B · drag still turns the view · Esc clears" : modeHint || (edit ? "Drag to turn · right-drag to move · click a department block to select it, drag it along the floor" : "Drag to turn · right-drag to move · scroll to zoom · double-click to focus"),
       walk: "W A S D to walk · drag to look · double-click the floor to walk there",
     }[state.view]);
   }
 
-  /* ================= placing a department in 3D ================= */
+  /* ================= placing a department (docs/DESIGN.md 5): pick it, then draw it on the plan or click the 3D floor ================= */
+  const placeChip = $("#placeChip");
   function startPlacing(key) {
-    if (!canEdit()) { toast("This map is view only."); return; }
+    if (!canEdit()) { toast("This map is view only. Make your own copy to place departments."); return; }
     const cat = A.categoryFor(session.doc, key);
-    if (!cat) return;
+    if (!cat) { toast("That department isn't on this map."); return; }
+    if (state.placing && state.placing.key === key) { cancelPlacing(); return; } // the same department again: never mind
     const [w, d] = A.startSize(cat);
-    state.placing = {key, w, d};
+    state.placing = {key, w, d, name: cat.name, colour: colourOf(cat, isDark())};
     $("#three").classList.add("placing");
-    toast(`Placing ${cat.name}: click the floor where it should go. Esc cancels.`, {ms: 4000});
+    $("#planCanvas").classList.add("placing");
+    if (planView()) {
+      // the chip over the plan says what to do next; on a phone the Departments sheet closes so the floor is in reach
+      placeChip.textContent = "";
+      placeChip.append(
+        h("span", {class: "swatch-sm", style: {"--c": state.placing.colour}, aria: {hidden: true}}),
+        h("span", {class: "place-chip-text"}, h("b", {text: cat.name}), h("span", {text: phoneMq.matches ? "Drag on the floor where it goes. Two fingers move the map." : "Drag on the floor where it goes. A click drops its usual size."})),
+        h("button", {type: "button", class: "btn small", onclick: () => cancelPlacing()}, "Cancel"));
+      placeChip.hidden = false;
+      // a phone: the sheet had pushed the plan to the top of the screen; bring the whole store back into the middle
+      if (phoneMq.matches) { $("#palette").classList.remove("open"); $("#deptBtn").setAttribute("aria-expanded", "false"); plan.fit(); }
+      session.clearSelection();
+      announce(`${cat.name}: drag on the floor where it goes.`);
+    } else toast(`Placing ${cat.name}: click the floor where it should go. Esc cancels.`, {ms: 4000});
+    palette.render();
+    syncEmpty();
     hint();
   }
   function cancelPlacing() {
     if (!state.placing) return;
     state.placing = null;
     $("#three").classList.remove("placing");
+    $("#planCanvas").classList.remove("placing");
+    placeChip.hidden = true; placeChip.textContent = "";
+    if (editor.drawing) editor.cancelGesture();
     if (blocks3d) blocks3d.setGhost(null, new Map());
     if (cursor) cursor.hide();
+    palette.render();
+    syncEmpty();
     hint();
+  }
+  /** The block the person drew on the plan (r = {x, y, w, d}) or tapped (r = {x, y}: the usual size there). */
+  function placeDrawn(key, r) {
+    cancelPlacing();
+    if (!canEdit()) return;
+    const cat = A.categoryFor(session.doc, key);
+    if (!cat) { toast("That department isn't on this map."); return; }
+    const b = session.building, g = layers.get().snap ? GRID : 0;
+    const size = r.w > 0 && r.d > 0 ? [r.w, r.d] : A.startSize(cat);
+    // keep the whole block inside the walls: the person drew at the edge, not past it
+    const x = clamp(r.x, size[0] / 2, Math.max(size[0] / 2, b.L - size[0] / 2)), y = clamp(r.y, size[1] / 2, Math.max(size[1] / 2, b.W - size[1] / 2));
+    const res = applyOrToast(A.createBlock(session.doc, key, {x, y}, {grid: g, size}), {label: "Place department"});
+    if (!res) return;
+    session.select(res.id);
+    const it = session.layout.byId.get(res.id);
+    const left = A.summary(session.doc, {merged: session.categories}).totals;
+    const rest = left.total - left.placed;
+    toast(`${cat.name} placed · ${formatSqft(it.w * it.d)}. ${rest > 0 ? `${rest} more to go.` : "All departments placed."}`, {icon: "i-check"});
+    announce(`${cat.name} placed. Drag it to move it, pull a corner to resize it.`);
   }
   function ghostAt(snap) {
     const p = state.placing;

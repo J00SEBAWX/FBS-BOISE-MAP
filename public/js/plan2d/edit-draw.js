@@ -145,3 +145,21 @@ export function drawMarquee(ctx, r, tok) {
   ctx.strokeStyle = tok.selMarqueeStroke; ctx.lineWidth = 1; ctx.setLineDash([4, 3]); ctx.strokeRect(x + 0.5, y + 0.5, w, h);
   ctx.restore();
 }
+
+/**
+ * The block a person is drawing on the floor (placing a department): the rectangle in the department's colour,
+ * dashed like the 3D ghost, with its size in a pill at the centre ("25' x 10' · 250 sq ft"). r is in store feet
+ * (x0, y0, x1, y1 in any order); nothing is drawn below one pixel.
+ */
+export function drawPlaceRect(ctx, v, r, colour, text, tok) {
+  const a = w2s(v, Math.min(r.x0, r.x1), Math.max(r.y0, r.y1)), b = w2s(v, Math.max(r.x0, r.x1), Math.min(r.y0, r.y1));
+  const w = b[0] - a[0], h = b[1] - a[1];
+  if (w < 1 || h < 1) return;
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.globalAlpha = 0.28; ctx.fillStyle = colour; ctx.fillRect(a[0], a[1], w, h);
+  ctx.globalAlpha = 1; ctx.strokeStyle = colour; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.strokeRect(a[0] + 1, a[1] + 1, w - 2, h - 2); ctx.setLineDash([]);
+  ctx.restore();
+  if (text && w > 40 && h > 24) pill(ctx, a[0] + w / 2, a[1] + h / 2, text, tok);
+  else if (text) pill(ctx, a[0] + w / 2, a[1] - 16, text, tok);
+}

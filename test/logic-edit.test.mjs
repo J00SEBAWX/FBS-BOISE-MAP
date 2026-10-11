@@ -388,6 +388,25 @@ describe("areas: blocks", () => {
     assert.ok(A.createBlock(smallStore(), "not_a_key", { x: 1, y: 1 }).error);
   });
 
+  test("a block drawn on the floor keeps the drawn size (opts.size); scribbles under the minimum fall back to the usual size", () => {
+    const r = A.createBlock(smallStore(), "power_tools", { x: 65, y: 30 }, { size: [20, 12] });
+    const b = item(r.doc, r.id);
+    assert.deepEqual([b.x, b.y, b.w, b.d, b.h, b.rot, b.shape], [65, 30, 20, 12, 8, 0, "rect"]);
+    assert.equal(A.blockArea(b), 240);
+    valid(r.doc);
+    // sizes are kept to 4 decimals and snapped centres still apply
+    const s = A.createBlock(smallStore(), "power_tools", { x: 10.26, y: 10.24 }, { size: [7.33333, 4.5], grid: 0.5 });
+    const sb = item(s.doc, s.id);
+    assert.deepEqual([sb.x, sb.y, sb.w, sb.d], [10.5, 10, 7.3333, 4.5]);
+    valid(s.doc);
+    // too small, not a pair, or nonsense: the catalog size
+    for (const size of [[1, 10], [10, 1.9], [20], "20x12", null, [NaN, 12]]) {
+      const t = A.createBlock(smallStore(), "power_tools", { x: 30, y: 20 }, { size });
+      assert.deepEqual([item(t.doc, t.id).w, item(t.doc, t.id).d], [28, 25], JSON.stringify(size));
+    }
+    assert.equal(A.MIN_DRAWN, 2);
+  });
+
   test("every default department drops at its target sq ft", () => {
     let doc = smallStore();
     for (const key of DEFAULT_KEYS) {

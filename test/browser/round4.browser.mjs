@@ -8,7 +8,8 @@
 //   3. inspector fields: change one, click or Tab to the next: focus lands there and typing goes into it (mouse and touch); a
 //      Backspace after it never deletes the object; a button clicked right after an edit still works
 //   4. Delete only removes the selection with the plan focused
-//   5. placing departments from the list: inside the store, visible, never stacked, on a phone with the sheet open and on a desktop
+//   5. placing departments from the list: pick one, draw it on the floor (that rectangle) or tap the floor (usual size there); Esc / Cancel
+//      places nothing; on a phone with the sheet, and on a desktop
 //   6. a department block under a fixture is grabbed by pressing it
 //   7. an Undo toast never writes into another map
 //   8. no console errors, page errors or CSP violations anywhere
@@ -265,28 +266,72 @@ test("phone inspector: tap X, type, tap Y, tap Name, tap Height, Backspace: focu
   }
 });
 
-for (const [label, device, n] of [["desktop 1366x800", DESK, 5], ["phone 390x844", PHONE, 5], ["phone 375x667", PHONE_SE, 5]]) {
-  test(`placing departments from the list (${label}): inside the store, on screen, never stacked, no warnings`, { skip: SKIP, timeout: 240000 }, async () => {
+/** Screen point (page coordinates) of a store point, for real mouse / touch input on the plan. */
+const at = (page, x, y) => page.evaluate(([x, y]) => { const m = window.__fbsMap; const [sx, sy] = m.plan.toScreen(x, y); const r = document.getElementById("planCanvas").getBoundingClientRect(); return { x: r.left + sx, y: r.top + sy }; }, [x, y]);
+/** One finger (or the mouse) pressed at a, dragged to b in steps, lifted. */
+async function drag(page, phone, a, b, steps = 8) {
+  if (!phone) {
+    await page.mouse.move(a.x, a.y); await page.mouse.down();
+    for (let i = 1; i <= steps; i++) { await page.mouse.move(a.x + (b.x - a.x) * i / steps, a.y + (b.y - a.y) * i / steps); await sleep(20); }
+    await page.mouse.up();
+    return;
+  }
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: a.x, y: a.y }] });
+  for (let i = 1; i <= steps; i++) { await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: a.x + (b.x - a.x) * i / steps, y: a.y + (b.y - a.y) * i / steps }] }); await sleep(20); }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await cdp.detach();
+}
+
+for (const [label, device] of [["desktop 1366x800", DESK], ["phone 390x844", PHONE], ["phone 375x667", PHONE_SE]]) {
+  test(`placing a department (${label}): tap it in the list, draw on the floor = that rectangle; a tap on the floor = the usual size there; Esc / Cancel never places`, { skip: SKIP, timeout: 240000 }, async () => {
     const id = await newMap(`Place ${label}`, "blank");
     const { ctx, page } = await open(device, `#plan&map=${id}`);
     try {
       const phone = !!device.isMobile;
-      for (let i = 0; i < n; i++) {
+      const pick = async () => {
         if (phone) { await page.locator("#deptBtn").tap(); await sleep(700); }
         const row = page.locator(".pal-row:not(.muted) .pal-main:has(.pal-place)").first();
+        const name = await row.locator("b").textContent();
         if (phone) await row.tap(); else await row.click();
-        await sleep(600);
-      }
-      const bs = await blocks(page);
-      assert.equal(bs.length, n);
-      for (const b of bs) assert.ok(b.x - b.w / 2 >= -0.01 && b.x + b.w / 2 <= 169.01 && b.y - b.d / 2 >= -0.01 && b.y + b.d / 2 <= 80.01, `${b.cat} at ${b.x},${b.y} is outside the store`);
-      for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) {
-        const a = bs[i], b = bs[j];
-        assert.ok(!(Math.abs(a.x - b.x) * 2 < a.w + b.w - 0.1 && Math.abs(a.y - b.y) * 2 < a.d + b.d - 0.1), `${a.cat} and ${b.cat} overlap`);
-      }
-      assert.equal(await page.evaluate(() => window.__fbsMap.issues.count), 0, "collision warnings after placing");
-      const vis = await page.evaluate(() => { const m = window.__fbsMap, it = m.session.single; const [sx, sy] = m.plan.toScreen(it.x, it.y); const r = document.getElementById("planCanvas").getBoundingClientRect(); return { sx, sy, W: r.width, H: r.height }; });
-      assert.ok(vis.sx > 0 && vis.sx < vis.W && vis.sy > 0 && vis.sy < vis.H, "the new block is off screen " + JSON.stringify(vis));
+        await sleep(500);
+        return name;
+      };
+      // 1. pick, then draw a 20 x 12 ft rectangle on the open floor (store points 55,24 to 75,36)
+      const first = await pick();
+      assert.equal(await page.locator("#placeChip").isHidden(), false, "the chip over the plan says what to do");
+      assert.match(await page.locator("#placeChip").textContent(), new RegExp(first.trim().slice(0, 8)));
+      assert.equal(await page.locator("#palette.open").count(), 0, "a phone's Departments sheet closes so the floor is in reach (no sheet on a desktop)");
+      assert.equal(await page.locator("#catsEmpty").isHidden(), true, "the empty-state card steps aside");
+      await drag(page, phone, await at(page, 55, 24), await at(page, 75, 36));
+      await sleep(600);
+      let bs = await blocks(page);
+      assert.equal(bs.length, 1);
+      assert.deepEqual([bs[0].x, bs[0].y, bs[0].w, bs[0].d], [65, 30, 20, 12], "the block is the drawn rectangle, on the 6-inch grid");
+      assert.equal(await page.locator("#placeChip").isHidden(), true, "placing is over once the block is down");
+      assert.equal(await page.evaluate(() => window.__fbsMap.session.single && window.__fbsMap.session.single.type), "area", "the new block is selected");
+      // 2. pick the next one, then a plain tap on the floor: its usual size, centred there
+      const second = await pick();
+      assert.notEqual(second, first);
+      const p = await at(page, 120, 30);
+      if (phone) await page.touchscreen.tap(p.x, p.y); else await page.mouse.click(p.x, p.y);
+      await sleep(600);
+      bs = await blocks(page);
+      assert.equal(bs.length, 2);
+      const b = bs[1];
+      assert.ok(Math.abs(b.x - 120) <= 0.5 && Math.abs(b.y - 30) <= 0.5, `centred on the tap: ${b.x},${b.y}`);
+      assert.ok(b.w * b.d >= 100, "the usual (catalog) size");
+      // 3. pick, then Esc (desktop) or the chip's Cancel (phone): nothing is placed, the chip is gone
+      await pick();
+      if (phone) await page.locator("#placeChip button").tap(); else await page.keyboard.press("Escape");
+      await sleep(400);
+      assert.equal(await page.locator("#placeChip").isHidden(), true);
+      assert.equal((await blocks(page)).length, 2, "cancel placed nothing");
+      // 4. after cancelling, a drag on the floor is a plain pan/marquee again, not a block
+      await drag(page, phone, await at(page, 30, 60), await at(page, 40, 70));
+      await sleep(400);
+      assert.equal((await blocks(page)).length, 2);
+      for (const x of await blocks(page)) assert.ok(x.x - x.w / 2 >= -0.01 && x.x + x.w / 2 <= 169.01 && x.y - x.d / 2 >= -0.01 && x.y + x.d / 2 <= 80.01, `${x.cat} at ${x.x},${x.y} is outside the store`);
       assert.deepEqual(await stageTop(page), { stage: 0, main: 0 });
     } finally {
       await ctx.close();

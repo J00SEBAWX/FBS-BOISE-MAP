@@ -234,13 +234,15 @@ describe("placement: where a new block lands", () => {
     assert.ok(Number.isFinite(t.x) && Number.isFinite(t.y));
   });
 
-  test("the hint texts say where it lands (the visible middle), in plain words, and the docs match", () => {
+  test("the hint texts say to draw it on the floor, in plain words, and the docs match", () => {
     const pal = file("../public/js/ui/palette.js");
-    assert.match(pal, /place it in the middle of the map you can see, then drag it where it belongs/);
-    assert.match(pal, /goes in the middle of the map you can see; drag it where it belongs/);
-    assert.doesNotMatch(pal, /drops? in the middle of the view/);
-    assert.doesNotMatch(file("../README.md"), /drops in\s+the middle of the view/);
-    assert.match(file("../README.md"), /middle of the map you can see/);
+    assert.match(pal, /Tap a department, then drag on the floor where it goes\. A single tap on the floor drops it at its usual size\./);
+    assert.match(pal, /Pick a department, then drag on the floor where it goes\./);
+    assert.doesNotMatch(pal, /middle of the (map|view)/);
+    assert.doesNotMatch(file("../README.md"), /middle of the map you can see/);
+    assert.match(file("../README.md"), /drag on the\s+floor where it goes/);
+    assert.match(file("../docs/DESIGN.md"), /Tap a department, then drag on the floor where it goes/);
+    assert.match(file("../public/index.html"), /Tap a department in the list, then drag on the floor where it goes\./);
   });
 });
 
