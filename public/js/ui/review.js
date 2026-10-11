@@ -9,7 +9,7 @@ import {rowGroups, rowKey, kindIcon, pickOptions, compareDocs} from "../core/com
 import {changesFor} from "../core/diff.js";
 import {toLayout} from "../core/session.js";
 import {TYPES} from "../core/model.js";
-import {FILTERS, filterProposals, statusInfo, proposalLines, decisionLine, reviewErrorText, historyLines, restoreConfirmText, approveLabel, keepChecked} from "../core/review.js";
+import {FILTERS, filterProposals, statusInfo, proposalLines, decisionLine, reviewErrorText, historyLines, restoreConfirmText, approveLabel, keepChecked, neverHadRows, neverHadText} from "../core/review.js";
 
 /**
  * createReviewPanel({el, toast, announce, isTouch(), setSheet("peek" | "expanded"), onClose(), confirm({title, text, ok, danger, onOk}),
@@ -121,8 +121,12 @@ export function createReviewPanel(o) {
   function recomputeAllChecked() {
     S.checked = new Set();
     recompute();
-    if (S.diff) S.checked = new Set(S.diff.rows.map(rowKey));
+    if (!S.diff) return;
+    // a plan started from a blank store never had the master's fixtures: those "removed" rows start unticked
+    const skip = new Set(neverHadRows(S.diff.rows, neverHadBase()).map(rowKey));
+    S.checked = new Set(S.diff.rows.map(rowKey).filter(k => !skip.has(k)));
   }
+  const neverHadBase = () => (S.openItem && S.openItem.kind === "proposal" ? S.openItem.p.mapBase : null);
   /** A phone reads the rows in the tall sheet; the list view goes back to the short one. */
   function expand(on) { if (o.isTouch() && o.setSheet) o.setSheet(on ? "expanded" : "peek"); }
   function backToList() {
@@ -267,6 +271,8 @@ export function createReviewPanel(o) {
     const countText = n ? `${n} difference${n === 1 ? "" : "s"} from the master map (version ${S.master ? S.master.version : "?"}). Tap one to see it on the plan.` : (it.kind === "version" ? "This version matches today's master." : "No differences. This matches the master map.");
     const tickAll = ticking && n ? h("button", {type: "button", class: "btn small rv-tickall", onclick: () => { if (S.checked.size === n) S.checked.clear(); else S.checked = new Set(S.diff.rows.map(rowKey)); render(); }}, S.checked.size === n ? "Untick all" : "Tick all") : null;
     body.appendChild(h("div", {class: "rv-countrow"}, h("p", {class: "cmp-count", text: countText}), tickAll));
+    const never = ticking ? neverHadRows(S.diff.rows, neverHadBase()).length : 0;
+    if (never) body.appendChild(h("p", {class: "notice warn rv-never", text: neverHadText(never)}));
     if (S.notice) body.appendChild(h("div", {class: "notice error cmp-notice", role: "alert"}, h("span", {text: S.notice.text}),
       S.notice.reload ? h("button", {type: "button", class: "btn small", onclick: () => { S.notice = null; open(); }}, icon("i-reload"), "Reload") : null));
     if (!n && it.kind === "proposal" && it.p.status === "submitted") body.appendChild(h("p", {class: "pal-hint", text: "You can still approve it (nothing changes), ask for changes or decline it."}));

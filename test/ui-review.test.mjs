@@ -3,7 +3,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
-import { STATUS_INFO, statusInfo, FILTERS, filterProposals, proposalFor, chipFor, proposalLines, decisionLine, reviewErrorText, historyLines, restoreConfirmText, approveLabel, keepChecked } from "../public/js/core/review.js";
+import { STATUS_INFO, statusInfo, FILTERS, filterProposals, proposalFor, chipFor, proposalLines, decisionLine, reviewErrorText, historyLines, restoreConfirmText, approveLabel, keepChecked, neverHadRows, neverHadText } from "../public/js/core/review.js";
 import { parseHash, buildHash, MODES } from "../public/js/core/route.js";
 import { modeAllows, modeLayers, modeNotice, MODE_INFO } from "../public/js/core/modes.js";
 import { rowKey } from "../public/js/core/compare.js";
@@ -106,3 +106,28 @@ describe("review: the sixth mode", () => {
     assert.match(modeNotice("review"), /proposal/i);
   });
 });
+
+/* ======================================================================= blank-store plans against the master */
+describe("review: a plan started from a blank store never had the master's fixtures", () => {
+  const master = { items: [
+    { id: "w1", type: "wall", x: 0, y: 0, w: 10, d: 0.5 },
+    { id: "g1", type: "gondola", name: "Paint isle", x: 5, y: 5, w: 8, d: 3 },
+    { id: "d1", type: "counter", name: "Sales desk", x: 9, y: 9, w: 4, d: 2, fixed: true },
+    { id: "a1", type: "area", name: "Paint", cat: "paint_finishing", x: 2, y: 2, w: 4, d: 4 },
+  ] };
+  const plan = { items: [{ id: "w1", type: "wall", x: 0, y: 0, w: 10, d: 0.5 }, { id: "b1", type: "area", name: "Power Tools", cat: "power_tools", x: 6, y: 6, w: 5, d: 5 }] };
+  const d = diffMaps(master, plan);
+  test("only the fixtures and department blocks it never had are left out, never structure (a real deletion)", () => {
+    const never = neverHadRows(d.rows, "blank").map(r => r.id).sort();
+    assert.deepEqual(never, ["a1", "g1"], "the fixed sales desk is structure: removing it is a real change");
+    assert.deepEqual(neverHadRows(d.rows, "master"), [], "a copy of the master: every removal is real");
+    assert.deepEqual(neverHadRows(d.rows, null), []);
+    assert.ok(d.rows.some(r => r.group === "added" && r.id === "b1"), "the new department is still a change to approve");
+  });
+  test("the sentence says what happens, in plain words", () => {
+    assert.equal(neverHadText(0), "");
+    assert.match(neverHadText(56), /started from a blank store, so 56 shelf, rack, display or department items on the master are simply not in it\. They are left out, so approving keeps them on the master\./);
+    assert.match(neverHadText(1), /1 shelf, rack, display or department item on the master is simply not in it\. It is left out/);
+  });
+});
+

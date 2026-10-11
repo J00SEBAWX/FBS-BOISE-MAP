@@ -1068,3 +1068,24 @@ details[open] > summary .adv-chev{transform:rotate(180deg);}
 /* the switches in the phone More sheet show their state (they are layer-row buttons with role="switch") */
 .layer-row[aria-checked="true"] .sw-track{background:var(--accent);}
 .layer-row[aria-checked="true"] .sw-knob{transform:translateX(16px);}
+
+/* ---------- Print or share (ui/export.js) ---------- */
+dialog.small-dialog.export-dlg{width:min(760px,calc(100% - 32px));max-width:none;}
+.exp-hint{margin:0 0 10px;color:var(--ink-muted);font-size:var(--text-sm);}
+.exp-frame{display:flex;align-items:center;justify-content:center;min-height:200px;aspect-ratio:1650/1275;background:var(--surface-sunken);border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;}
+.exp-preview{display:block;width:100%;height:auto;}
+.exp-status{margin:8px 0 0;color:var(--ink-muted);font-size:var(--text-sm);}
+.exp-actions{display:inline-flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;}
+@media (max-width:560px){ .export-dlg .foot.spread{flex-direction:column-reverse;align-items:stretch;gap:8px;} .exp-actions{flex-direction:column;} .exp-actions .btn{width:100%;justify-content:center;} }
+/* what the browser prints: only the map sheet */
+.print-sheet{display:none;}
+@media print{
+  @page{size:letter landscape;margin:0.25in;}
+  html,body{background:#fff!important;height:auto!important;overflow:visible!important;}
+  body > *:not(.print-sheet){display:none!important;}
+  .print-sheet{display:block!important;}
+  .print-sheet img{display:block;width:100%;height:auto;}
+}
+.rv-never,.cmp-never{margin:8px 0;}
+.guide-link{margin:0 0 12px;}
+.guide-link .btn{gap:6px;}

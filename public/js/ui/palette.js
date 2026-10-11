@@ -125,7 +125,7 @@ export function createDeptPalette(o) {
       const col = colourOf(cat, o.isDark());
       const selected = r.blocks.some(id => selIds.has(id));
       const placing = placingKey === r.key;
-      const meta = placing ? "Drag on the floor where it goes" : !r.placed ? "Not placed yet" : `${r.blocks.length > 1 ? `${r.blocks.length} spots · ` : ""}${formatSqft(r.sqft)}${r.targetSqft > 0 ? ` of ${formatSqft(r.targetSqft).replace(" sq ft", "")}` : ""}${r.status === "under" ? " · under" : r.status === "over" ? " · over" : ""}`;
+      const meta = placing ? "Tap the floor where it goes" : !r.placed ? "Not placed yet" : `${r.blocks.length > 1 ? `${r.blocks.length} spots · ` : ""}${formatSqft(r.sqft)}${r.targetSqft > 0 ? ` of ${formatSqft(r.targetSqft).replace(" sq ft", "")}` : ""}${r.status === "under" ? " · under" : r.status === "over" ? " · over" : ""}`;
       // a placed department can still get another spot (Shift-click, or its Place again button): the main button selects it
       const row = h("div", {class: "pal-row" + (selected ? " selected" : "") + (placing ? " placing" : ""), role: "listitem"},
         h("button", {type: "button", class: "pal-main", aria: {label: `${cat.name}: ${meta}. ${placing ? "Tap again to cancel" : r.placed ? "Select it on the plan" : "Place it"}`, pressed: placing || undefined},

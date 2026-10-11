@@ -139,9 +139,9 @@ entryAnchors, placements, adjacency, products, structureTypes, itemTypes, limits
   note "The map was deleted."
 
 ### Proposals
-`ProposalMeta = {id, mapId, mapName, ownerName, mine, status, note, createdAt, decidedAt, decidedByName,
+`ProposalMeta = {id, mapId, mapName, mapBase, ownerName, mine, status, note, createdAt, decidedAt, decidedByName,
 decisionNote, appliedVersion, baseMasterVersion, mapVersion, itemCount}`; `status` is `submitted`, `approved`,
-`needs_changes`, `declined` or `withdrawn`. `mapName` is `null` once the map is deleted.
+`needs_changes`, `declined` or `withdrawn`. `mapName` is `null` once the map is deleted. `mapBase` is what the map started from (`master`, `blank` or `copy`; `null` once deleted): Review leaves the "removed" rows of a blank-store plan's never-had fixtures unticked.
 
 - `POST /api/maps/:id/submit {note?}` (owner only) -> `{proposal}`. The snapshot is the map's saved data right
   now (save first). At most one open proposal per map: submitting again while it is `submitted` updates that one

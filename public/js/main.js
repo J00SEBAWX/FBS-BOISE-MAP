@@ -46,6 +46,7 @@ import {drawIssues} from "./plan2d/issues-draw.js";
 import {drawDiffOverlay, drawSideGhost} from "./plan2d/compare-draw.js";
 import {drawOverlays, drawHighlight} from "./plan2d/advisor-draw.js";
 import {initTabs, initialView, initialMode} from "./ui/header.js";
+import {createExport} from "./ui/export.js";
 import {initToolbar} from "./ui/toolbar.js";
 import {createLayers} from "./ui/layers.js";
 import {toast, hideToast} from "./ui/toast.js";
@@ -640,7 +641,7 @@ function start(me, overlay) {
     if (autosave.pending) await autosave.flush();
     if (autosave.pending) throw new Error("Your latest edits aren't saved yet. Wait for “Saved” in the header, then try again.");
   }
-  const openMapInfo = () => ({id: state.map.id, name: state.map.id === "master" ? "Master map" : state.map.name, ownerName: state.map.ownerName, mine: state.map.mine, version: state.map.version, updatedAt: state.map.updatedAt});
+  const openMapInfo = () => ({id: state.map.id, name: state.map.id === "master" ? "Master map" : state.map.name, ownerName: state.map.ownerName, mine: state.map.mine, version: state.map.version, updatedAt: state.map.updatedAt, base: state.map.base || null});
   const comparePanel = createComparePanel({
     el: $("#comparePanel"), isAdmin, toast, isTouch: () => phoneMq.matches,
     getOpenMap: openMapInfo,
@@ -648,7 +649,7 @@ function start(me, overlay) {
     loadMap: async id => {
       if (id === "master") { const m = await loadMaster(true); return {doc: m.data, name: "Master map", version: m.version, ownerName: m.ownerName, updatedAt: m.updatedAt}; }
       const r = await api.map(id);
-      return {doc: r.data, name: r.meta.name, version: r.meta.version, ownerName: r.meta.ownerName, updatedAt: r.meta.updatedAt};
+      return {doc: r.data, name: r.meta.name, version: r.meta.version, ownerName: r.meta.ownerName, updatedAt: r.meta.updatedAt, base: r.meta.base};
     },
     liveDoc: id => (id === state.map.id ? session.doc : null),
     flushSave: saveFirst,
@@ -997,7 +998,7 @@ function start(me, overlay) {
         next = {id: "master", name: "Master map", version: m.version, data: m.data, canEdit: isAdmin && !m.locked && !m.static, ownerName: m.updatedByName || m.sourceOwnerName || "", updatedAt: m.updatedAt, mine: false, locked: !!m.locked, lockedByName: m.lockedByName, legacy: !!m.static};
         mapMenu.setMaster({version: m.version, updatedAt: m.updatedAt, ownerName: next.ownerName});
       } else {
-        next = {id: m.meta.id, name: m.meta.name, version: m.meta.version, data: m.data, canEdit: !!(m.canEdit ?? m.meta.mine), ownerName: m.meta.ownerName, updatedAt: m.meta.updatedAt, mine: !!m.meta.mine, locked: false, legacy: false};
+        next = {id: m.meta.id, name: m.meta.name, version: m.meta.version, data: m.data, canEdit: !!(m.canEdit ?? m.meta.mine), ownerName: m.meta.ownerName, updatedAt: m.meta.updatedAt, mine: !!m.meta.mine, locked: false, legacy: false, base: m.meta.base || null};
       }
       autosave.reset();
       state.map = next;
@@ -1088,6 +1089,21 @@ function start(me, overlay) {
   $("#btnDup").addEventListener("click", () => act.duplicate());
   $("#btnRot").addEventListener("click", () => act.rotate(90));
   $("#btnDel").addEventListener("click", () => act.remove());
+  /* ================= Print / PDF / Email ================= */
+  const exporter = createExport({
+    toast,
+    getData: () => {
+      const s = shown(), m = state.map;
+      const name = m.id === "master" ? "Master map" : m.name || "Map";
+      const title = state.mode === "current" ? "Master map (current layout)" : blankView() ? "Master map: the empty store" : state.mode === "comparison" ? `${name} (comparison)` : name;
+      const when = m.updatedAt ? new Date(m.updatedAt).toLocaleDateString("en-US", {day: "numeric", month: "short", year: "numeric"}) : "";
+      const subtitle = [m.id === "master" ? (m.version ? `Version ${m.version}` : "") : m.ownerName ? `Made by ${m.ownerName}` : "", when ? `changed ${when}` : ""].filter(Boolean).join(" · ");
+      const link = location.origin + "/" + (m.id === "master" ? "#plan&master" : `#plan&map=${encodeURIComponent(m.id)}`);
+      return {layout: s.layout, doc: s.doc, cats: s.cats, layers: planLayers(), title, subtitle, link,
+        date: `Printed ${new Date().toLocaleDateString("en-US", {day: "numeric", month: "short", year: "numeric"})}`};
+    },
+  });
+  $("#btnExport").addEventListener("click", () => exporter.open());
   $("#btnReset").addEventListener("click", () => { if (orbit) orbit.reset(); });
   $("#btnTop").addEventListener("click", () => orbit && orbit.topView());
   $("#btnSpin").addEventListener("click", () => walk && walk.toggleSpin());
@@ -1124,13 +1140,13 @@ function start(me, overlay) {
       placeChip.textContent = "";
       placeChip.append(
         h("span", {class: "swatch-sm", style: {"--c": state.placing.colour}, aria: {hidden: true}}),
-        h("span", {class: "place-chip-text"}, h("b", {text: cat.name}), h("span", {text: phoneMq.matches ? "Drag on the floor where it goes. Two fingers move the map." : "Drag on the floor where it goes. A click drops its usual size."})),
+        h("span", {class: "place-chip-text"}, h("b", {text: cat.name}), h("span", {text: phoneMq.matches ? "Tap the floor where it goes (or drag to draw its size). Two fingers move the map." : "Click the floor where it goes (or drag to draw its size)."})),
         h("button", {type: "button", class: "btn small", onclick: () => cancelPlacing()}, "Cancel"));
       placeChip.hidden = false;
       // a phone: the sheet had pushed the plan to the top of the screen; bring the whole store back into the middle
       if (phoneMq.matches) { $("#palette").classList.remove("open"); $("#deptBtn").setAttribute("aria-expanded", "false"); plan.fit(); }
       session.clearSelection();
-      announce(`${cat.name}: drag on the floor where it goes.`);
+      announce(`${cat.name}: tap the floor where it goes.`);
     } else toast(`Placing ${cat.name}: click the floor where it should go. Esc cancels.`, {ms: 4000});
     palette.render();
     syncEmpty();
@@ -1423,10 +1439,12 @@ function start(me, overlay) {
     if (planView() && allows().select) morePop.appendChild(moreRow("Dimensions", "i-measure", () => layers.toggle("dimensions"), layers.get().dimensions));
     if (edit) { morePop.appendChild(moreRow("Duplicate", "i-duplicate", () => { closeMore(); act.duplicate(); })); morePop.appendChild(moreRow("Rotate 90°", "i-rotate", () => { closeMore(); act.rotate(90); })); morePop.appendChild(moreRow("Delete", "i-delete", () => { closeMore(); act.remove(); })); }
     if (state.mode === "planning" && state.map.canEdit && !planView()) morePop.appendChild(moreRow("Departments", "i-blocks", () => { closeMore(); addMenu.open("departments"); }));
+    morePop.appendChild(moreRow("Print, PDF or email", "i-print", () => { closeMore(); exporter.open(); }));
     morePop.appendChild(moreRow("Layers", "i-layers", () => { closeMore(); layers.open(); }));
     if (planView()) morePop.appendChild(moreRow("Fit the store", "i-fit", () => { closeMore(); fitPlan(); }));
     if (state.view === "3d") morePop.appendChild(moreRow("Reset the view", "i-fit", () => { closeMore(); orbit && orbit.reset(); }));
     morePop.appendChild(moreRow("Controls and help", "i-help", () => { closeMore(); help.open(moreBtn); }));
+    morePop.appendChild(moreRow("Step-by-step guide (PDF)", "i-help", () => { closeMore(); const a = h("a", {href: "/guides/FBS-Store-Map-Planning-Guide.pdf", download: ""}); document.body.appendChild(a); a.click(); a.remove(); }));
   }
   const moreOpen = () => !morePop.hidden;
   function openMore() { renderMore(); morePop.hidden = false; moreBtn.setAttribute("aria-expanded", "true"); focusEl(morePop.querySelector("button")); }

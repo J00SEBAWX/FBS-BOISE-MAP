@@ -20,7 +20,7 @@ const DECISIONS = { approve: "approved", needs_changes: "needs_changes", decline
 
 const COLS = `p.id, p.map_id, p.owner_id, p.map_version, p.base_master_version, p.note, p.status, p.created_at, p.decided_at,
               p.decided_by_name, p.decision_note, p.applied_version, json_array_length(p.snapshot, '$.items') AS item_count,
-              m.name AS map_name, u.first_name AS owner_name`;
+              m.name AS map_name, m.base AS map_base, u.first_name AS owner_name`;
 const FROM = "FROM proposals p LEFT JOIN maps m ON m.id = p.map_id LEFT JOIN users u ON u.id = p.owner_id";
 
 function meta(r, me) {
@@ -28,6 +28,7 @@ function meta(r, me) {
     id: r.id,
     mapId: r.map_id,
     mapName: r.map_name ?? null,
+    mapBase: r.map_base ?? null, // what the map started from: "master" | "blank" | "copy"
     ownerName: r.owner_name ?? null,
     mine: r.owner_id === me.id,
     status: r.status,
