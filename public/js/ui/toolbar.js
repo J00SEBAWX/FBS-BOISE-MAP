@@ -1,8 +1,9 @@
 /* The tool bar (role="toolbar"): one Tab stop for the whole bar, and the arrow keys (Left / Right, Home / End)
  * move between the tools that show in the current view (docs/DESIGN.md 10: "role=toolbar with roving tabindex").
  * The Layers popover inside it keeps its own keys. */
+import {focusEl} from "./dom.js";
 export function initToolbar(bar) {
-  const all = () => [...bar.querySelectorAll(":scope > button, :scope > .layers-wrap > button")];
+  const all = () => [...bar.querySelectorAll(":scope > button, :scope > .layers-wrap > button, :scope > .add-wrap > button, :scope > .more-wrap > button")];
   const shown = () => all().filter(b => b.offsetParent);
   let current = null;
   function sync() {
@@ -18,7 +19,7 @@ export function initToolbar(bar) {
       : e.key === "Home" ? list[0] : e.key === "End" ? list[list.length - 1] : null;
     if (!n) return;
     e.preventDefault(); e.stopPropagation(); // the map's own arrow keys don't fire
-    n.focus();
+    focusEl(n, {reveal: false});
   });
   sync();
   return {sync};

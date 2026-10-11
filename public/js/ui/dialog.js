@@ -1,8 +1,9 @@
 /* The Controls dialog (help). A native <dialog>: it traps focus, Esc closes it, focus goes back to the
  * button that opened it. */
+import {focusEl} from "./dom.js";
 export function initHelp({onOpen} = {}) {
   const help = document.getElementById("help");
-  const openers = [document.getElementById("helpBtn"), document.getElementById("helpBtn2")].filter(Boolean);
+  const openers = [document.getElementById("helpBtn")].filter(Boolean);
   let opener = null;
   function open(from) {
     if (help.open) return;
@@ -17,7 +18,7 @@ export function initHelp({onOpen} = {}) {
   document.getElementById("helpClose").addEventListener("click", close);
   document.getElementById("helpX").addEventListener("click", close);
   help.addEventListener("click", e => { if (e.target === help) close(); }); // click on the backdrop
-  help.addEventListener("close", () => { if (opener && opener.focus) opener.focus(); });
+  help.addEventListener("close", () => { if (opener && opener.focus) focusEl(opener, {reveal: false}); });
   help.addEventListener("keydown", e => e.stopPropagation()); // the map's keys don't fire behind the dialog
   return {open, close, get isOpen() { return help.open; }};
 }

@@ -10,11 +10,16 @@ export function createLabels3D(R, host, layout) {
     const el = document.createElement("span"); el.className = "lbl3d" + (cls ? " " + cls : ""); el.textContent = text;
     host.appendChild(el); list.push({el, p: new THREE.Vector3(x, z, -y)});
   };
-  const door = frontDoor(layout);
-  if (door) add("FRONT DOOR", door.x, door.y, (door.h || 7) + 1.5, "door");
-  // bigger rooms first: when two names would overlap, the bigger room keeps its name
-  const floors = layout.items.filter(f => f.type === "floor").sort((a, b) => b.w * b.d - a.w * a.d);
-  for (const f of floors) add((f.name || "").replace(/\s+floor$/i, "").toUpperCase(), f.x, f.y, 1.5);
+  function build(l) {
+    for (const x of list) x.el.remove();
+    list.length = 0;
+    const door = frontDoor(l);
+    if (door) add("FRONT DOOR", door.x, door.y, (door.h || 7) + 1.5, "door");
+    // bigger rooms first: when two names would overlap, the bigger room keeps its name
+    const floors = l.items.filter(f => f.type === "floor").sort((a, b) => b.w * b.d - a.w * a.d);
+    for (const f of floors) add((f.name || "").replace(/\s+floor$/i, "").toUpperCase(), f.x, f.y, 1.5);
+  }
+  build(layout);
   let shown = true;
   return {
     /** Re-place every label for this camera (call after each render). */
@@ -41,6 +46,8 @@ export function createLabels3D(R, host, layout) {
       }
     },
     show(on) { shown = on; host.hidden = !on; },
+    /** The open map changed: new room names. */
+    setLayout(l) { build(l); },
     dispose() { for (const l of list) l.el.remove(); list.length = 0; },
   };
 }

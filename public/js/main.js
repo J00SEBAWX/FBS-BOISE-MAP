@@ -1,15 +1,35 @@
 /* FBS Boise Store Map: entry point (a native ES module; no build step, CSP script-src 'self').
- * Loads the master layout and the scan overlay, then wires the three displays together:
- *   Plan  - the floor plan from above (plan2d/), view only in this phase
- *   3D    - orbit around the store with the cleaned 3D scan as a ghost (view3d/)
- *   Walk  - the customer's-eye walk (view3d/cameras.js)
- * plus the Layers menu, the Measure / place tool (core/snap.js), the account menu and the help dialog. */
-import {normalizeLayout, displayName, categoryOf, TYPES, isStructure, heightToCeiling, baseOf, platformTopAt} from "./core/model.js";
+ * Loads the open map (the master or one of everyone's maps) from the API and wires the displays together:
+ *   Plan        - the floor plan from above (plan2d/)
+ *   3D          - orbit around the store with the cleaned 3D scan as a ghost; department blocks as volumes (view3d/)
+ *   Walk        - the customer's-eye walk (view3d/cameras.js)
+ * in one of five view modes (OWNER RULES v3.1 rule 4; core/modes.js):
+ *   Blank slate | Current layout (the master, read-only) | Area planning (the editor: plan2d/editor.js, the
+ *   Departments palette, the inspector) | Comparison (two layouts, the change list, Apply to master) |
+ *   Advisor (core/advisor.js: scores, recommendations, overlays)
+ * plus the map switcher, autosave with optimistic concurrency, real-time collision warnings (core/issues.js),
+ * the Layers menu, the Measure tool, the account menu and the help dialog. Every edit goes through
+ * core/session.js (doc.js + areas.js + history.js). */
+import {displayName, TYPES, isStructure, heightToCeiling, baseOf, platformTopAt} from "./core/model.js";
 import {buildNav} from "./core/nav.js";
-import {buildSnapTargets, snapPoint} from "./core/snap.js";
+import {snapPoint, snapRect, GRID} from "./core/snap.js";
 import {createMeasure} from "./core/measure.js";
 import {clamp, deg} from "./core/geometry.js";
-import {formatFtIn} from "./core/units.js";
+import {formatFtIn, formatSqft} from "./core/units.js";
+import {createSession, toLayout} from "./core/session.js";
+import {createAutosave} from "./core/autosave.js";
+import {loadDraft, createDraftKeeper, clearAllDrafts} from "./core/drafts.js";
+import {parseHash, isMapId, planHashChange} from "./core/route.js";
+import {api, ApiError} from "./core/api.js";
+import {MODE_INFO, isMode, modeAllows, modeLayers, modeNotice, itemShownIn, unlockHint, lockedDeleteHint} from "./core/modes.js";
+import {apiNotReady, staticMasterResponse, legacyAllows, legacyMode, LEGACY_BANNER} from "./core/readiness.js";
+import {collectIssues, firstOffender} from "./core/issues.js";
+import {rowKey, rowBounds} from "./core/compare.js";
+import {ignoreShortcut, deleteAllowed, isSurface} from "./core/keys.js";
+import {visibleBox, dropSpot} from "./core/placement.js";
+import {fixEdits, showBounds} from "./core/advisor-ui.js";
+import * as D from "./core/doc.js";
+import * as A from "./core/areas.js";
 import {webglAvailable, createScene, disposeTree} from "./view3d/scene.js";
 import {createStoreBuilder} from "./view3d/structure.js";
 import {createScanModel} from "./view3d/scan-model.js";
@@ -17,71 +37,138 @@ import {createWalk, createOrbit} from "./view3d/cameras.js";
 import {createPicker} from "./view3d/picking.js";
 import {createCursor3D} from "./view3d/cursor.js";
 import {createLabels3D} from "./view3d/labels.js";
+import {createBlocks3D} from "./view3d/blocks.js";
+import {createOverlays3D} from "./view3d/overlays.js";
 import {createPlanView} from "./plan2d/plan.js";
-import {initTabs, initialView} from "./ui/header.js";
+import {createPlanEditor} from "./plan2d/editor.js";
+import {catMap} from "./plan2d/blocks.js";
+import {drawIssues} from "./plan2d/issues-draw.js";
+import {drawDiffOverlay, drawSideGhost} from "./plan2d/compare-draw.js";
+import {drawOverlays, drawHighlight} from "./plan2d/advisor-draw.js";
+import {initTabs, initialView, initialMode} from "./ui/header.js";
 import {initToolbar} from "./ui/toolbar.js";
 import {createLayers} from "./ui/layers.js";
-import {toast} from "./ui/toast.js";
+import {toast, hideToast} from "./ui/toast.js";
 import {initHelp} from "./ui/dialog.js";
 import {onThemeChange, isDark} from "./ui/theme.js";
 import {createWalkHud} from "./ui/walk-hud.js";
 import {createReadout} from "./ui/readout.js";
+import {createBanner} from "./ui/banner.js";
+import {createMapMenu} from "./ui/mapmenu.js";
+import {createInspector} from "./ui/inspector.js";
+import {createAddMenu, createDeptPalette, createCategoryDialog} from "./ui/palette.js";
+import {createComparePanel} from "./ui/compare.js";
+import {createAdvisorPanel} from "./ui/advisor.js";
+import {createReviewPanel} from "./ui/review.js";
+import {attachSheetGrab} from "./ui/sheet.js";
+import {initStageGuard} from "./ui/stage-guard.js";
+import {createProposalControl} from "./ui/proposals.js";
+import {h, icon, focusEl} from "./ui/dom.js";
 import {initAccount} from "./account.js";
 
 // (the saved theme is already applied by /assets/theme-boot.js in <head>, before the page is drawn)
 const $ = s => document.querySelector(s);
 const app = $("#app");
 const announce = msg => { const el = $("#srLive"); el.textContent = ""; requestAnimationFrame(() => { el.textContent = msg; }); };
+const coarse = matchMedia("(pointer:coarse)");
+const isTouch = () => coarse.matches;
+const phoneMq = matchMedia("(max-width:767px), (pointer:coarse) and (max-width:1023px)");
+const storage = (() => { try { return window.localStorage; } catch { return null; } })();
+const drafts = createDraftKeeper(storage);
+const cssToken = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 /* ================= loading the data ================= */
 async function loadJson(url) {
   const r = await fetch(url, {credentials: "same-origin", cache: "no-cache"});
-  if (r.status === 401) { location.replace("/login"); throw new Error("signed out"); }
+  if (r.status === 401) { try { clearAllDrafts(window.localStorage); } catch { /* no storage */ } location.replace("/login"); throw new Error("signed out"); }
   if (!r.ok) throw new Error(`${url}: ${r.status}`);
   return r.json();
 }
-function stageError(title, text) {
-  // the card lives in the 3D view: show that view whatever was open
-  $("#view3d").hidden = false; $("#viewPlan").hidden = true;
-  const box = $("#noGl"), card = box.querySelector(".nogl-card");
-  card.querySelector("h2").textContent = title;
-  card.querySelector("p").textContent = text;
-  const b = $("#noGlPlan"); b.textContent = "Try again"; b.addEventListener("click", () => location.reload(), {once: true});
+function stageError(title, text, retry) {
+  const box = $("#mapError");
+  $("#mapErrorTitle").textContent = title; $("#mapErrorText").textContent = text;
+  $("#mapErrorRetry").hidden = !retry;
   box.hidden = false;
+  return box;
 }
 
 boot().catch(e => {
+  if (e && e.message === "signed out") return;
   console.warn("map did not start:", e && e.message);
-  stageError("This map didn't start", "Something went wrong while drawing the store. Try again; if it keeps happening, tell the person who sent you the link.");
+  stageError("This map didn't start", "Something went wrong while drawing the store. Try again; if it keeps happening, tell the person who sent you the link.", true);
+  $("#mapErrorRetry").addEventListener("click", () => location.reload(), {once: true});
+  $("#mapErrorMaster").hidden = true;
 });
 
 async function boot() {
+  initStageGuard();
   initAccount();
-  let layout, overlay = null;
+  let me, overlay = null;
   try {
-    const [raw, ov] = await Promise.all([loadJson("data/master.json"), loadJson("data/scan-overlay.json").catch(() => null)]);
-    layout = normalizeLayout(raw);
-    overlay = ov;
+    [me, overlay] = await Promise.all([api.me(), loadJson("data/scan-overlay.json").catch(() => null)]);
   } catch (e) {
-    if (e && e.message === "signed out") return;
-    stageError("This map didn't load", "Check the connection and try again. Nothing you saved is lost.");
+    if (e instanceof ApiError && e.status === 401) return;
+    stageError("This map didn't load", "Check the connection and try again. Nothing you saved is lost.", true);
+    $("#mapErrorRetry").addEventListener("click", () => location.reload(), {once: true});
+    $("#mapErrorMaster").hidden = true;
     return;
   }
-  start(layout, overlay); // a failure here is caught above and shows the same "Try again" card
+  start(me, overlay); // a failure here is caught above and shows the same "Try again" card
 }
 
-function start(layout, overlay) {
-  const state = {view: initialView(), tool: "look", has3D: false, sel: null};
-  const targets = buildSnapTargets(layout.items);
-  const nav = buildNav(layout);
+function start(me, overlay) {
+  const state = {view: initialView(), mode: initialMode(), tool: "select", has3D: false, placing: null, multi: false, loading: false,
+    legacy: false, // the server's maps aren't ready (core/readiness.js): the master map is shown from the static file, read-only
+    map: {id: "master", name: "Master map", version: 0, canEdit: false, ownerName: "", updatedAt: 0, mine: false, locked: false},
+    master: null, // {version, data, layout, cats, updatedAt, ownerName}: the master as Current layout / Comparison show it
+    issues: collectIssues({items: []})};
+  const isAdmin = me.role === "admin";
+  // the Review mode (proposals, master history) is the admin's; its tab is unhidden before the tabs are wired
+  app.dataset.admin = String(isAdmin); // six mode tabs need more header room than five (css collapses labels)
+  if (isAdmin) $("#mode-review").hidden = false;
+  else if (state.mode === "review") state.mode = "planning";
   const measure = createMeasure();
   const readout = createReadout();
   const help = initHelp();
+  const banner = createBanner($("#mapBanner"));
   let lastSnap = null;
+  const allows = () => modeAllows(state.mode);
+  const canEdit = () => !!state.map.canEdit && !state.loading && allows().edit;
+  // undo / redo also work in Advisor mode (its Apply is an edit of the open map)
+  const canUndo = () => !!state.map.canEdit && !state.loading && (allows().edit || state.mode === "advisor");
+  const planView = () => state.view === "plan";
+  const sideBySide = () => state.mode === "comparison" && planView() && comparePanel.state.layout === "side";
 
-  /* ---------- 3D ---------- */
-  let R = null, builder = null, groups = null, scan = null, walk = null, orbit = null, picker = null, cursor = null, labels3d = null, hud = null;
+  /* ================= the editing session ================= */
+  const session = createSession({onChange: (kind, info) => onSessionChange(kind, info)});
+  const navCache = new WeakMap();
+  const navFor = layout => { let n = navCache.get(layout); if (!n) { n = buildNav(layout); navCache.set(layout, n); } return n; };
+  /** What the displays draw in this mode: the master (Current layout), B of the comparison, else the open map. */
+  function shown() {
+    if (state.mode === "current" && state.master) return {layout: state.master.layout, cats: state.master.cats, doc: state.master.data};
+    if (state.mode === "comparison") { const l = comparePanel.layoutOf("b"), d = comparePanel.docOf("b"); if (l && d) return {layout: l, cats: A.categoriesOf(d), doc: d}; }
+    if (state.mode === "review" && reviewPanel) { const l = reviewPanel.shownLayout(), d = reviewPanel.shownDoc(); if (l && d) return {layout: l, cats: A.categoriesOf(d), doc: d}; }
+    return {layout: session.layout, cats: session.categories, doc: session.doc};
+  }
+  const shownLayout = () => shown().layout;
+  const shownCats = () => shown().cats;
+  /** The master, fetched for Current layout and Comparison (refetched when its version may have moved). */
+  async function loadMaster(force) {
+    if (state.master && !force && (state.map.id !== "master" || state.master.version === state.map.version)) return state.master;
+    if (state.map.id === "master") {
+      state.master = {version: state.map.version, data: session.doc, layout: session.layout, cats: session.categories, updatedAt: state.map.updatedAt, ownerName: state.map.ownerName};
+      return state.master;
+    }
+    const m = await api.master();
+    state.master = {version: m.version, data: m.data, layout: toLayout(m.data), cats: A.categoriesOf(m.data), updatedAt: m.updatedAt, ownerName: m.updatedByName || m.sourceOwnerName || ""};
+    return state.master;
+  }
+
+  /* ================= 3D ================= */
+  let R = null, builder = null, groups = null, scan = null, walk = null, orbit = null, picker = null, cursor = null, labels3d = null, hud = null, blocks3d = null, overlays3d = null;
+  let dirty3D = false, rebuildTimer = 0, built3D = null;
   function init3D() {
+    const layout = shownLayout();
     R = createScene($("#three"), layout.building);
     R.setSky(isDark());
     builder = createStoreBuilder(R);
@@ -89,79 +176,170 @@ function start(layout, overlay) {
     for (const g of Object.values(groups)) R.scene.add(g);
     R.renderer.shadowMap.needsUpdate = true;
     scan = createScanModel(R, "data/scan.glb");
-    walk = createWalk({R, layout, nav, toast, onArrive: () => hud && hud.arrived()});
+    walk = createWalk({R, layout, nav: navFor(layout), toast, onArrive: () => hud && hud.arrived()});
     walk.onSpin = on => $("#btnSpin").setAttribute("aria-pressed", String(on));
     orbit = createOrbit({R, layout});
     picker = createPicker(R, layout);
     cursor = createCursor3D(R);
     labels3d = createLabels3D(R, $("#labels3d"), layout);
+    blocks3d = createBlocks3D(R, $("#signs3d"));
+    blocks3d.update(layout, catMap(shownCats()), isDark());
+    overlays3d = createOverlays3D(R);
     hud = createWalkHud({layout, walk, getLayers: () => layers.get("walk"), announce});
+    built3D = layout;
     state.has3D = true;
+    sync3DIssues();
+  }
+  /** The store meshes follow what is shown: rebuilt when a fixture or structure item changed (a little after the last change), or the mode shows another layout. */
+  function rebuild3D() {
+    if (!R) return;
+    dirty3D = false;
+    const layout = shownLayout();
+    for (const g of Object.values(groups)) { R.scene.remove(g); disposeTree(g); }
+    builder.dispose();
+    builder = createStoreBuilder(R);
+    groups = builder.build(layout);
+    for (const g of Object.values(groups)) R.scene.add(g);
+    R.renderer.shadowMap.needsUpdate = true;
+    picker.setLayout(layout); labels3d.setLayout(layout); walk.setLayout(layout, navFor(layout)); hud.setLayout(layout);
+    blocks3d.update(layout, catMap(shownCats()), isDark());
+    built3D = layout;
+    gpuReleased = false;
+    applyLayers(null);
+    outline3D();
+    sync3DIssues();
+    sync3DOverlays();
+  }
+  function scheduleRebuild() {
+    if (!R || !dirty3D) return;
+    clearTimeout(rebuildTimer);
+    rebuildTimer = setTimeout(() => { if (dirty3D && !planView()) rebuild3D(); }, 450);
   }
   // Staying in the plan for a while: free the GPU copies of the store (geometry, programs, textures). three.js
-  // uploads them again on the next frame drawn, so the 3D view comes back as it was. Only after a minute in the
-  // plan, so quick switches back and forth don't recompile every shader.
+  // uploads them again on the next frame drawn, so the 3D view comes back as it was.
   let releaseTimer = 0, gpuReleased = false;
   function releaseGpuSoon() {
     clearTimeout(releaseTimer);
     releaseTimer = setTimeout(() => {
-      if (!R || gpuReleased || state.view !== "plan") return;
+      if (!R || gpuReleased || !planView()) return;
       disposeTree(R.scene);
       R.renderer.renderLists.dispose();
       gpuReleased = true;
     }, 60000);
   }
   function keepGpu() { clearTimeout(releaseTimer); gpuReleased = false; }
+  function sync3DIssues() { if (blocks3d) blocks3d.setIssues(state.mode === "planning" || state.mode === "advisor" ? state.issues.ids : [], cssToken("--danger")); }
+  const overlayColours = () => ({accent: cssToken("--accent"), danger: cssToken("--danger"), warning: cssToken("--warning"), door: cssToken("--plan-door"), slate: cssToken("--cat-12"), hot: cssToken("--cat-01"), cold: cssToken("--cat-12")});
+  function sync3DOverlays() {
+    if (!overlays3d) return;
+    const on = state.mode === "advisor" && !planView();
+    const res = on ? advisorPanel.result : null;
+    overlays3d.setOverlays(res ? res.overlays : null, res ? advisorPanel.overlays : null, overlayColours());
+    overlays3d.setHighlight(on && advisorPanel.shown ? advisorPanel.shown.show : null, overlayColours());
+    overlays3d.show(on);
+  }
 
-  /* ---------- layers ---------- */
+  /* ================= layers ================= */
   const layers = createLayers({btn: $("#layersBtn"), pop: $("#layersPop"), onChange: key => applyLayers(key)});
+  const planLayers = () => modeLayers(state.mode, layers.get("plan"));
   function applyLayers(key) {
     const v = state.view;
     $("#toolSnap").setAttribute("aria-pressed", String(layers.get().snap));
     if (R) {
-      const L3 = layers.get(v === "plan" ? "3d" : v);
+      const L3 = modeLayers(state.mode, layers.get(planView() ? "3d" : v));
       groups.structure.visible = L3.structure; groups.fixtures.visible = L3.fixtures; groups.ceiling.visible = L3.ceiling;
       walk.setCeiling(L3.ceiling);
       labels3d.show(v === "3d" && L3.labels);
+      blocks3d.show(L3.categories && !planView());
       if (!key || key === "structure" || key === "fixtures") R.renderer.shadowMap.needsUpdate = true;
-      if (v !== "plan") setScan(L3.scan);
+      if (!planView()) setScan(L3.scan);
       R.requestRender();
       if (hud && (key === "structure" || key === "fixtures")) hud.invalidate();
     }
-    plan.draw();
-    if (state.sel && key && !selectionVisible(state.sel)) select(null);
+    plan.draw(); if (planA.active) planA.draw();
+    syncMore();
+    palette.render();
+    if (key === "faint" || key === "fixtures" || key === "structure" || key === "categories") pruneSelection();
   }
-  const selectionVisible = it => (isStructure(it) ? layers.get().structure : layers.get().fixtures);
+  const selectionVisible = it => itemShownIn(it, planLayers(), {plan: planView()});
+  /** Drops from the selection what the current layers or mode don't draw (a hidden block must not stay selected). */
+  function pruneSelection() { const keep = session.selected().filter(selectionVisible); if (keep.length !== session.selection.length) session.select(keep.map(it => it.id)); }
   let scanToken = 0;
   async function setScan(mode) {
-    const banner = $("#scanBanner"), my = ++scanToken;
-    if (mode !== "off" && !scan.loaded && !scan.failed) { banner.className = "banner"; banner.textContent = "Loading the 3D scan…"; banner.hidden = false; }
+    const bannerEl = $("#scanBanner"), my = ++scanToken;
+    if (mode !== "off" && !scan.loaded && !scan.failed) { bannerEl.className = "banner"; bannerEl.textContent = "Loading the 3D scan…"; bannerEl.hidden = false; }
     const ok = await scan.setMode(mode);
     if (my !== scanToken) return;
-    if (mode !== "off" && !ok) { banner.className = "banner error"; banner.textContent = "The 3D scan didn't load. Everything else still works."; banner.hidden = false; setTimeout(() => { banner.hidden = true; }, 6000); }
-    else banner.hidden = true;
+    if (mode !== "off" && !ok) { bannerEl.className = "banner error"; bannerEl.textContent = "The 3D scan didn't load. Everything else still works."; bannerEl.hidden = false; setTimeout(() => { bannerEl.hidden = true; }, 6000); }
+    else bannerEl.hidden = true;
   }
 
-  /* ---------- plan ---------- */
-  const plan = createPlanView({
-    canvas: $("#planCanvas"), layout,
+  /* ================= plan + editor ================= */
+  const selIds = () => (allows().select ? new Set(session.selection) : new Set());
+  const planOpts = {
+    canvas: $("#planCanvas"), layout: session.layout,
     overlay: () => overlay,
-    getLayers: () => layers.get("plan"),
+    getLayers: () => planLayers(),
+    getFaint: () => planLayers().faint,
+    getCats: () => catMap(shownCats()),
+    isDark,
+    getSelIds: selIds,
     getTool: () => state.tool,
     getWalker: () => (walk ? {ME: walk.ME, halfH: walk.CAM.halfH} : null),
     measure,
-    snapAt: (x, y, tol) => snapPoint({x, y}, targets, {tol: clamp(tol, 0.2, 3), snap: layers.get().snap}),
-    onSelect: it => select(it, "plan"),
+    snapAt: (x, y, tol) => snapPoint({x, y}, session.snapTargets, {tol: clamp(tol, 0.2, 3), snap: layers.get().snap}),
+    onSelect: (it, opts) => planClick(it, opts),
     onGo: (x, y, item) => goWalk(x, y, item),
     onPointer: p => readout.pointer(p),
     onMeasure: snap => {
       lastSnap = snap;
       if (!snap) { readout.hide(); return; }
-      const [sx, sy] = [(snap.x - plan.V.cx) * plan.V.s + plan.V.W / 2, plan.V.H / 2 - (snap.y - plan.V.cy) * plan.V.s];
+      const [sx, sy] = plan.toScreen(snap.x, snap.y);
       readout.show($("#viewPlan"), snap, sx, sy, measure.state);
     },
-    onViewChange: V => updateScale(V),
+    onViewChange: V => { updateScale(V); if (sideBySide() && planA.active) planA.setViewFrom(V); },
+    extraDraw: (ctx, V, tok) => extraDraw(ctx, V, tok),
+  };
+  const plan = createPlanView(planOpts);
+  const editor = createPlanEditor({
+    plan, session, canEdit, toast,
+    snapOn: () => layers.get().snap, touch: isTouch, multiMode: () => state.multi, dimensionsOn: () => layers.get().dimensions,
+    onDblClick: it => { if (it) { session.select(it.id); inspector.focusFirst(); } },
+    onGesture: kind => { app.dataset.gesture = kind || ""; if (!kind) syncStatus(); },
   });
+  planOpts.editor = editor; // the plan reads it at event time, so the two can know each other (null in read-only modes)
+  // the second plan of Comparison's side-by-side display (the base layout A), locked to the main one
+  const planA = createPlanView({
+    canvas: $("#planCanvasA"), layout: session.layout, overlay: () => null,
+    getLayers: () => ({...planLayers(), dimensions: false}), getFaint: () => planLayers().faint,
+    getCats: () => catMap(comparePanel.docOf("a") ? A.categoriesOf(comparePanel.docOf("a")) : session.categories), isDark,
+    getSelIds: () => new Set(), getTool: () => (state.tool === "measure" ? "select" : state.tool), getWalker: () => null, measure,
+    snapAt: (x, y) => ({x, y}), onSelect: it => { if (it) compareClick(it.id); }, onGo: () => {}, onPointer: p => readout.pointer(p), onMeasure: () => {},
+    onViewChange: V => { if (sideBySide()) plan.setViewFrom(V); },
+    extraDraw: (ctx, V, tok) => { if (state.mode === "comparison") drawSideGhost(ctx, V, comparePanel.selectedRow(), "a", tok); },
+  });
+  /** What a click on the plan does outside the editor: select (Blank slate, Advisor), pick a difference (Comparison), nothing (Current layout). */
+  function planClick(it, opts) {
+    if (state.mode === "comparison") { if (it) compareClick(it.id); return; }
+    if (state.mode === "review") { if (it && reviewPanel) reviewClick(it.id); return; }
+    if (!allows().select) return;
+    if (!it) session.clearSelection(); else session.select(it.id, {toggle: !!(opts && opts.toggle)});
+  }
+  /** The mode's own drawing over the plan: collision outlines, the comparison diff, the advisor's overlays and highlight. */
+  function extraDraw(ctx, V, tok) {
+    if (state.mode === "planning") drawIssues(ctx, V, session.layout, state.issues, tok);
+    else if (state.mode === "comparison") {
+      if (comparePanel.state.layout === "overlay") drawDiffOverlay(ctx, V, comparePanel.diff, tok, {selected: comparePanel.state.selected});
+      else drawSideGhost(ctx, V, comparePanel.selectedRow(), "b", tok);
+    } else if (state.mode === "advisor") {
+      const res = advisorPanel.result;
+      if (res) drawOverlays(ctx, V, res.overlays, advisorPanel.overlays, tok);
+      drawIssues(ctx, V, session.layout, state.issues, tok, {markers: false});
+      if (advisorPanel.shown) drawHighlight(ctx, V, advisorPanel.shown.show, session.layout, tok);
+    } else if (state.mode === "review" && reviewPanel && reviewPanel.diff) {
+      drawDiffOverlay(ctx, V, reviewPanel.diff, tok, {selected: reviewPanel.state.selected});
+    }
+  }
   let fitScale = 0;
   function updateScale(V) {
     if (!fitScale || !V.fitted) fitScale = V.s;
@@ -172,76 +350,780 @@ function start(layout, overlay) {
   }
   $("#zIn").addEventListener("click", () => plan.zoomAt(1.25));
   $("#zOut").addEventListener("click", () => plan.zoomAt(1 / 1.25));
-  $("#zFit").addEventListener("click", () => { plan.fit(); fitScale = plan.V.s; });
+  const fitPlan = () => { plan.fit(); fitScale = plan.V.s; };
+  $("#zFit").addEventListener("click", fitPlan);
+  $("#fabFit").addEventListener("click", fitPlan);
+  $("#fabLayers").addEventListener("click", () => layers.open());
 
-  /* ---------- selection (Plan and 3D) and its details card ---------- */
-  const info = $("#info");
-  function select(it, from) {
-    const hadFocus = info.contains(document.activeElement);
-    state.sel = it || null;
-    if (from !== "plan" && plan.selected !== state.sel) plan.select(state.sel);
-    outline3D();
-    if (it) {
-      $("#infoKind").textContent = (TYPES[it.type] && (it.type === "wall" || it.type === "column" || it.type === "door") ? TYPES[it.type].label : categoryOf(it)) + (isStructure(it) ? " · structure" : "");
-      $("#infoName").textContent = displayName(it);
-      const h = drawnHeight(it);
-      $("#infoSize").textContent = `${formatFtIn(it.w)} × ${formatFtIn(it.d)}` + (h >= 1 ? ` · ${formatFtIn(h)} tall` : "") + ` · at x ${formatFtIn(it.x)}, y ${formatFtIn(it.y)}`;
-      const note = typeof it.toConfirm === "string" ? it.toConfirm : "";
-      $("#infoNote").textContent = note ? "To check in the store: " + note : "";
-      $("#infoNote").hidden = !note;
-      $("#infoGo").hidden = !canGoLook(it);
-      info.hidden = state.view === "walk";
-      readout.selection(`${displayName(it)} · ${formatFtIn(it.w)} × ${formatFtIn(it.d)}`);
-    } else {
-      info.hidden = true;
-      readout.selection("");
-      if (hadFocus) (state.view === "plan" ? $("#planCanvas") : $("#three")).focus();
+  /* ================= collision warnings (OWNER RULES v3.1 rule 5) ================= */
+  function recheck() {
+    state.issues = collectIssues(session.doc);
+    const chip = $("#issueChip"), fab = $("#issueFab"), on = state.issues.count > 0 && (state.mode === "planning" || state.mode === "advisor");
+    chip.hidden = !on; fab.hidden = !on || !planView();
+    $("#issueChipText").textContent = state.issues.label; $("#issueFabText").textContent = state.issues.label;
+    chip.setAttribute("aria-label", on ? `${state.issues.label}: show the first` : ""); fab.setAttribute("aria-label", on ? `${state.issues.label}: show the first` : "");
+    sync3DIssues();
+  }
+  /** The chip: select the first offending block and open its Checks. */
+  function showFirstIssue() {
+    const id = firstOffender(state.issues);
+    if (!id) return;
+    if (state.mode !== "planning") setMode("planning");
+    session.select(id);
+    const it = session.layout.byId.get(id);
+    if (planView() && it) plan.ensureVisible(it);
+    else if (orbit && it) orbit.focus({x: it.x, y: it.y});
+    inspector.focusChecks();
+    announce(`${state.issues.label}. ${(state.issues.byId[id] || []).map(i => i.message).join(". ")}`);
+  }
+  $("#issueChip").addEventListener("click", showFirstIssue);
+  $("#issueFab").addEventListener("click", showFirstIssue);
+
+  /* ================= what the session tells the app ================= */
+  let suppressSave = false, advisorTimer = 0, fieldCommitAt = -Infinity, undoGuard = null; // undoGuard: the document an Undo toast was offered for
+  function onSessionChange(kind, info = {}) {
+    if (kind === "load" || kind === "doc") {
+      if (undoGuard && session.doc !== undoGuard) { undoGuard = null; hideToast(); } // anything else changed the map: the offered Undo is stale
+      const layout = session.layout;
+      recheck();
+      if (state.mode !== "current" && state.mode !== "comparison") plan.setLayout(layout);
+      if (R && state.mode !== "current" && state.mode !== "comparison") {
+        blocks3d.update(layout, catMap(session.categories), isDark());
+        const structural = kind === "load" || info.replaced || info.undo || info.redo || info.cancelled || !info.ids || info.ids.some(id => { const it = layout.byId.get(id); return !it || it.type !== "area"; });
+        if (structural) { dirty3D = true; if (!planView()) scheduleRebuild(); }
+        outline3D();
+      }
+      if (kind === "doc" && !suppressSave) {
+        if (state.map.canEdit && !state.loading) { autosave.change(); drafts.write(state.map.id, state.map.version, session.doc); }
+      }
+      if (state.map.id === "master") state.master = null; // the admin edited the master: Current layout / Comparison read it again
+      if (state.mode === "advisor") { clearTimeout(advisorTimer); advisorTimer = setTimeout(() => { if (state.mode === "advisor") { advisorPanel.run(); plan.draw(); sync3DOverlays(); } }, 200); }
+      if (state.mode === "comparison") comparePanel.liveChanged();
+      inspector.render();
+      palette.render();
+      syncEmpty();
+      syncStatus();
+    }
+    if (kind === "selection") {
+      plan.draw();
+      inspector.render();
+      palette.render();
+      if (R) blocks3d.setSelected(allows().select ? session.selection : []);
+      outline3D();
+      syncToolbar();
+      syncStatus();
+      if (editor.shapeEdit && !(session.single && session.single.type === "area")) editor.setShapeEdit(false);
+      if (phoneMq.matches && session.selection.length && state.mode === "planning") $("#palette").classList.remove("open");
+      if (phoneMq.matches && planView() && session.single && allows().inspector) plan.revealAbove(session.single, plan.V.H * 0.46);
+    }
+    if (kind === "history") syncToolbar();
+    if (kind === "lock") { syncLock(); syncToolbar(); inspector.render(); plan.draw(); }
+  }
+  function syncStatus() {
+    const items = allows().select ? session.selected() : [];
+    if (!items.length) { readout.selection(""); $("#planLive").textContent = ""; return; }
+    if (items.length === 1) {
+      const it = items[0];
+      const text = it.type === "area" ? `${displayName(it)} · ${formatSqft(A.blockArea(it))} · ${formatFtIn(it.w)} × ${formatFtIn(it.d)}` : `${displayName(it)} · ${formatFtIn(it.w)} × ${formatFtIn(it.d)}`;
+      const warn = state.issues.byId[it.id] ? ` · ${state.issues.byId[it.id].length} warning${state.issues.byId[it.id].length === 1 ? "" : "s"}` : "";
+      readout.selection("1 selected · " + text + warn);
+      $("#planLive").textContent = `${displayName(it)}, ${(TYPES[it.type] || {}).label || it.type}, ${formatFtIn(it.w)} by ${formatFtIn(it.d)}, at ${formatFtIn(it.x)} east, ${formatFtIn(it.y)} north${warn}`;
+    } else { readout.selection(`${items.length} selected`); $("#planLive").textContent = `${items.length} items selected`; }
+  }
+  function syncEmpty() { $("#catsEmpty").hidden = !(state.mode === "planning" && planView() && canEdit() && !session.doc.items.some(it => it.type === "area")); }
+  function syncToolbar() {
+    const n = session.selected().filter(it => !session.isLocked(it)).length;
+    $("#btnUndo").disabled = !session.history.canUndo() || !canUndo();
+    $("#btnRedo").disabled = !session.history.canRedo() || !canUndo();
+    for (const id of ["btnDup", "btnRot", "btnDel"]) $("#" + id).disabled = !n || !canEdit();
+    $("#btnUndo").title = "Undo" + (session.history.undoLabel() ? ` ${session.history.undoLabel().toLowerCase()}` : "") + " (Ctrl+Z)";
+    $("#btnRedo").title = "Redo" + (session.history.redoLabel() ? ` ${session.history.redoLabel().toLowerCase()}` : "") + " (Ctrl+Shift+Z)";
+  }
+  function syncLock() {
+    const on = session.unlocked, b = $("#btnLock");
+    b.setAttribute("aria-pressed", String(on));
+    b.setAttribute("aria-label", on ? "Structure unlocked" : "Structure locked");
+    b.title = on ? "Structure unlocked: walls, doors, columns, floors and stairs can move. Click to lock them again" : "Structure locked: walls, doors, columns, floors and stairs stay put. Click to unlock";
+    $("#lockLabel").textContent = on ? "Structure unlocked" : "Structure locked";
+    b.querySelector("use").setAttribute("href", "/assets/icons.svg#" + (on ? "i-unlock" : "i-lock"));
+    syncMore();
+  }
+
+  /* ================= edits (shared by the inspector, toolbar, keys and menus) ================= */
+  function applyOrToast(result, opts) {
+    const r = session.apply(result, opts);
+    if (r && r.error) { toast(r.error); return null; }
+    return r;
+  }
+  const act = {
+    /** Sets one field on these items (one undo step). Returns an error sentence or null. */
+    setField(ids, field, value) {
+      if (!canEdit()) return "This map is view only.";
+      if (field === "cat") return act.setCategory(ids[0], value);
+      session.begin(field === "name" ? "Rename" : field === "color" ? "Recolour" : field === "rot" ? "Rotate" : "Edit");
+      let error = null;
+      for (const id of ids) { const r = D.setField(session.doc, id, field, value, session.editOpts); if (r.error) { error = r.error; break; } session.apply(r); }
+      if (error) session.cancel(); else session.end();
+      return error;
+    },
+    duplicate() {
+      const ids = session.selected().filter(it => !session.isLocked(it)).map(it => it.id);
+      if (!ids.length || !canEdit()) return;
+      const r = applyOrToast(D.duplicateItems(session.doc, ids, session.editOpts), {label: "Duplicate"});
+      if (r) session.select(r.ids);
+    },
+    rotate(by) { if (canEdit()) editor.rotateBy(by); },
+    remove() {
+      if (!canEdit()) return;
+      const items = session.selected().filter(it => !session.isLocked(it));
+      if (!items.length) {
+        // everything selected is locked structure: say why nothing happened (and how to go on)
+        if (session.selection.length) toast(lockedDeleteHint({touch: phoneMq.matches, plan: planView()}));
+        return;
+      }
+      const r = applyOrToast(D.deleteItems(session.doc, items.map(it => it.id), session.editOpts), {label: "Delete"});
+      if (!r) return;
+      const label = items.length === 1 ? `Deleted “${displayName(items[0])}”.` : `Deleted ${items.length} items.`;
+      const inverse = r.inverse, ids = r.ids, map = state.map, after = session.doc;
+      // the Undo belongs to the map it was made on, and to the moment it was offered: after another map opens, or ANY other edit
+      // (the toolbar Undo, a typed value), it hides and does nothing, so it can never re-apply an old patch over newer work
+      undoGuard = after;
+      toast(label, {action: {label: "Undo", onClick: () => { if (state.map !== map || !canEdit() || session.doc !== after) return; session.applyPatch(inverse, "Undo delete"); session.select(ids); }}});
+    },
+    sizeToTarget(id) { applyOrToast(A.sizeToTarget(session.doc, id), {label: "Size to target"}); },
+    lockArea(id, on) { applyOrToast(A.setLockArea(session.doc, id, on), {label: on ? "Lock area" : "Unlock area"}); inspector.render(true); },
+    setCategory(id, key) { const r = session.apply(A.setBlockCategory(session.doc, id, key), {label: "Change department"}); return r && r.error ? r.error : null; },
+    setTarget(key, sqft) { const r = session.apply(A.updateCategory(session.doc, key, {targetSqft: sqft}), {label: "Change target"}); return r && r.error ? r.error : null; },
+    toRectangle(id) { applyOrToast(A.toRectangle(session.doc, id), {label: "Back to a rectangle"}); },
+    editCategory(key) { catDialog.open(key); },
+    unlock() { session.setUnlocked(true); toast("Structure unlocked. Walls, doors, columns, floors and stairs can move now.", {ms: 4000}); },
+    goLook(it) { goLook(it); },
+    fit(items) { plan.fitTo(items); fitScale = plan.V.s; },
+    /** The advisor's one-tap fix: a doc edit through the history (undoable). Returns an error sentence or null. */
+    applyFix(rec) {
+      if (!state.map.canEdit) return "This map is view only. Make your own copy to apply fixes.";
+      const r = fixEdits(session.doc, rec.apply);
+      if (r.error) return r.error;
+      suppressSave = false;
+      session.applyPatch(r.patch, rec.apply.text || "Advisor fix");
+      if (allows().select) session.select(r.ids);
+      return null;
+    },
+  };
+  /**
+   * The middle of the part of the map the person can actually see, in store feet. On a phone the Departments sheet (or the
+   * inspector) covers most of the screen and opening it moves the canvas centre far from the store, so the canvas centre is
+   * wrong there; the middle of what no sheet or drawer covers is right. In 3D it is the floor point under that middle.
+   */
+  const COVERS = ["palette", "comparePanel", "advisorPanel", "reviewPanel", "inspector"];
+  function dropCentre() {
+    const b = session.building, fallback = {x: b.L / 2, y: b.W / 2};
+    const surface = planView() ? $("#planCanvas") : $("#three");
+    const r = surface.getBoundingClientRect();
+    if (r.width < 40 || r.height < 40) return fallback;
+    const covers = COVERS.map(id => $("#" + id).getBoundingClientRect()).filter(c => c.width > 0 && c.height > 0).map(c => ({x0: c.left, y0: c.top, x1: c.right, y1: c.bottom}));
+    const box = visibleBox({x0: r.left, y0: r.top, x1: r.right, y1: r.bottom}, covers);
+    const cx = (box.x0 + box.x1) / 2, cy = (box.y0 + box.y1) / 2;
+    if (planView()) { const [wx, wy] = plan.toWorld(cx - r.left, cy - r.top); return {x: wx, y: wy}; }
+    const fl = picker && orbit ? picker.floorAt(cx, cy, orbit.camera) : null;
+    return fl ? {x: fl.x, y: fl.y} : fallback;
+  }
+  /** Where a new item goes: the visible middle, inside the building, beside (never on) what is already there. */
+  function dropWhere(probe) {
+    return dropSpot(session.doc, probe, dropCentre(), {building: session.building, grid: layers.get().snap ? GRID : 0});
+  }
+  /** Places a department block: where the person clicked in 3D (at), else the middle of the visible map (Departments list / Add menu / finder). */
+  function placeDepartment(key, at) {
+    if (!canEdit()) { toast("This map is view only. Make your own copy to place departments."); return; }
+    const cat = A.categoryFor(session.doc, key);
+    if (!cat) { toast("That department isn't on this map."); return; }
+    let p = at;
+    if (!p) { const [w, d] = A.startSize(cat); p = dropWhere({type: "area", cat: key, shape: "rect", name: "", w, d, h: A.BLOCK_HEIGHT, rot: 0}); }
+    const r = applyOrToast(A.createBlock(session.doc, key, p, {grid: layers.get().snap ? GRID : 0}), {label: "Place department"});
+    if (!r) return;
+    session.select(r.id);
+    if (planView()) plan.ensureVisible(session.layout.byId.get(r.id));
+    announce(`${(A.categoryFor(session.doc, key) || {}).name || "Department"} placed. Drag it into place.`);
+  }
+  function addItem(type) {
+    if (!canEdit()) return;
+    if (type === "area") { addMenu.open("departments"); return; }
+    const def = D.PALETTE[type];
+    const p = dropWhere({type, w: def.w, d: def.d, h: def.h ?? 0, rot: 0});
+    const r = applyOrToast(D.addItem(session.doc, type, p, {...session.editOpts, grid: layers.get().snap ? GRID : 0}), {label: `Add ${def.label.toLowerCase()}`});
+    if (!r) return;
+    session.select(r.id);
+    if (state.view === "3d") { dirty3D = true; scheduleRebuild(); }
+    inspector.focusFirst({expand: false}); // a computer: into its first field; a phone: the sheet just peeks, no keyboard
+    announce(`${def.label} added. Drag it into place, or change it in the panel.`); // (a phone keeps focus on the page, so say it)
+  }
+
+  /* ================= panels ================= */
+  const inspector = createInspector({
+    el: $("#inspector"), session, editor, canEdit, isTouch: () => phoneMq.matches, toast, act, canGoLook: it => canGoLook(it),
+    mapInfo: () => ({name: state.map.id === "master" ? "Master map" : state.map.name, master: state.map.id === "master", ownerName: state.map.ownerName, updatedAt: state.map.updatedAt}),
+    modeNotice: () => modeNotice(state.mode, {master: state.map.id === "master", canEdit: !!state.map.canEdit, legacy: state.legacy}),
+    issues: () => (state.mode === "planning" ? state.issues : null),
+    issuesFor: id => (state.mode === "planning" || state.mode === "advisor" ? state.issues.byId[id] || [] : null),
+    onIssues: () => showFirstIssue(),
+    onSheet: s => { app.dataset.sheet = s; },
+    onCommit: () => { fieldCommitAt = performance.now(); },
+  });
+  const palette = createDeptPalette({
+    el: $("#palette"), session, canEdit, toast, isDark, isTouch: () => phoneMq.matches,
+    getFixtures: () => layers.fixMode(),
+    onFixtures: mode => layers.setFixtures(mode),
+    onPlace: key => placeDepartment(key),
+    onSelectBlock: id => { session.select(id); const it = session.layout.byId.get(id); if (it && planView()) plan.ensureVisible(it); },
+    onEdit: key => catDialog.open(key),
+    onNew: () => catDialog.open(null),
+    onClose: () => $("#palette").classList.remove("open"),
+    onFind: r => showFound(r),
+  });
+  const catDialog = createCategoryDialog({
+    session, canEdit,
+    onSave(key, fields) {
+      if (!canEdit()) return "This map is view only.";
+      const r = key ? A.updateCategory(session.doc, key, fields) : A.addCategory(session.doc, fields);
+      const res = session.apply(r, {label: key ? "Edit category" : "New category"});
+      if (res && res.error) return res.error;
+      if (!key) toast(`Category “${fields.name.trim()}” added. Tap it in the list to place it.`, {icon: "i-check"});
+      return null;
+    },
+    onDelete(key) {
+      const cat = A.categoryFor(session.doc, key, session.categories);
+      const r = session.apply(A.deleteCategory(session.doc, key), {label: "Delete category"});
+      if (r && r.error) return r.error;
+      const inverse = r.inverse, map = state.map, after = session.doc;
+      undoGuard = after;
+      toast(`Deleted “${cat ? cat.name : "category"}”${r.removedBlocks && r.removedBlocks.length ? ` and its ${r.removedBlocks.length} block${r.removedBlocks.length > 1 ? "s" : ""}` : ""}.`, {action: {label: "Undo", onClick: () => { if (state.map !== map || !canEdit() || session.doc !== after) return; session.applyPatch(inverse, "Undo delete"); }}});
+      return null;
+    },
+    onReset(key) { const r = session.apply(A.resetCategory(session.doc, key), {label: "Reset category"}); return r && r.error ? r.error : null; },
+  });
+  const addMenu = createAddMenu({
+    btn: $("#addBtn"), pop: $("#addPop"), session, toast, isDark,
+    startMode: () => "items",
+    hint3d: () => state.view === "3d",
+    unlockHint: () => unlockHint({touch: phoneMq.matches, plan: planView()}),
+    onAdd: type => addItem(type),
+    onDepartment: key => { if (state.view === "3d") startPlacing(key); else placeDepartment(key); },
+  });
+  function showFound(r) {
+    const blocks = session.doc.items.filter(it => it.type === "area" && it.cat === r.key);
+    if (blocks.length) {
+      session.select(blocks[0].id);
+      if (planView()) plan.ensureVisible(session.layout.byId.get(blocks[0].id));
+      toast(`${r.zoneName}${r.subcat ? ` · ${r.subcat}` : ""}: highlighted on the plan.`, {icon: "i-check"});
+    } else if (canEdit()) toast(`${r.zoneName} isn't placed on this map yet.`, {action: {label: "Place it", onClick: () => placeDepartment(r.key)}});
+    else toast(`${r.zoneName} isn't placed on this map yet.`);
+  }
+  $("#deptBtn").addEventListener("click", () => {
+    const p = $("#palette"); const open = !p.classList.contains("open");
+    p.classList.toggle("open", open); $("#deptBtn").setAttribute("aria-expanded", String(open));
+    if (open) { session.clearSelection(); const b = session.building; plan.revealAbove({x: b.L / 2, y: b.W / 2}, plan.V.H * 0.72); }
+  });
+  $("#catsEmptyBtn").addEventListener("click", () => $("#deptBtn").click());
+
+  /* ================= Comparison and Advisor (the mode panels) ================= */
+  /** Saves what is pending, and refuses to go on when it could not be saved: the server works from the saved copy. */
+  async function saveFirst() {
+    if (autosave.pending) await autosave.flush();
+    if (autosave.pending) throw new Error("Your latest edits aren't saved yet. Wait for “Saved” in the header, then try again.");
+  }
+  const openMapInfo = () => ({id: state.map.id, name: state.map.id === "master" ? "Master map" : state.map.name, ownerName: state.map.ownerName, mine: state.map.mine, version: state.map.version, updatedAt: state.map.updatedAt});
+  const comparePanel = createComparePanel({
+    el: $("#comparePanel"), isAdmin, toast, isTouch: () => phoneMq.matches,
+    getOpenMap: openMapInfo,
+    listMaps: () => api.maps(),
+    loadMap: async id => {
+      if (id === "master") { const m = await loadMaster(true); return {doc: m.data, name: "Master map", version: m.version, ownerName: m.ownerName, updatedAt: m.updatedAt}; }
+      const r = await api.map(id);
+      return {doc: r.data, name: r.meta.name, version: r.meta.version, ownerName: r.meta.ownerName, updatedAt: r.meta.updatedAt};
+    },
+    liveDoc: id => (id === state.map.id ? session.doc : null),
+    flushSave: saveFirst,
+    apply: (mapId, baseVersion, changes) => api.applyToMaster(mapId, baseVersion, changes),
+    onChange: what => onCompareChange(what),
+    onClose: () => closePanelSheet(),
+  });
+  function onCompareChange(what) {
+    if (state.mode !== "comparison") return;
+    if (what === "docs" || what === "layout") {
+      syncSide();
+      plan.setLayout(shownLayout());
+      const la = comparePanel.layoutOf("a"); if (la) planA.setLayout(la);
+      $("#sideTagA").textContent = comparePanel.nameOf("a"); $("#sideTagB").textContent = comparePanel.nameOf("b");
+      if (R) { dirty3D = true; if (!planView()) rebuild3D(); }
+      if (what === "docs" && state.map.id === "master" && comparePanel.state.a === "master") mapMenu.refresh();
+    }
+    if (what === "selection") {
+      const row = comparePanel.selectedRow(), b = row ? rowBounds(row) : null;
+      if (b) {
+        if (planView()) { plan.fitBox({...b, x0: b.x0 - 12, x1: b.x1 + 12, y0: b.y0 - 12, y1: b.y1 + 12}); if (sideBySide()) planA.setViewFrom(plan.V); }
+        else if (orbit) orbit.focus({x: b.cx, y: b.cy});
+        if (R) { const id = row.id, after = row.after; blocks3d.setSelected(id && after && after.type === "area" ? [id] : []); const it = id ? shownLayout().byId.get(id) : null; cursor && cursor.select(it && it.type !== "area" ? it : null, it ? drawnHeight(it) : 0, it ? baseOf(shownLayout(), it) : 0); }
+      } else if (R) { blocks3d.setSelected([]); if (cursor) cursor.select(null); }
+      if (phoneMq.matches && row) closePanelSheet();
+    }
+    plan.draw(); if (planA.active) planA.draw();
+  }
+  /** A click on an item in Comparison picks its difference row, if it has one. */
+  function compareClick(id) {
+    const diff = comparePanel.diff; if (!diff) return;
+    const row = diff.rows.find(r => r.id === id);
+    if (row) { comparePanel.select(rowKey(row)); comparePanel.reveal(rowKey(row)); }
+  }
+  /** Side by side: the second plan (A) shows on the left half; the main plan shows B on the right. */
+  let sideWas = false;
+  function syncSide() {
+    const on = sideBySide();
+    app.dataset.side = String(on);
+    $("#viewPlanA").hidden = !on;
+    planA.setActive(on);
+    if (on) { planA.resize(); plan.resize(); if (!sideWas) { plan.fit(); fitScale = plan.V.s; } planA.setViewFrom(plan.V); }
+    else { plan.resize(); if (sideWas && planView()) { plan.fit(); fitScale = plan.V.s; } }
+    sideWas = on;
+  }
+  const advisorPanel = createAdvisorPanel({
+    el: $("#advisorPanel"), isAdmin, toast, isTouch: () => phoneMq.matches,
+    getDoc: () => session.doc,
+    getCategories: () => session.categories,
+    canEdit: () => !!state.map.canEdit,
+    loadConfig: () => api.advisorConfig(),
+    saveConfig: cfg => api.putAdvisorConfig(cfg),
+    resetConfig: () => api.resetAdvisorConfig(),
+    onOverlays: () => { plan.draw(); sync3DOverlays(); },
+    onShow: rec => {
+      const b = rec ? showBounds(rec.show, session.layout) : null;
+      if (rec && allows().select) session.select((rec.show.ids || []).filter(id => session.layout.byId.has(id)));
+      if (b) {
+        if (planView()) plan.fitBox({...b, x0: b.x0 - 10, x1: b.x1 + 10, y0: b.y0 - 10, y1: b.y1 + 10});
+        else if (orbit) orbit.focus({x: b.cx, y: b.cy});
+      }
+      if (phoneMq.matches && rec) closePanelSheet();
+      plan.draw(); sync3DOverlays();
+      if (rec) announce(`Showing: ${rec.title}`);
+    },
+    applyFix: rec => act.applyFix(rec),
+    onClose: () => closePanelSheet(),
+  });
+  let advisorLoaded = false;
+  function openPanelSheet() { const p = $(state.mode === "comparison" ? "#comparePanel" : state.mode === "review" ? "#reviewPanel" : "#advisorPanel"); p.classList.add("open"); $("#panelBtn").setAttribute("aria-expanded", "true"); focusEl(p.querySelector("button:not(.sheet-grab), select, input")); }
+  function closePanelSheet() { for (const p of [$("#comparePanel"), $("#advisorPanel"), $("#reviewPanel")]) p.classList.remove("open"); $("#panelBtn").setAttribute("aria-expanded", "false"); }
+  $("#panelBtn").addEventListener("click", () => { const open = $("#panelBtn").getAttribute("aria-expanded") === "true"; if (open) closePanelSheet(); else openPanelSheet(); });
+
+  /* ================= Review (admin): proposals, any map vs the master, master history ================= */
+  let compareWith = null; // "open this map in Comparison" from the Review panel
+  const reviewPanel = !isAdmin ? null : createReviewPanel({
+    el: $("#reviewPanel"), toast, announce, isTouch: () => phoneMq.matches,
+    setSheet: s => { if (sheets.reviewPanel) sheets.reviewPanel.set(s); },
+    onClose: () => closePanelSheet(),
+    confirm: opts => mapMenu.confirm(opts),
+    loadProposals: () => api.proposals(),
+    loadProposal: id => api.proposal(id),
+    decide: (id, body) => api.decideProposal(id, body),
+    listMaps: () => api.maps(),
+    loadMap: id => api.map(id),
+    loadMasterMeta: () => api.master(),
+    history: () => api.masterHistory(),
+    historyVersion: v => api.masterVersion(v),
+    restore: (version, baseVersion) => api.restoreMaster(version, baseVersion),
+    onChange: what => onReviewChange(what),
+    onMasterChanged: () => {
+      state.master = null;
+      mapMenu.refresh();
+      refreshProposals();
+      if (state.map.id === "master" && !autosave.pending) openMap("master", {reload: true});
+    },
+    onCompare: id => { compareWith = id; setMode("comparison"); },
+  });
+  // phones: the Departments palette and the mode panels are bottom sheets with a peek / expanded grab bar
+  const sheets = {};
+  for (const id of ["palette", "comparePanel", "advisorPanel", ...(reviewPanel ? ["reviewPanel"] : [])]) sheets[id] = attachSheetGrab($("#" + id));
+  function onReviewChange(what) {
+    if (state.mode !== "review" || !reviewPanel) return;
+    if (what === "docs") {
+      plan.setLayout(shownLayout());
+      if (R) { dirty3D = true; if (!planView()) rebuild3D(); }
+    }
+    if (what === "selection") {
+      const row = reviewPanel.selectedRow(), b = row ? rowBounds(row) : null;
+      if (b) {
+        if (planView()) plan.fitBox({...b, x0: b.x0 - 12, x1: b.x1 + 12, y0: b.y0 - 12, y1: b.y1 + 12});
+        else if (orbit) orbit.focus({x: b.cx, y: b.cy});
+        if (R) { const id = row.id, after = row.after; blocks3d.setSelected(id && after && after.type === "area" ? [id] : []); const it = id ? shownLayout().byId.get(id) : null; cursor && cursor.select(it && it.type !== "area" ? it : null, it ? drawnHeight(it) : 0, it ? baseOf(shownLayout(), it) : 0); }
+      } else if (R) { blocks3d.setSelected([]); if (cursor) cursor.select(null); }
+      if (phoneMq.matches && row) closePanelSheet();
+    }
+    plan.draw();
+  }
+  /** A click on an item in Review picks its difference row, if it has one. */
+  function reviewClick(id) {
+    const diff = reviewPanel.diff; if (!diff) return;
+    const row = diff.rows.find(r => r.id === id);
+    if (row) { reviewPanel.select(rowKey(row)); reviewPanel.reveal(rowKey(row)); }
+  }
+
+  /* ================= proposals: "Submit for review" on a map of your own (rule 7) ================= */
+  const propCtl = createProposalControl({
+    chip: $("#propChip"), dlg: $("#propDlg"), toast, announce,
+    flushSave: saveFirst,
+    submit: (mapId, note) => api.submitProposal(mapId, note),
+    withdraw: id => api.withdrawProposal(id),
+    refresh: () => refreshProposals(),
+  });
+  let proposalsLoading = null;
+  function refreshProposals() {
+    if (state.legacy) return Promise.resolve();
+    if (proposalsLoading) return proposalsLoading;
+    proposalsLoading = (async () => {
+      try {
+        const r = await api.proposals();
+        const mine = (r.proposals || []).filter(p => p.mine);
+        propCtl.setProposals(mine);
+        mapMenu.setProposals(mine);
+      } catch { /* offline: the chip keeps what it has */ }
+      proposalsLoading = null;
+    })();
+    return proposalsLoading;
+  }
+
+  /* ================= admin settings: sharing and the master lock (in the account menu) ================= */
+  let adminSettings = null;
+  async function loadAdminSettings() {
+    if (!isAdmin || state.legacy) return;
+    try { adminSettings = await api.settings(); renderAcctSettings(); } catch { /* the dashboard still has them */ }
+  }
+  /**
+   * The two switches in the account menu are built once and updated in place: replacing them dropped keyboard focus to the page
+   * (so Esc no longer closed the menu), and disabling the one being used while it saved did the same.
+   */
+  let acctRows = null;
+  function acctRow(onToggle) {
+    const label = h("b"), hint = h("span");
+    const b = h("button", {type: "button", class: "acct-set", role: "menuitemcheckbox", aria: {checked: false}, tabindex: -1,
+      onclick: async () => {
+        if (b.getAttribute("aria-busy") === "true") return; // one change at a time; the button stays enabled so it keeps focus
+        b.setAttribute("aria-busy", "true");
+        try { await onToggle(b.getAttribute("aria-checked") !== "true"); } catch (e) { toast(e instanceof ApiError && e.message ? e.message : "Couldn't change that setting."); }
+        b.removeAttribute("aria-busy");
+      }},
+      h("span", {class: "as-text"}, label, hint),
+      h("span", {class: "sw-track", aria: {hidden: true}}, h("span", {class: "sw-knob"})));
+    return {b, set(text, note, on) { if (label.textContent !== text) label.textContent = text; if (hint.textContent !== note) hint.textContent = note; b.setAttribute("aria-checked", String(!!on)); }};
+  }
+  function renderAcctSettings() {
+    if (!isAdmin || !adminSettings || state.legacy) return;
+    const box = $("#acctSettings");
+    $("#setLabel").hidden = false;
+    box.hidden = false;
+    if (!acctRows) {
+      acctRows = {
+        share: acctRow(async v => {
+          adminSettings = await api.putSettings({shareMaps: v});
+          renderAcctSettings(); mapMenu.refresh();
+          toast(v ? "Sharing is on: everyone sees everyone's maps, read-only." : "Sharing is off: people see only their own maps and the master.", {icon: "i-check"});
+        }),
+        lock: acctRow(async v => {
+          adminSettings = await api.putSettings({masterLocked: v});
+          renderAcctSettings();
+          toast(v ? "The master map is locked. Nobody can change it until you unlock it." : "The master map is unlocked.", {icon: v ? "i-lock" : "i-unlock"});
+          if (state.map.id === "master") openMap("master", {reload: true});
+          else syncLockBadge();
+        }),
+      };
+      box.textContent = "";
+      box.appendChild(acctRows.share.b); box.appendChild(acctRows.lock.b);
+    }
+    acctRows.share.set("Share everyone's maps", adminSettings.shareMaps ? "The team sees each other's maps, read-only" : "Only you see the team's maps", !!adminSettings.shareMaps);
+    acctRows.lock.set("Lock the master map", adminSettings.masterLocked ? "Nobody can change it, you included" : "Changes to the master save new versions", !!adminSettings.masterLocked);
+  }
+  function syncLockBadge() { $("#lockBadge").hidden = !(state.map.id === "master" && state.map.locked); }
+  $("#acctBtn").addEventListener("click", () => { if (isAdmin) loadAdminSettings(); });
+
+  /* ================= maps: loading, switching, autosave ================= */
+  const mapMenu = createMapMenu({
+    me: () => me,
+    list: () => api.maps(),
+    onOpen: id => openMap(id),
+    onCreate: async ({name, from, mapId}) => {
+      const r = await api.createMap(name, from, mapId === "master" ? undefined : mapId);
+      await openMap(r.meta.id, {fresh: r});
+      if (state.mode !== "planning") setMode("planning");
+      toast(`“${r.meta.name}” is ready. Only you can change it.`, {icon: "i-check"});
+    },
+    onRename: async (id, name) => {
+      const meta = mapMenu.find(id);
+      const r = await api.renameMap(id, id === state.map.id ? state.map.version : (meta ? meta.version : 1), name);
+      if (id === state.map.id) { state.map.version = r.version; state.map.name = name; state.map.updatedAt = r.updatedAt; mapMenu.setCurrent({...state.map}); }
+    },
+    onDelete: async id => {
+      await api.deleteMap(id);
+      drafts.clear(id);
+      if (id === state.map.id) { autosave.reset(); await openMap("master"); }
+      toast("Map deleted.");
+    },
+  });
+  mapMenu.setSharing(isAdmin);
+
+  async function saveNow() {
+    // the map and the document being saved are captured now: the response arrives later, after more edits or
+    // even after the person opened another map, and only what was saved may be updated
+    const map = state.map, data = session.doc;
+    try {
+      let version;
+      if (map.id === "master") {
+        const r = await api.putMaster(map.version, data);
+        map.version = r.version; map.updatedAt = r.updatedAt; map.ownerName = me.name; version = r.version;
+        mapMenu.setMaster({version: r.version, updatedAt: r.updatedAt, ownerName: me.name});
+      } else {
+        const r = await api.saveMap(map.id, map.version, data);
+        map.version = r.version; map.updatedAt = r.updatedAt; version = r.version;
+        if (state.map === map) mapMenu.setCurrent({...map});
+      }
+      drafts.saved(map.id, data, version, state.map === map ? session.doc : null);
+      return {ok: true};
+    } catch (e) {
+      if (e instanceof ApiError) return {ok: false, status: e.status, error: e.message};
+      return {ok: false, status: 0, error: "Couldn't reach the site."};
     }
   }
-  const drawnHeight = it => (it.type === "wall" || it.type === "column" ? heightToCeiling(layout, it) : it.h || 0);
-  // the selection's outline in the 3D view (from the raised floor it stands on, if any)
+  const autosave = createAutosave({save: saveNow, online: () => navigator.onLine !== false, onState: s => onSaveState(s)});
+  function onSaveState(s) {
+    mapMenu.setStatus(state.map.canEdit ? s : "hidden");
+    if (s === "conflict") banner.show("conflict", state.map.id === "master" ? "The master map was changed since you opened it. Reload it to keep going. Your unsaved edits are kept on this device." : "This map was changed somewhere else. Reload it to keep going. Your unsaved edits are kept on this device.", [{label: "Reload", onClick: () => openMap(state.map.id, {reload: true})}]);
+    else if (s === "locked") banner.show("locked", "The master map is locked. Nobody can change it until the admin unlocks it. Your edits are kept on this device.", [{label: "Reload", onClick: () => openMap(state.map.id, {reload: true})}]);
+    else if (s === "offline") banner.show("offline", "You're offline. Changes are kept on this device and saved when you're back.");
+    else if (s === "retry") banner.show("notsaved", "Couldn't save. Trying again in 10 s.", [{label: "Try now", onClick: () => autosave.tryNow()}]);
+    else if (s === "rejected") banner.show("notsaved", `Couldn't save: ${autosave.error} The edits are kept on this device; fix the item and it will try again.`, [{label: "Try now", onClick: () => autosave.tryNow()}]);
+    else if (["conflict", "locked", "offline", "notsaved"].includes(banner.kind)) banner.hide();
+  }
+  window.addEventListener("online", () => autosave.tryNow());
+  window.addEventListener("beforeunload", () => { if (autosave.pending) autosave.flush(); });
+
+  /** The read-only banner belongs to Area planning; the other modes say what they are themselves. */
+  function syncReadOnlyBanner() {
+    // the server's maps aren't ready: one calm sentence in every mode, and a way to check again
+    if (state.legacy) { banner.show("legacy", [{text: LEGACY_BANNER.title, bold: true}, {text: LEGACY_BANNER.text}], [{label: "Check again", onClick: () => openMap("master", {reload: true})}]); return; }
+    if (banner.kind && banner.kind !== "readonly") return;
+    if (state.mode !== "planning" || state.map.canEdit) { banner.hide("readonly"); return; }
+    // the locked master: the admin would normally edit it here, so say why they can't (and offer the key)
+    if (state.map.id === "master" && state.map.locked && isAdmin) {
+      banner.show("readonly", [{text: "The master map is locked", bold: true}, {text: `${state.map.lockedByName ? ` by ${state.map.lockedByName}` : ""}. Nobody can change it until it's unlocked.`}],
+        [{label: "Unlock", primary: true, onClick: async () => {
+          try { adminSettings = await api.putSettings({masterLocked: false}); toast("The master map is unlocked.", {icon: "i-unlock"}); openMap("master", {reload: true}); }
+          catch (e) { toast(e instanceof ApiError ? e.message : "Couldn't unlock the master map."); }
+        }}]);
+      return;
+    }
+    const id = state.map.id, who = id === "master" ? "the master map" : `${state.map.ownerName || "someone"}'s map`;
+    banner.show("readonly", [{text: `Viewing ${who}`, bold: true}, {text: " (read-only)"}], [{label: "Make my own copy", primary: true, onClick: () => mapMenu.newMap({from: id === "master" ? "master" : "map", mapId: id === "master" ? null : id, name: id === "master" ? `My master copy` : `Copy of ${state.map.name}`.slice(0, 60)})}]);
+  }
+
+  /**
+   * The master as GET /api/master gives it. When the server isn't ready for maps (migration 0005 not applied yet, or the
+   * master not seeded: core/readiness.js) it is the static /data/master.json instead, read-only (m.static is true).
+   */
+  async function fetchMaster() {
+    try { return await api.master(); }
+    catch (e) {
+      if (!(e instanceof ApiError) || !apiNotReady(e, {master: true})) throw e;
+      let raw = null;
+      try { raw = await loadJson("data/master.json"); } catch { throw e; }
+      const m = staticMasterResponse(raw);
+      if (!m) throw e;
+      return m;
+    }
+  }
+  /** What opening `id` loads: {id, m}. While the maps aren't ready on the server, any map id becomes the master. */
+  async function loadTarget(id, opts) {
+    if (opts.fresh) return {id, m: opts.fresh};
+    if (id !== "master") {
+      try { return {id, m: await api.map(id)}; }
+      catch (e) { if (!(e instanceof ApiError && apiNotReady(e))) throw e; }
+    }
+    return {id: "master", m: await fetchMaster()};
+  }
+  /**
+   * Edits made in the last 1.5 s (or still on their way to the server) are saved before another map opens. A slow
+   * connection says so after a moment and is given up on after 8 s: whatever is not saved stays on this device as a
+   * draft for that map. A conflict / lock / failed save also leaves it in the draft.
+   */
+  async function saveBeforeSwitching() {
+    if (!state.map || !state.map.canEdit || !autosave.pending) return;
+    let said = false, giveUp = 0;
+    const note = setTimeout(() => { said = true; toast("Saving your changes, then opening the other map…", {ms: 8000}); }, 600);
+    try { await Promise.race([autosave.flush(), new Promise(r => { giveUp = setTimeout(r, 8000); })]); }
+    finally { clearTimeout(note); clearTimeout(giveUp); if (said) hideToast(); }
+    if (autosave.pending) toast("Your latest changes are kept on this device. They save when you open that map again.", {ms: 5000});
+  }
+  /** The server's maps aren't ready (core/readiness.js): only the modes that read the master stay, and everything that needs the API is off. */
+  function applyLegacy(on) {
+    if (state.legacy === on) return;
+    state.legacy = on;
+    app.dataset.legacy = String(on);
+    for (const t of document.querySelectorAll(".modes [data-mode]")) t.hidden = on ? !legacyAllows(t.dataset.mode) : t.dataset.mode === "review" && !isAdmin;
+    mapMenu.setLegacy(on);
+    if (on) {
+      if (!legacyAllows(state.mode)) { state.mode = legacyMode(state.mode); app.dataset.mode = state.mode; planOpts.editor = null; tabs.setMode(state.mode); }
+      $("#setLabel").hidden = true; $("#acctSettings").hidden = true;
+    } else if (isAdmin) loadAdminSettings();
+  }
+
+  /** Opens the master ("master") or a map by id. opts: reload (after a conflict), fresh ({meta, data} just created). */
+  async function openMap(id, opts = {}) {
+    if (state.loading) return;
+    state.loading = true;
+    hideToast(); // an Undo toast belongs to the map it was made on, never to the one that opens now
+    editor.cancelGesture(); cancelPlacing();
+    $("#mapError").hidden = true;
+    try {
+      if (!opts.reload) await saveBeforeSwitching(); // a reload after a conflict starts clean on purpose
+      const {id: openId, m} = await loadTarget(id, opts);
+      let next;
+      if (openId === "master") {
+        next = {id: "master", name: "Master map", version: m.version, data: m.data, canEdit: isAdmin && !m.locked && !m.static, ownerName: m.updatedByName || m.sourceOwnerName || "", updatedAt: m.updatedAt, mine: false, locked: !!m.locked, lockedByName: m.lockedByName, legacy: !!m.static};
+        mapMenu.setMaster({version: m.version, updatedAt: m.updatedAt, ownerName: next.ownerName});
+      } else {
+        next = {id: m.meta.id, name: m.meta.name, version: m.meta.version, data: m.data, canEdit: !!(m.canEdit ?? m.meta.mine), ownerName: m.meta.ownerName, updatedAt: m.meta.updatedAt, mine: !!m.meta.mine, locked: false, legacy: false};
+      }
+      autosave.reset();
+      state.map = next;
+      state.master = null;
+      applyLegacy(next.legacy);
+      syncLockBadge();
+      propCtl.setMap({id: next.id, name: next.name, mine: next.mine, master: next.id === "master", canEdit: next.canEdit});
+      refreshProposals();
+      suppressSave = true;
+      session.setUnlocked(false);
+      session.load(next.data, {building: next.data.building});
+      suppressSave = false;
+      state.loading = false; // from here on the panels render as editable (or not) for the new map
+      app.dataset.edit = String(canEdit());
+      mapMenu.setCurrent({...next});
+      mapMenu.setStatus(next.canEdit ? "saved" : "hidden");
+      tabs.writeHash();
+      banner.hide();
+      syncReadOnlyBanner();
+      if (next.canEdit && next.id === "master" && isAdmin && state.mode === "planning") toast("You're editing the master map. Every change saves a new master version.", {ms: 4000});
+      if (next.canEdit) restoreDraft();
+      if (state.mode === "current" || state.mode === "comparison") await enterMode(state.mode);
+      else plan.setLayout(session.layout);
+      if (R) { rebuild3D(); if (orbit) orbit.reset(false); if (walk) walk.reset(); }
+      plan.fit(); fitScale = plan.V.s;
+      if (state.mode === "advisor") advisorPanel.run();
+      inspector.render(true); palette.render(); syncToolbar(); syncEmpty();
+      announce(`Opened ${next.name}${next.canEdit ? "" : ", view only"}.`);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) return;
+      if (e instanceof ApiError && (e.status === 404 || e.status === 403)) stageError("This map isn't available", "It was deleted, or it isn't shared with you any more.", false);
+      else if (e instanceof ApiError && e.status === 503) stageError("The map isn't ready yet", "The store map is still being set up. Try again in a few minutes.", true);
+      else stageError("This map didn't load", "Check the connection and try again. Nothing you saved is lost.", true);
+      $("#mapErrorMaster").hidden = id === "master" && !(e instanceof ApiError && e.status === 503);
+    } finally { state.loading = false; }
+  }
+  $("#mapErrorRetry").addEventListener("click", () => openMap(state.map.id, {reload: true}));
+  $("#mapErrorMaster").addEventListener("click", () => openMap("master"));
+  /** Unsaved edits kept on this device for this map: restored when they match the loaded version, offered otherwise. */
+  function restoreDraft() {
+    const d = loadDraft(storage, state.map.id);
+    if (!d) return;
+    const apply = () => { suppressSave = true; session.replace(d.data); suppressSave = false; autosave.change(); drafts.write(state.map.id, state.map.version, session.doc); banner.hide("draft"); };
+    if (d.version === state.map.version) { apply(); toast("Restored unsaved edits from this device.", {icon: "i-check"}); }
+    else banner.show("draft", "You have unsaved edits on this device from an older copy of this map.", [
+      {label: "Use my edits", primary: true, onClick: apply},
+      {label: "Discard", onClick: () => { drafts.clear(state.map.id); banner.hide("draft"); }},
+    ]);
+  }
+
+  /* ================= selection in 3D, Go look ================= */
+  const drawnHeight = it => (it.type === "wall" || it.type === "column" ? heightToCeiling(shownLayout(), it) : it.h || 0);
+  // the selection's outline in the 3D view (from the raised floor it stands on, if any); blocks draw their own
   function outline3D() {
     if (!cursor) return;
-    const it = state.view === "3d" ? state.sel : null;
-    cursor.select(it, it ? drawnHeight(it) : 0, it ? baseOf(layout, it) : 0);
+    const it = state.view === "3d" && allows().select ? session.single : null;
+    const show = it && it.type !== "area" ? it : null;
+    cursor.select(show, show ? drawnHeight(show) : 0, show ? baseOf(session.layout, show) : 0);
   }
   // "Go look at it": a fixture, desk, door or column, never a wall or a ceiling (nowhere to stand in front of it)
-  const canGoLook = it => !!(it && state.has3D && walk && it.type !== "wall" && it.type !== "ceiling");
-  function goLook(it) { if (canGoLook(it) && walk.goLook(it)) setView("walk"); }
-  $("#infoClose").addEventListener("click", () => select(null));
-  $("#infoGo").addEventListener("click", () => goLook(state.sel));
+  const canGoLook = it => !!(it && state.has3D && walk && it.type !== "wall" && it.type !== "ceiling" && it.type !== "area");
+  function goLook(it) { if (!canGoLook(it)) return; if (dirty3D) rebuild3D(); if (walk.goLook(it)) setView("walk"); }
   function goWalk(x, y, item) {
     if (!walk) { toast("The walk needs 3D graphics, which this device doesn't have."); return; }
+    if (dirty3D) rebuild3D();
     if (walk.goTo(x, y, item)) setView("walk");
   }
 
-  /* ---------- tools ---------- */
+  /* ================= tools ================= */
+  let toolBefore = null;
   function setTool(t) {
+    if (t === state.tool) { hint(); return; }
     state.tool = t;
     app.dataset.tool = t;
-    $("#toolMeasure").setAttribute("aria-pressed", String(t === "measure"));
-    if (t !== "measure") { measure.clear(); lastSnap = null; readout.hide(); if (cursor) cursor.hide(); }
+    for (const [id, name] of [["toolSelect", "select"], ["toolPan", "pan"], ["toolMeasure", "measure"]]) $("#" + id).setAttribute("aria-pressed", String(t === name));
+    if (t !== "measure") { measure.clear(); lastSnap = null; readout.hide(); if (cursor && !state.placing) cursor.hide(); }
+    editor.cancelGesture();
     plan.draw();
     hint();
   }
-  $("#toolMeasure").addEventListener("click", () => setTool(state.tool === "measure" ? "look" : "measure"));
+  $("#toolSelect").addEventListener("click", () => setTool("select"));
+  $("#toolPan").addEventListener("click", () => setTool("pan"));
+  $("#toolMeasure").addEventListener("click", () => setTool(state.tool === "measure" ? "select" : "measure"));
   $("#toolSnap").addEventListener("click", () => layers.toggle("snap"));
-  $("#btnReset").addEventListener("click", () => { if (state.view === "plan") { plan.fit(); fitScale = plan.V.s; } else if (orbit) orbit.reset(); });
+  $("#btnLock").addEventListener("click", () => session.setUnlocked(!session.unlocked));
+  $("#btnUndo").addEventListener("click", () => { const r = session.undo(); if (r) announce(`Undid ${r.label || "the last change"}`); });
+  $("#btnRedo").addEventListener("click", () => { const r = session.redo(); if (r) announce(`Redid ${r.label || "the change"}`); });
+  $("#btnDup").addEventListener("click", () => act.duplicate());
+  $("#btnRot").addEventListener("click", () => act.rotate(90));
+  $("#btnDel").addEventListener("click", () => act.remove());
+  $("#btnReset").addEventListener("click", () => { if (orbit) orbit.reset(); });
   $("#btnTop").addEventListener("click", () => orbit && orbit.topView());
   $("#btnSpin").addEventListener("click", () => walk && walk.toggleSpin());
   $("#btnStart").addEventListener("click", () => { if (walk) { walk.reset(); hud.refresh(); } });
   function hint() {
-    if (!state.has3D && state.view !== "plan") { readout.hint(""); return; }
-    const m = state.tool === "measure";
+    if (!state.has3D && !planView()) { readout.hint(""); return; }
+    const m = state.tool === "measure", edit = canEdit();
+    const modeHint = {
+      blank: state.legacy ? "Blank slate · click an item for its size" : "Blank slate · click an item for its size · switch to Area planning to change the map",
+      current: "Current layout: the master map as confirmed · hover an item for its name",
+      comparison: "Tap a difference in the list, or click a changed item on the plan",
+      advisor: "Show me highlights a recommendation · Apply makes the change on this map",
+      review: "Open a proposal in the list to see its changes against the master",
+    }[state.mode];
     readout.hint({
-      plan: m ? "Click to set A, click again for B · Esc clears" : "Click a fixture for details · double-click the floor to walk there · N steps through the fixtures",
-      "3d": m ? "Click to set A, click again for B · drag still turns the view · Esc clears" : "Drag to turn · right-drag to move · scroll to zoom · double-click to focus",
+      plan: m ? "Click to set A, click again for B · Esc clears" : modeHint || (edit ? "Click an item · drag to move · Shift-click adds · Delete removes · Ctrl+Z undoes · tap a department in the list to place it" : "Click an item for details · N steps through the items · double-click the floor to walk there"),
+      "3d": state.placing ? "Click the floor to place the block · Esc cancels" : m ? "Click to set A, click again for B · drag still turns the view · Esc clears" : modeHint || (edit ? "Drag to turn · right-drag to move · click a department block to select it, drag it along the floor" : "Drag to turn · right-drag to move · scroll to zoom · double-click to focus"),
       walk: "W A S D to walk · drag to look · double-click the floor to walk there",
     }[state.view]);
   }
 
-  /* ---------- 3D pointer: status bar, Measure / place cursor, click to pick, double-click to focus ---------- */
-  const visibleLayers = () => { const L3 = layers.get(state.view === "walk" ? "walk" : "3d"); return {structure: L3.structure, fixtures: L3.fixtures, ceiling: L3.ceiling}; };
+  /* ================= placing a department in 3D ================= */
+  function startPlacing(key) {
+    if (!canEdit()) { toast("This map is view only."); return; }
+    const cat = A.categoryFor(session.doc, key);
+    if (!cat) return;
+    const [w, d] = A.startSize(cat);
+    state.placing = {key, w, d};
+    $("#three").classList.add("placing");
+    toast(`Placing ${cat.name}: click the floor where it should go. Esc cancels.`, {ms: 4000});
+    hint();
+  }
+  function cancelPlacing() {
+    if (!state.placing) return;
+    state.placing = null;
+    $("#three").classList.remove("placing");
+    if (blocks3d) blocks3d.setGhost(null, new Map());
+    if (cursor) cursor.hide();
+    hint();
+  }
+  function ghostAt(snap) {
+    const p = state.placing;
+    return {id: "ghost", type: "area", cat: p.key, shape: "rect", x: snap.x, y: snap.y, w: p.w, d: p.d, h: A.BLOCK_HEIGHT, rot: 0};
+  }
+
+  /* ================= 3D pointer: status bar, Measure cursor, click to pick, drag a block, double-click to focus ================= */
+  const visibleLayers = () => { const L3 = modeLayers(state.mode, layers.get(state.view === "walk" ? "walk" : "3d")); return {structure: L3.structure, fixtures: L3.fixtures, ceiling: L3.ceiling}; };
   function feetPerPixel(p) {
     const cam = orbit.camera, dist = cam.position.distanceTo(new R.THREE.Vector3(p.x, 0, -p.y));
     return dist * 2 * Math.tan(cam.fov * Math.PI / 360) / Math.max(1, R.h);
@@ -252,16 +1134,16 @@ function start(layout, overlay) {
     const hit = picker.pick(clientX, clientY, orbit.camera, visibleLayers());
     if (!hit.point || hit.hit === "deck" || hit.hit === "ceiling" || hit.hit === null) return null;
     const p = hit.hit === "floor" ? hit.floor : {x: hit.point.x, y: hit.point.y};
-    const {L, W} = layout.building;
+    const {L, W} = session.building;
     return Math.abs(p.x - L / 2) > L || Math.abs(p.y - W / 2) > W ? null : p;
   }
   function cursorAt(clientX, clientY) {
     const fl = pointerFloor(clientX, clientY);
     if (!fl) return null;
     const fpp = feetPerPixel(fl);
-    return snapPoint(fl, targets, {tol: clamp(12 * fpp, 0.2, 3), snap: layers.get().snap});
+    return snapPoint(fl, session.snapTargets, {tol: clamp(12 * fpp, 0.2, 3), snap: layers.get().snap});
   }
-  const floorZ = p => platformTopAt(layout, p.x, p.y); // the cursor sits on a raised floor's top
+  const floorZ = p => platformTopAt(shownLayout(), p.x, p.y); // the cursor sits on a raised floor's top
   function showCursor3D(snap) {
     lastSnap = snap;
     if (!snap) { cursor.update({cursor: null, a: measure.state.a, b: measure.state.b, snap: null}); readout.hide(); return; }
@@ -274,13 +1156,53 @@ function start(layout, overlay) {
     const v = new R.THREE.Vector3(lastSnap.x, floorZ(lastSnap), -lastSnap.y).project(orbit.camera);
     readout.show($("#view3d"), lastSnap, (v.x + 1) / 2 * R.w, (1 - v.y) / 2 * R.h, measure.state);
   }
+  /** What a click in 3D lands on: a department block (nearest), else an item from the picker. */
+  function pick3D(clientX, clientY) {
+    const hit = picker.pick(clientX, clientY, orbit.camera, visibleLayers());
+    const ray = picker.ray(clientX, clientY, orbit.camera);
+    const b = modeLayers(state.mode, layers.get("3d")).categories ? blocks3d.pick(ray.o, ray.d) : null;
+    if (b && (!hit.item || b.t <= hit.t + 0.01)) return b.item;
+    return hit.item;
+  }
   function bindOrbitInput() {
     const el = R.renderer.domElement;
     const on = orbit.attach(el);
-    let down = null;
-    on(el, "pointerdown", e => { down = {x: e.clientX, y: e.clientY, button: e.button, t: performance.now()}; });
+    let down = null, blockDrag = null;
+    on(el, "pointerdown", e => {
+      down = {x: e.clientX, y: e.clientY, button: e.button, t: performance.now()};
+      if (e.button !== 0 || state.tool !== "select" || state.placing || !canEdit()) return;
+      const item = pick3D(e.clientX, e.clientY);
+      if (!item || item.type !== "area" || session.isLocked(item)) return;
+      const fl = picker.floorAt(e.clientX, e.clientY, orbit.camera);
+      if (!fl) return;
+      if (!session.isSelected(item.id)) session.select(item.id);
+      blockDrag = {id: item.id, ox: item.x - fl.x, oy: item.y - fl.y, moved: false};
+      orbit.controls.enabled = false;
+    });
     on(el, "pointermove", e => {
+      if (blockDrag) {
+        if (!blockDrag.moved && down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4) return;
+        const fl = picker.floorAt(e.clientX, e.clientY, orbit.camera);
+        if (!fl) return;
+        const it = session.item(blockDrag.id); if (!it) { blockDrag = null; return; }
+        if (!blockDrag.moved) { blockDrag.moved = true; session.begin("Move"); el.classList.add("moving"); }
+        let x = fl.x + blockDrag.ox, y = fl.y + blockDrag.oy;
+        if (layers.get().snap && !e.altKey) {
+          const T = session.snapTargets, rect = {id: it.id, x, y, w: it.w, d: it.d, rot: it.rot || 0};
+          const r = snapRect(rect, {faces: T.faces.filter(f => f.id !== it.id), corners: T.corners, walls: T.walls}, {grid: GRID, tol: clamp(10 * feetPerPixel(fl), 0.2, 2)});
+          x = r.x; y = r.y;
+        }
+        session.apply(D.placeItems(session.doc, [{id: it.id, x, y}], session.editOpts));
+        const moved = session.item(blockDrag.id);
+        readout.pointer({x: moved.x, y: moved.y});
+        return;
+      }
       readout.pointer(pointerFloor(e.clientX, e.clientY));
+      if (state.placing && !(down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4)) {
+        const snap = cursorAt(e.clientX, e.clientY);
+        if (snap) { blocks3d.setGhost(ghostAt(snap), catMap(session.categories)); cursor.update({cursor: snap, snap, z: 0}, clamp(orbit.camera.position.distanceTo(new R.THREE.Vector3(snap.x, 0, -snap.y)) / 45, 0.6, 4)); }
+        return;
+      }
       if (state.tool === "measure" && e.pointerType === "mouse" && !(down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4)) {
         const snap = cursorAt(e.clientX, e.clientY);
         measure.move(snap ? {x: snap.x, y: snap.y} : null);
@@ -288,9 +1210,22 @@ function start(layout, overlay) {
       }
     });
     on(el, "pointerleave", e => { if (e.pointerType === "mouse") readout.pointer(null); });
+    const endDrag = () => { if (blockDrag) { if (blockDrag.moved) session.end(); blockDrag = null; el.classList.remove("moving"); if (orbit.controls) orbit.controls.enabled = true; } };
+    on(el, "pointercancel", () => { if (blockDrag && blockDrag.moved) session.cancel(); endDrag(); down = null; });
     on(el, "pointerup", e => {
       const d = down; down = null;
+      const wasDrag = blockDrag && blockDrag.moved;
+      endDrag();
+      if (wasDrag) return;
       if (!d || d.button !== 0 || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 5 || performance.now() - d.t > 600) return;
+      if (state.placing) {
+        const snap = cursorAt(e.clientX, e.clientY);
+        if (!snap) { toast("Click inside the building."); return; }
+        const key = state.placing.key;
+        cancelPlacing();
+        placeDepartment(key, {x: snap.x, y: snap.y});
+        return;
+      }
       if (state.tool === "measure") {
         const snap = cursorAt(e.clientX, e.clientY);
         if (!snap) return;
@@ -298,23 +1233,26 @@ function start(layout, overlay) {
         showCursor3D(snap);
         return;
       }
-      const hit = picker.pick(e.clientX, e.clientY, orbit.camera, visibleLayers());
-      select(hit.item);
+      const item = pick3D(e.clientX, e.clientY);
+      planClick(item, {toggle: e.shiftKey || state.multi});
     });
     on(el, "dblclick", e => {
-      if (state.tool === "measure") return;
+      if (state.tool === "measure" || state.placing) return;
+      const item = pick3D(e.clientX, e.clientY);
+      if (item && item.type === "area" && allows().edit) { session.select(item.id); inspector.focusFirst(); return; }
       const hit = picker.pick(e.clientX, e.clientY, orbit.camera, visibleLayers());
       const p = hit.item ? {x: hit.item.x, y: hit.item.y} : hit.point ? {x: hit.point.x, y: hit.point.y} : null;
       if (p) orbit.focus(p);
     });
   }
 
-  /* ---------- switching views ---------- */
-  const tabs = initTabs({onSelect: v => setView(v)});
+  /* ================= switching displays and modes ================= */
+  const tabs = initTabs({onSelect: v => setView(v), onMode: m => setMode(m), getMap: () => state.map.id});
   const toolbar = initToolbar($("#toolbar"));
   let shownView = null;
   function setView(v) {
     if (v === shownView) return; // already open: keep the camera, the measurement and the controls as they are
+    const wasPlan = planView();
     shownView = v;
     state.view = v;
     app.dataset.view = v;
@@ -322,60 +1260,188 @@ function start(layout, overlay) {
     $("#view3d").setAttribute("aria-labelledby", v === "walk" ? "tab-walk" : "tab-3d");
     toolbar.sync();
     layers.sync(v);
-    layers.close(false);
-    $("#view3d").hidden = v === "plan";
-    $("#viewPlan").hidden = v !== "plan";
+    layers.close(false); addMenu.close(false); closeMore();
+    $("#view3d").hidden = planView();
+    $("#viewPlan").hidden = !planView();
+    $("#palette").classList.remove("open"); $("#deptBtn").setAttribute("aria-expanded", "false");
     readout.hide(); readout.pointer(null); lastSnap = null;
-    if (v === "walk" && state.tool === "measure") setTool("look");
+    cancelPlacing();
+    if (v === "walk" && state.tool === "measure") setTool("select");
+    if (v === "walk") session.clearSelection();
+    if (!planView()) editor.setShapeEdit(false);
     measure.clear();
+    syncEmpty();
+    recheck();
     if (!state.has3D) {
-      $("#noGl").hidden = v === "plan";
-      plan.setActive(v === "plan");
-      hint(); applyLayers(null); return;
+      $("#noGl").hidden = planView();
+      plan.setActive(planView());
+      syncSide();
+      hint(); applyLayers(null); inspector.render(); return;
     }
-    if (v === "plan") {
-      orbit.detach(); walk.detach(); cursor.hide(); cursor.select(null);
+    if (planView()) {
+      if (!wasPlan) { orbit.detach(); walk.detach(); cursor.hide(); cursor.select(null); }
       releaseGpuSoon();
       plan.setActive(true);
     } else {
       plan.setActive(false);
       keepGpu();
+      if (dirty3D || built3D !== shownLayout()) rebuild3D();
       R.renderer.shadowMap.needsUpdate = true;
       R.setHaze(v === "walk");
       if (v === "3d") { walk.detach(); walk.show(false); bindOrbitInput(); outline3D(); }
       else { orbit.detach(); cursor.hide(); cursor.select(null); walk.attach(R.renderer.domElement); walk.show(true); hud.refresh(); }
       sizeChanged = true;
     }
-    if (v === "walk") info.hidden = true; else if (state.sel) info.hidden = false;
+    syncSide();
     hint();
     applyLayers(null);
+    sync3DOverlays();
+    inspector.render();
+    if (session.selection.length && !phoneMq.matches) { /* the inspector stays open */ } else if (phoneMq.matches && !session.selection.length) inspector.setSheet("closed");
     R && R.requestRender();
+  }
+  /** Switches the view mode (OWNER RULES v3.1 rule 4). The display stays; the layout shown and what is allowed follow the mode. */
+  function setMode(m) {
+    if (!isMode(m) || m === state.mode) return;
+    if (m === "review" && !isAdmin) return;
+    if (state.legacy && !legacyAllows(m)) { toast(LEGACY_BANNER.title); return; }
+    const was = state.mode;
+    hideToast(); // an Undo offered before this belongs to the other mode's view
+    editor.cancelGesture(); cancelPlacing(); editor.setShapeEdit(false);
+    layers.close(false); addMenu.close(false); closeMore(); closePanelSheet();
+    $("#palette").classList.remove("open"); $("#deptBtn").setAttribute("aria-expanded", "false");
+    state.mode = m;
+    app.dataset.mode = m;
+    tabs.setMode(m);
+    const a = allows();
+    if (!a.select || was === "comparison" || was === "advisor" || was === "review") session.clearSelection();
+    else pruneSelection(); // Blank slate draws no departments or fixtures: none of them stays selected
+    if (was === "advisor") { advisorPanel.clearShow(); if (overlays3d) { overlays3d.setOverlays(null, null, overlayColours()); overlays3d.setHighlight(null, overlayColours()); } }
+    planOpts.editor = a.edit ? editor : null;
+    app.dataset.edit = String(canEdit());
+    $("#panelBtnLabel").textContent = m === "comparison" ? "Changes" : m === "review" ? "Review" : "Advisor";
+    $("#panelBtn").setAttribute("aria-label", m === "comparison" ? "Changes: the comparison list" : m === "review" ? "Review: the proposals and the master's history" : "Advisor: scores and recommendations");
+    $("#panelBtn").querySelector("use").setAttribute("href", "/assets/icons.svg#" + (m === "advisor" ? "i-info" : m === "comparison" ? "i-duplicate" : "i-review"));
+    mapMenu.setStatus(state.map.canEdit ? autosave.status() : "hidden");
+    syncReadOnlyBanner();
+    toolbar.sync();
+    enterMode(m).catch(e => { console.warn("mode", m, e && e.message); toast(e instanceof ApiError ? e.message : "Couldn't load that view."); });
+    announce(`${MODE_INFO[m].label}. ${MODE_INFO[m].hint}`);
+  }
+  /** Loads what a mode needs (the master, the comparison's maps, the advisor's settings) and redraws. */
+  async function enterMode(m) {
+    if (m === "current") { await loadMaster(false); if (state.mode !== "current") return; }
+    if (m === "comparison") { const b = compareWith || (state.map.id !== "master" ? state.map.id : "master"); compareWith = null; await comparePanel.open({a: "master", b}); if (state.mode !== "comparison") return; }
+    if (m === "review") { await reviewPanel.open(); if (state.mode !== "review") return; }
+    if (m === "advisor") { if (!advisorLoaded) { advisorLoaded = true; await advisorPanel.loadConfig(); } else advisorPanel.run(); if (state.mode !== "advisor") return; }
+    plan.setLayout(shownLayout());
+    syncSide();
+    if (R) { if (planView()) dirty3D = true; else rebuild3D(); blocks3d.setSelected([]); }
+    recheck();
+    applyLayers(null);
+    sync3DOverlays();
+    hint();
+    inspector.render(true); palette.render(); syncToolbar(); syncEmpty(); syncStatus(); syncMore();
+    if (m === "comparison") onCompareChange("docs");
+    plan.draw();
   }
   $("#noGlPlan").addEventListener("click", () => setView("plan"));
   $("#brandLink").addEventListener("click", e => { e.preventDefault(); setView("3d"); });
+  // a hash changed by hand: the map first (it loads asynchronously), then the display and the mode from the same hash
+  window.addEventListener("hashchange", async () => {
+    const todo = planHashChange(location.hash, {view: state.view, mode: state.mode, map: state.map.id});
+    if (todo.map) await openMap(todo.map);
+    if (todo.view) setView(todo.view);
+    if (todo.mode) setMode(todo.mode);
+  });
 
-  /* ---------- keyboard ---------- */
-  let pointerFocus = false;
-  window.addEventListener("pointerdown", () => { pointerFocus = true; }, true);
+  /* ================= phone: the More sheet ================= */
+  const moreBtn = $("#moreBtn"), morePop = $("#morePop");
+  function moreRow(label, ico, onclick, pressed) {
+    return h("button", {type: "button", class: "layer-row", role: pressed === undefined ? "menuitem" : "switch", aria: pressed === undefined ? {} : {checked: pressed}, onclick: () => { onclick(); syncMore(); }},
+      h("span", {class: "layer-key more-key"}, icon(ico, "i i-sm")), h("span", {class: "layer-text"}, h("b", {text: label})),
+      pressed === undefined ? icon("i-chevron-right", "i eye") : h("span", {class: "sw-track", aria: {hidden: true}}, h("span", {class: "sw-knob"})));
+  }
+  function renderMore() {
+    morePop.textContent = "";
+    morePop.appendChild(h("p", {class: "pop-title", text: "More"}));
+    const edit = canEdit() && planView();
+    if (edit) morePop.appendChild(moreRow(session.unlocked ? "Structure unlocked" : "Structure locked", session.unlocked ? "i-unlock" : "i-lock", () => session.setUnlocked(!session.unlocked), session.unlocked));
+    if (state.view !== "walk" && canEdit()) morePop.appendChild(moreRow("Snap", "i-snap", () => layers.toggle("snap"), layers.get().snap));
+    if ((edit || state.view === "3d") && allows().select) morePop.appendChild(moreRow("Select several", "i-select", () => { state.multi = !state.multi; }, state.multi));
+    if (planView() && allows().select) morePop.appendChild(moreRow("Dimensions", "i-measure", () => layers.toggle("dimensions"), layers.get().dimensions));
+    if (edit) { morePop.appendChild(moreRow("Duplicate", "i-duplicate", () => { closeMore(); act.duplicate(); })); morePop.appendChild(moreRow("Rotate 90°", "i-rotate", () => { closeMore(); act.rotate(90); })); morePop.appendChild(moreRow("Delete", "i-delete", () => { closeMore(); act.remove(); })); }
+    if (state.mode === "planning" && state.map.canEdit && !planView()) morePop.appendChild(moreRow("Departments", "i-blocks", () => { closeMore(); addMenu.open("departments"); }));
+    morePop.appendChild(moreRow("Layers", "i-layers", () => { closeMore(); layers.open(); }));
+    if (planView()) morePop.appendChild(moreRow("Fit the store", "i-fit", () => { closeMore(); fitPlan(); }));
+    if (state.view === "3d") morePop.appendChild(moreRow("Reset the view", "i-fit", () => { closeMore(); orbit && orbit.reset(); }));
+    morePop.appendChild(moreRow("Controls and help", "i-help", () => { closeMore(); help.open(moreBtn); }));
+  }
+  const moreOpen = () => !morePop.hidden;
+  function openMore() { renderMore(); morePop.hidden = false; moreBtn.setAttribute("aria-expanded", "true"); focusEl(morePop.querySelector("button")); }
+  function closeMore() { if (!moreOpen()) return; morePop.hidden = true; moreBtn.setAttribute("aria-expanded", "false"); }
+  function syncMore() { if (moreOpen()) { const i = [...morePop.querySelectorAll("button")].indexOf(document.activeElement); renderMore(); focusEl(morePop.querySelectorAll("button")[i]); } }
+  moreBtn.addEventListener("click", () => (moreOpen() ? closeMore() : openMore()));
+  morePop.addEventListener("keydown", e => { if (e.key === "Escape") { closeMore(); focusEl(moreBtn, {reveal: false}); } e.stopPropagation(); });
+  document.addEventListener("pointerdown", e => { if (moreOpen() && !morePop.contains(e.target) && !moreBtn.contains(e.target)) closeMore(); }, true);
+
+  /* ================= keyboard ================= */
+  let pointerFocus = false, spacePan = false, surfaceActive = false;
+  // where the last press was: Delete may remove the selection after a tap on the plan or 3D view (a touch screen gives them no focus)
+  window.addEventListener("pointerdown", e => { pointerFocus = true; surfaceActive = isSurface(e.target); }, true);
+  window.addEventListener("focusin", e => { if (!isSurface(e.target)) surfaceActive = false; }, true);
+  window.addEventListener("keyup", e => { if (e.code === "Space" && spacePan) { spacePan = false; setTool(toolBefore || "select"); toolBefore = null; } });
   window.addEventListener("keydown", e => {
     if (e.key === "Tab") pointerFocus = false;
-    if (help.isOpen || e.ctrlKey || e.metaKey || e.altKey) return;
-    const t = e.target, onControl = t && t !== document.body && /^(BUTTON|INPUT|SELECT|TEXTAREA|A)$/.test(t.tagName);
-    if (onControl && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
-    if (e.key === "?") { e.preventDefault(); help.open(); return; }
-    const views = {Digit1: "plan", Digit2: "3d", Digit3: "walk"};
-    if (views[e.code]) { setView(views[e.code]); return; }
-    if (e.code === "Escape") {
-      if (state.tool === "measure" && (measure.state.a || measure.state.cursor)) { measure.clear(); readout.hide(); if (cursor) cursor.update({}); plan.draw(); return; }
-      if (state.tool === "measure") { setTool("look"); return; }
-      select(null); return;
+    if (help.isOpen) return;
+    const t = e.target, onControl = t && t !== document.body && /^(BUTTON|INPUT|SELECT|TEXTAREA|A|SUMMARY)$/.test(t.tagName);
+    // keys typed into a field, a menu or a dialog are never shortcuts, and neither are keys aimed at the bare page just after
+    // a field of the inspector committed (focus is between two fields then): core/keys.js
+    if (ignoreShortcut(e, t, {doc: document, lastCommitAt: fieldCommitAt, now: performance.now()})) return;
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && !e.altKey) {
+      if (e.code === "KeyZ" && !e.shiftKey) { e.preventDefault(); if (canUndo()) { const r = session.undo(); if (r) announce(`Undid ${r.label || "the last change"}`); } return; }
+      if ((e.code === "KeyZ" && e.shiftKey) || e.code === "KeyY") { e.preventDefault(); if (canUndo()) { const r = session.redo(); if (r) announce(`Redid ${r.label || "the change"}`); } return; }
+      if (e.code === "KeyD") { e.preventDefault(); act.duplicate(); return; }
+      return;
     }
-    if (e.code === "KeyL") { layers.toggle("labels"); return; }
+    if (e.altKey) return;
+    if (e.key === "?") { e.preventDefault(); help.open(); return; }
+    const modeKeys = {Digit1: "blank", Digit2: "current", Digit3: "planning", Digit4: "comparison", Digit5: "advisor", Digit6: "review"};
+    const viewKeys = {Digit1: "plan", Digit2: "3d", Digit3: "walk"};
+    if (e.shiftKey && viewKeys[e.code]) { setView(viewKeys[e.code]); return; }
+    if (modeKeys[e.code] && !e.shiftKey) { setMode(modeKeys[e.code]); return; }
+    if (e.code === "Escape") {
+      if (state.placing) { cancelPlacing(); return; }
+      if (editor.dragging) { editor.cancelGesture(); return; }
+      if (state.tool === "measure" && (measure.state.a || measure.state.cursor)) { measure.clear(); readout.hide(); if (cursor) cursor.update({}); plan.draw(); return; }
+      if (state.tool !== "select") { setTool("select"); return; }
+      if (editor.shapeEdit) { editor.setShapeEdit(false); inspector.render(true); return; }
+      if (state.mode === "advisor" && advisorPanel.shown) { advisorPanel.clearShow(); plan.draw(); sync3DOverlays(); return; }
+      if (state.mode === "comparison" && comparePanel.state.selected) { comparePanel.select(comparePanel.state.selected); return; }
+      if (state.mode === "review" && reviewPanel && reviewPanel.state.selected) { reviewPanel.select(reviewPanel.state.selected); return; }
+      if ($("#panelBtn").getAttribute("aria-expanded") === "true") { closePanelSheet(); return; }
+      session.clearSelection(); return;
+    }
     if (state.view === "walk") { if (walk) walk.keydown(e, onControl, pointerFocus); return; }
-    // Plan and 3D share M (Measure / place) and S (Snap); the arrow keys move the view
-    if (e.code === "KeyM") { setTool(state.tool === "measure" ? "look" : "measure"); return; }
+    const hasSel = session.selection.length > 0;
+    if (e.code === "KeyM") { setTool(state.tool === "measure" ? "select" : "measure"); return; }
+    if (e.code === "KeyV") { setTool("select"); return; }
+    if (e.code === "KeyH" && planView()) { setTool("pan"); return; }
     if (e.code === "KeyS" && !e.shiftKey) { layers.toggle("snap"); return; }
-    if (e.code === "Enter" && state.sel && (t === $("#three") || t === $("#planCanvas"))) { e.preventDefault(); goLook(state.sel); return; }
+    if (e.code === "KeyL" && !e.shiftKey) { layers.toggle("labels"); return; }
+    if (e.code === "KeyG" && !e.shiftKey) { layers.toggle("grid"); return; }
+    if (e.code === "Space" && planView() && !onControl) { e.preventDefault(); if (!spacePan && state.tool !== "pan") { spacePan = true; toolBefore = state.tool; setTool("pan"); } return; }
+    if (hasSel && canEdit()) {
+      // Delete / Backspace remove the selection only while the plan or the 3D view itself has focus (core/keys.js)
+      if (e.code === "Delete" || e.code === "Backspace") { if (!onControl && deleteAllowed(t, {doc: document, surfaceActive})) { e.preventDefault(); if (editor.shapeEdit && editor.cornerSel >= 0) { editor.removeCorner(); inspector.render(true); } else act.remove(); } return; }
+      if (e.code === "KeyR") { act.rotate(e.shiftKey ? -90 : 90); return; }
+      const step = e.shiftKey ? 5 : 0.5;
+      const nd = {ArrowUp: [0, step], ArrowDown: [0, -step], ArrowLeft: [-step, 0], ArrowRight: [step, 0]}[e.code];
+      if (nd && !onControl) { e.preventDefault(); editor.nudge(nd[0], nd[1]); return; }
+    }
+    if (e.code === "Enter" && hasSel && (t === $("#three") || t === $("#planCanvas"))) { e.preventDefault(); inspector.focusFirst(); return; }
+    if (e.code === "Digit0" && hasSel && planView()) { act.fit(session.selected()); return; }
     if (state.view === "3d") {
       if (!orbit) return;
       if (e.code === "KeyF") { orbit.reset(); return; }
@@ -387,28 +1453,30 @@ function start(layout, overlay) {
     if (plan.keydown(e, onControl) && e.code === "KeyF") fitScale = plan.V.s;
   });
 
-  /* ---------- size and theme ---------- */
+  /* ================= size and theme ================= */
   let sizeChanged = true;
   const ro = new ResizeObserver(entries => {
     for (const en of entries) {
-      if (en.target === $("#planCanvas")) { if (state.view === "plan") plan.resize(); }
+      if (en.target === $("#planCanvas")) { if (planView()) plan.resize(); }
+      else if (en.target === $("#planCanvasA")) { if (planA.active) planA.resize(); }
       else if (en.target === $("#mini")) { if (hud) hud.refresh(); }
       else sizeChanged = true;
     }
   });
-  ro.observe($("#planCanvas")); ro.observe($("#mini")); ro.observe($("#three"));
-  onThemeChange(() => { plan.retheme(); if (hud) hud.refresh(); if (R) R.setSky(isDark()); if (scan) scan.retheme(); });
+  ro.observe($("#planCanvas")); ro.observe($("#planCanvasA")); ro.observe($("#mini")); ro.observe($("#three"));
+  onThemeChange(() => { plan.retheme(); planA.retheme(); if (hud) hud.refresh(); if (R) { R.setSky(isDark()); blocks3d.update(shownLayout(), catMap(shownCats()), isDark()); sync3DIssues(); sync3DOverlays(); } if (scan) scan.retheme(); palette.render(); });
   if (document.fonts && document.fonts.load) {
     Promise.all(["600 12px 'Barlow Condensed'", "700 15px 'Barlow Condensed'", "500 11px 'IBM Plex Sans'", "600 11px 'IBM Plex Sans'"].map(f => document.fonts.load(f)))
-      .then(() => { plan.retheme(); if (hud) hud.refresh(); }, () => {});
+      .then(() => { plan.retheme(); planA.retheme(); if (hud) hud.refresh(); }, () => {});
   }
+  phoneMq.addEventListener("change", () => { inspector.render(true); palette.render(); comparePanel.render(); advisorPanel.render(); if (reviewPanel) reviewPanel.render(); });
 
-  /* ---------- the frame loop: draws only when something changed ---------- */
+  /* ================= the frame loop: draws only when something changed ================= */
   let lastT = performance.now(), firstOrbit = true;
   function tick(now) {
     requestAnimationFrame(tick);
     const dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
-    if (!R || state.view === "plan") return;
+    if (!R || planView()) return;
     if (sizeChanged) {
       sizeChanged = false;
       if (R.size() || firstOrbit) {
@@ -419,12 +1487,13 @@ function start(layout, overlay) {
     if (state.view === "walk") {
       walk.step(dt);
       walk.applyCamera();
-      R.render(walk.camera);
+      if (R.render(walk.camera)) blocks3d.updateLabels(walk.camera, R.w, R.h);
       hud.frame(now);
     } else {
       orbit.update(now);
       if (R.render(orbit.camera)) {
         labels3d.update(orbit.camera, R.w, R.h);
+        blocks3d.updateLabels(orbit.camera, R.w, R.h);
         const az = Math.atan2(orbit.camera.position.x - orbit.controls.target.x, orbit.camera.position.z - orbit.controls.target.z);
         $("#north3d").style.setProperty("--rot", deg(az).toFixed(1));
         placeReadout3D();
@@ -432,27 +1501,41 @@ function start(layout, overlay) {
     }
   }
 
-  /* ---------- go ---------- */
-  if (webglAvailable()) {
-    try { init3D(); }
-    catch (e) {
-      console.warn("3D view unavailable:", e && e.message);
-      if (R) { try { R.dispose(); } catch { /* already gone */ } }
-      R = null; state.has3D = false;
+  /* ================= go ================= */
+  (async () => {
+    const hs = parseHash(location.hash);
+    app.dataset.mode = state.mode;
+    tabs.setMode(state.mode);
+    planOpts.editor = allows().edit ? editor : null;
+    $("#panelBtnLabel").textContent = state.mode === "comparison" ? "Changes" : state.mode === "review" ? "Review" : "Advisor";
+    await openMap(isMapId(hs.map) ? hs.map : "master");
+    if (isAdmin) loadAdminSettings();
+    if (webglAvailable() && session.layout.items.length) {
+      try { init3D(); }
+      catch (e) {
+        console.warn("3D view unavailable:", e && e.message);
+        if (R) { try { R.dispose(); } catch { /* already gone */ } }
+        R = null; state.has3D = false;
+      }
     }
-  }
-  if (!state.has3D) {
-    app.classList.add("no-3d");
-    for (const el of document.querySelectorAll("#view3d .float, #north3d")) el.hidden = true;
-  }
-  setTool("look");
-  setView(state.view);
-  requestAnimationFrame(tick);
-  // A handle for automated browser checks only (navigator.webdriver is true under Playwright / WebDriver); real
-  // visitors never get a global.
-  if (navigator.webdriver === true) {
-    Object.defineProperty(window, "__fbsMap", {value: Object.freeze({state, layout, get frames() { return R ? R.frames : 0; }, get orbit() { return orbit; }, get walk() { return walk; },
-      get scan() { return scan; }, get R() { return R; }, plan, layers, measure, setView, setTool, snapPoint: p => snapPoint(p, targets, {tol: 0.75}),
-      pick: (cx, cy, opts) => (picker ? picker.pick(cx, cy, orbit.camera, opts) : null)})});
-  }
+    if (!state.has3D) {
+      app.classList.add("no-3d");
+      for (const el of document.querySelectorAll("#view3d .float, #north3d")) el.hidden = true;
+    }
+    syncLock(); syncToolbar();
+    app.dataset.tool = state.tool;
+    setView(state.view);
+    if (state.mode !== "planning") enterMode(state.mode).catch(() => {});
+    requestAnimationFrame(tick);
+    if (!state.legacy) mapMenu.refresh();
+    // A handle for automated browser checks only (navigator.webdriver is true under Playwright / WebDriver); real
+    // visitors never get a global.
+    if (navigator.webdriver === true) {
+      Object.defineProperty(window, "__fbsMap", {value: Object.freeze({state, session, get layout() { return session.layout; }, get frames() { return R ? R.frames : 0; }, get orbit() { return orbit; }, get walk() { return walk; },
+        get scan() { return scan; }, get R() { return R; }, plan, planA, editor, layers, measure, autosave, setView, setMode, openMap, placeDepartment, startPlacing, act,
+        get compare() { return comparePanel; }, get advisor() { return advisorPanel; }, get review() { return reviewPanel; }, get proposals() { return propCtl; }, get issues() { return state.issues; }, get shownLayout() { return shownLayout(); },
+        snapPoint: p => snapPoint(p, session.snapTargets, {tol: 0.75}),
+        pick: (cx, cy, opts) => (picker ? picker.pick(cx, cy, orbit.camera, opts) : null)})});
+    }
+  })();
 }

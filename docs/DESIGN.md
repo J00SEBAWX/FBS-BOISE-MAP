@@ -263,6 +263,11 @@ Rotate / Delete never scroll away.
   `--accent` on, label on the left, whole row tappable).
 - **Actions** (sticky): Duplicate, Rotate 90° (secondary buttons) and an icon-only Delete (`--danger-text`,
   `aria-label="Delete"`).
+- **Re-drawing**: an edit, an undo or a target change never rebuilds the panel while the same thing is selected: values,
+  the area readout and the Checks are patched in place, so the field the person clicks or Tabs into next (a field commits
+  as it loses focus) is still there and keeps focus. It is rebuilt only when its structure changes (another selection,
+  the Structure lock, Edit shape, a department change), and then the focused control, its caret and the scroll position
+  are put back. A field that commits never makes the following keystrokes shortcuts (core/keys.js).
 - **Footer**: item id + a one-line tip (`--text-xs` `--ink-subtle`).
 - **Multi-select**: header "3 ITEMS SELECTED"; only shared fields (rotation, colour, height) + Align (left, centre,
   right, top, middle, bottom) + Distribute; actions apply to all.
@@ -292,8 +297,13 @@ Rotate / Delete never scroll away.
   (`i-fit`), Layers (`i-layers`). Scale bar top-left. No zoom buttons: pinch to zoom.
 - **Bottom toolbar** (`--bottombar-h` 64 + `env(safe-area-inset-bottom)`, `--surface`, top `--line`, always visible,
   5 equal slots, each ≥ 44px with a 22px icon over a 12px 500 label): Undo, Redo, **Add** (centre, 48 x 32
-  `--accent` pill around the icon, label in `--accent-text`), Measure, More. Categories tab swaps Add for
-  **Departments** (`i-blocks`), which opens the palette sheet.
+  `--accent` pill around the icon, label in `--accent-text`), Measure, More. Add stays in every Plan; in Area
+  planning (the v3.1 merge of Plan and Categories) **Departments** (`i-blocks`) is a sixth slot after Add, a little
+  wider than the others so its label fits (the bar is then 6 slots, each ≥ 44px down to 320px wide), and opens the
+  palette sheet. The palette and the mode panels (Comparison, Advisor, Review) are bottom sheets that scroll as one
+  piece (head, list and foot together; a foot with actions, such as Review's Approve / Needs changes / Decline row,
+  stays pinned at the bottom): *peek* is 76% of the canvas, *expanded* 92%, switched by the 36 x 4 grab bar; in
+  landscape they dock to the left edge, 340px wide, full height.
 - **More** sheet: Structure locked/unlocked switch, Snap switch, Select several (multi-select mode, since there is
   no Shift key), Layers, Keyboard & help, Fit to store.
 - **Gestures** (no hover, no right-click): tap = select (tap empty floor = clear); drag a selected item = move;
@@ -403,10 +413,11 @@ the right. Grid: `var(--palette-w) minmax(0,1fr) var(--inspector-w)`.
   meta (12px `--ink-muted`: "613 sq ft" or "Not placed yet"), and on the right either a `--success` `i-check`
   (with sr-only "Placed") or a "+ Place" affordance (28px, `--accent-line` border, `--accent-text`). Selected
   department row: `--accent-soft` with a 1px `--accent-line` inset.
-- Tap a not-placed department: drops a block of its catalog starting size in the middle of the visible plan,
-  selects it. Tap a placed one: selects it and pans to it. A department can be placed more than once (Split into
+- Tap a not-placed department: places a block of its catalog starting size in the middle of the part of the map the
+  person can see (on a phone, above the open sheet), moved inside the building and to the nearest spot clear of walls,
+  columns, stairs, desks, doorways and other blocks, so repeats never stack; selects it. Tap a placed one: selects it and pans to it. A department can be placed more than once (Split into
   two); the meta then reads "2 spots · 640 sq ft".
-- Footer hint: "Tap a department to drop it in the middle of the view, then drag it into place."
+- Footer hint: "Tap a department to place it in the middle of the map you can see, then drag it where it belongs."
 
 **Department inspector**: header = swatch + eyebrow "DEPARTMENT · <family>", name, "Placed by AJ · 12 min ago".
 Sections: **Area** (big number "613 sq ft" in Barlow Condensed 700 28px + "24' 6" × 25' 0"", and "Suggested size for
@@ -525,7 +536,7 @@ headline, one 14px `--ink-muted` sentence ≤ 34ch, one primary action):
 
 - No own maps: `i-map`, "NO MAPS OF YOUR OWN YET", "Make a copy of the master map or start from a blank store. Only
   you can change it.", **New map**.
-- Categories with nothing placed: `i-blocks`, "NO DEPARTMENTS PLACED YET", "Tap a department in the list to drop it
+- Categories with nothing placed: `i-blocks`, "NO DEPARTMENTS PLACED YET", "Tap a department in the list to place it
   on the plan.", (phone) **Show departments**.
 - Review with no other maps: `i-review`, "NOTHING TO REVIEW YET", "When someone saves a map, you can compare it with
   the master here."
@@ -554,7 +565,7 @@ Shown in the help dialog (`i-help` in the header; phone: More → Keyboard & hel
 | Click, Shift+click, drag on empty floor | Select, add/remove from selection, marquee select |
 | Ctrl+Z / Ctrl+Shift+Z (Ctrl+Y) | Undo / Redo (Cmd on Mac) |
 | Ctrl+D | Duplicate |
-| Delete / Backspace | Delete (Undo in the toast) |
+| Delete / Backspace | Delete (Undo in the toast); only with the plan or the 3D view focused, never from a field, a menu or the bare page |
 | R / Shift+R | Rotate 90° clockwise / counter-clockwise |
 | Arrows / Shift+Arrows | Nudge 6" / 5' |
 | Alt while dragging | Ignore snapping for this drag |

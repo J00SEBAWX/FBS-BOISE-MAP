@@ -56,6 +56,31 @@
     <p class="empty" id="people-empty" hidden>Nobody yet. Give someone a code.</p>
   </section>
 
+  <!-- Map settings: sharing and the master lock -->
+  <section class="sec" aria-labelledby="settings-title" id="settings-sec" hidden>
+    <div class="sec-head">
+      <h1 id="settings-title">Map settings</h1>
+      <p class="muted">These apply to everyone right away.</p>
+    </div>
+    <div class="settings" id="settings-list">
+      <button type="button" class="setting" id="set-share" role="switch" aria-checked="false">
+        <span class="setting-text">
+          <b>Share everyone's maps with the team</b>
+          <span id="set-share-hint">Off: people see only their own maps and the master. On: everyone sees everyone's maps, read-only.</span>
+        </span>
+        <span class="sw-track" aria-hidden="true"><span class="sw-knob"></span></span>
+      </button>
+      <button type="button" class="setting" id="set-lock" role="switch" aria-checked="false">
+        <span class="setting-text">
+          <b>Lock the master map</b>
+          <span id="set-lock-hint">While locked, nobody can change the master map — you included. Proposals can still be submitted.</span>
+        </span>
+        <span class="sw-track" aria-hidden="true"><span class="sw-knob"></span></span>
+      </button>
+    </div>
+    <p class="muted setting-state" id="set-lock-state" hidden></p>
+  </section>
+
   <!-- Your account -->
   <section class="sec" aria-labelledby="account-title">
     <div class="sec-head">

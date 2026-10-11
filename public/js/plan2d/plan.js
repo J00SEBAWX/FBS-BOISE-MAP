@@ -1,24 +1,33 @@
-/* The top-down plan (view only in this phase), ported from the v2 Map view and drawn with the plan tokens
- * from docs/DESIGN.md 4.4: floors, grid, fixtures, walls with door cuts, labels with halos, the walker, the
- * scan-lines overlay and the Measure / place tool. Pan with drag or the arrow keys, zoom with the wheel,
- * pinch or + / -, F fits the store, N / Shift+N steps through the fixtures. */
-import {clamp, rad, toWorld} from "../core/geometry.js";
+/* The top-down plan, drawn with the plan tokens from docs/DESIGN.md 4.4: floors, grid, department blocks,
+ * fixtures, walls with door cuts, labels with halos, the walker, the scan-lines overlay and the Measure / place
+ * tool. Pan with drag or the arrow keys, zoom with the wheel, pinch or + / -, F fits the store, N / Shift+N
+ * steps through the items. Editing (select, move, resize, rotate, Edit shape) lives in editor.js and plugs in
+ * through the `editor` option; the layout it draws is swapped with setLayout() whenever the open map changes. */
+import {clamp, rad, toWorld, pointInPoly} from "../core/geometry.js";
 import {PAL, TYPES, displayName, outlineOf, inOutline, FOUNDATION_GRID} from "../core/model.js";
 import {ringOf, bandPoly} from "../core/ring.js";
+import {outline as blockOutline} from "../core/areas.js";
 import {drawScanLines, drawMeasure} from "./overlay.js";
+import {drawBlocks, drawBlockLabels} from "./blocks.js";
 
 /* ---------- tokens (read once per theme change; canvas can't read CSS variables) ---------- */
 const TOKEN_NAMES = {
   planBg: "--plan-bg", planFloor: "--plan-floor", planGrid: "--plan-grid", planGridMajor: "--plan-grid-major", planWall: "--plan-wall",
   planStructure: "--plan-structure", planDoor: "--plan-door", planFixtureFill: "--plan-fixture-fill", planFixtureStroke: "--plan-fixture-stroke",
   planItemMix: "--plan-item-mix", planLabel: "--plan-label", planLabelHalo: "--plan-label-halo", planScan: "--plan-scan", planMeasure: "--plan-measure",
-  planDimBg: "--plan-dim-bg", planDimInk: "--plan-dim-ink", selStroke: "--sel-stroke", selFill: "--sel-fill", selHover: "--sel-hover",
-  snapGuide: "--snap-guide", inkSubtle: "--ink-subtle", inkMuted: "--ink-muted", surface: "--surface", fontBody: "--font-body", fontDisplay: "--font-display",
+  planDimBg: "--plan-dim-bg", planDimInk: "--plan-dim-ink", planFaint: "--plan-faint", selStroke: "--sel-stroke", selFill: "--sel-fill", selHover: "--sel-hover",
+  selHandle: "--sel-handle", selHandleStroke: "--sel-handle-stroke", selMarqueeFill: "--sel-marquee-fill", selMarqueeStroke: "--sel-marquee-stroke",
+  snapGuide: "--snap-guide", catFillAlpha: "--cat-fill-alpha", warning: "--warning", warningSoft: "--warning-soft",
+  inkSubtle: "--ink-subtle", inkMuted: "--ink-muted", surface: "--surface", fontBody: "--font-body", fontDisplay: "--font-display",
+  danger: "--danger", dangerSoft: "--danger-soft", success: "--success", successSoft: "--success-soft", accent: "--accent", accentSoft: "--accent-soft",
+  accentInk: "--accent-ink", planGhostBefore: "--plan-ghost-before", planGhostAfter: "--plan-ghost-after", inkInverse: "--ink-inverse", surfaceInverse: "--surface-inverse",
+  cat12: "--cat-12", cat01: "--cat-01",
 };
 export function readPlanTokens() {
   const cs = getComputedStyle(document.documentElement), t = {};
   for (const [k, v] of Object.entries(TOKEN_NAMES)) t[k] = cs.getPropertyValue(v).trim();
   t.mix = (parseFloat(t.planItemMix) || 45) / 100;
+  t.faint = parseFloat(t.planFaint) || 0.28;
   return t;
 }
 
@@ -30,20 +39,27 @@ export function mix(a, b, f) { const p = rgbOf(a), q = rgbOf(b); return `rgb(${M
 /* ---------- view transform: centre (ft), pixels per foot, size in CSS pixels ---------- */
 export const w2s = (v, x, y) => [(x - v.cx) * v.s + v.W / 2, v.H / 2 - (y - v.cy) * v.s];
 export const s2w = (v, sx, sy) => [(sx - v.W / 2) / v.s + v.cx, (v.H / 2 - sy) / v.s + v.cy];
-// an item's outline: its own polygon when it has one (the chamfered laser deck), else its rectangle
-function pathItem(ctx, v, it) { const c = outlineOf(it).map(p => w2s(v, p[0], p[1])); ctx.moveTo(c[0][0], c[0][1]); for (let i = 1; i < c.length; i++) ctx.lineTo(c[i][0], c[i][1]); ctx.closePath(); }
+/** An item's outline in store feet: a department block's shape, an item's own polygon, else its rectangle. */
+export const shapeOf = it => (it.type === "area" ? blockOutline(it) : outlineOf(it));
+// an item's outline on screen
+function pathItem(ctx, v, it) { const c = shapeOf(it).map(p => w2s(v, p[0], p[1])); ctx.moveTo(c[0][0], c[0][1]); for (let i = 1; i < c.length; i++) ctx.lineTo(c[i][0], c[i][1]); ctx.closePath(); }
 
 const FIXTURE_ORDER = {platform: 0, ring: 2, stairs: 3};
 const isPassage = it => it.type === "door" || it.type === "opening" || it.type === "arch";
 const STRUCT_DRAW = new Set(["wall", "column"]);
+// fixed desks, stairs and platforms belong to the Structure layer (SPEC-v3-API)
+const isStructureLike = it => it.type === "stairs" || it.type === "column" || it.fixed === true;
+const shownBy = (it, layers) => (isStructureLike(it) || STRUCT_DRAW.has(it.type) || isPassage(it) ? layers.structure !== false : layers.fixtures !== false);
 
 /**
  * Draws the plan (everything except the tool overlays).
- * opts: {mini, layers: {labels, structure, fixtures, scanLines}, sel, hover, overlay (scan overlay data)}
+ * opts: {mini, layers: {labels, structure, fixtures, scanLines, grid, categories}, selIds (Set), hover, overlay (scan overlay
+ *        data), cats (Map key -> category), dark, faint (fixtures at --plan-faint), ghost (a block being placed)}
  */
 export function drawPlan(ctx, v, layout, tok, opts = {}) {
   const layers = opts.layers || {labels: true, structure: true, fixtures: true, scanLines: false};
   const items = layout.items, floors = items.filter(it => it.type === "floor");
+  const selIds = opts.selIds || new Set();
   ctx.fillStyle = tok.planBg; ctx.fillRect(0, 0, v.W, v.H);
   // 1. the building: floors in --plan-floor
   ctx.fillStyle = tok.planFloor; ctx.beginPath(); for (const f of floors) pathItem(ctx, v, f); ctx.fill();
@@ -62,19 +78,28 @@ export function drawPlan(ctx, v, layout, tok, opts = {}) {
     lines(5, tok.planGrid); lines(10, tok.planGridMajor);
     ctx.restore();
   }
-  // 3. floors: outline + room names
+  // 3. floors: outline
   ctx.lineWidth = 1; ctx.strokeStyle = tok.planStructure;
   for (const f of floors) { ctx.beginPath(); pathItem(ctx, v, f); ctx.stroke(); }
   // 4. upper levels (zones): dashed outline
   ctx.save(); ctx.setLineDash([4, 4]); ctx.strokeStyle = tok.planDoor;
   for (const it of items) if (it.type === "zone") { ctx.beginPath(); pathItem(ctx, v, it); ctx.stroke(); }
   ctx.restore();
+  // 5. department blocks
+  const blocksOn = layers.categories !== false && !opts.mini;
+  if (blocksOn) drawBlocks(ctx, v, layout, tok, {dark: opts.dark, cats: opts.cats, ghost: opts.ghost});
   // 6. fixtures (and fixed desks / platforms / stairs)
-  if (layers.fixtures !== false || layers.structure !== false) {
+  const faintFixtures = !!opts.faint;
+  if (layers.fixtures !== false || layers.structure !== false || faintFixtures) {
     const list = items.filter(it => !STRUCT_DRAW.has(it.type) && !isPassage(it) && it.type !== "floor" && it.type !== "zone" && it.type !== "ceiling" && it.type !== "area")
-      .filter(it => (isStructureLike(it) ? layers.structure !== false : layers.fixtures !== false))
+      .filter(it => (isStructureLike(it) ? layers.structure !== false : layers.fixtures !== false || faintFixtures))
       .sort((a, b) => (FIXTURE_ORDER[a.type] ?? 5) - (FIXTURE_ORDER[b.type] ?? 5));
-    for (const it of list) drawFixture(ctx, v, it, tok, opts.mini);
+    for (const it of list) {
+      const faint = faintFixtures && !isStructureLike(it) && layers.fixtures === false;
+      if (faint) ctx.globalAlpha = tok.faint;
+      drawFixture(ctx, v, it, tok, opts.mini);
+      if (faint) ctx.globalAlpha = 1;
+    }
   }
   // 7. structure: walls and columns solid, then door / opening / arch cuts
   if (layers.structure !== false) {
@@ -90,11 +115,12 @@ export function drawPlan(ctx, v, layout, tok, opts = {}) {
   if (layers.scanLines && opts.overlay) drawScanLines(ctx, v, opts.overlay, tok, w2s);
   // foundation grid A-H / 1-5 (the building drawings' grid; wall names refer to it)
   if (!opts.mini) drawFoundationGrid(ctx, v, layout, tok);
-  // 9. labels: fixtures first (biggest first), then room names in a free spot, then doors; a label that would
-  // overlap one already drawn is left out (selecting the item shows its name anyway)
+  // 9. labels: department blocks first, then fixtures (biggest first), then room names in a free spot, then doors;
+  // a label that would overlap one already drawn is left out (selecting the item shows its name anyway)
   if (!opts.mini) {
     const placed = [];
-    const shown = it => (isStructureLike(it) || STRUCT_DRAW.has(it.type) || isPassage(it) ? layers.structure !== false : layers.fixtures !== false);
+    const shown = it => shownBy(it, layers) && !(faintFixtures && layers.fixtures === false && !isStructureLike(it) && !STRUCT_DRAW.has(it.type) && !isPassage(it));
+    if (blocksOn && layers.labels !== false) drawBlockLabels(ctx, v, layout, tok, {cats: opts.cats, placed, small: v.W < 500});
     if (layers.labels !== false) {
       const list = items.filter(it => !["floor", "wall", "ceiling", "area"].includes(it.type) && !isPassage(it) && shown(it)).sort((a, b) => b.w * b.d - a.w * a.d);
       for (const it of list) drawLabel(ctx, v, it, tok, placed);
@@ -103,12 +129,19 @@ export function drawPlan(ctx, v, layout, tok, opts = {}) {
     drawRoomNames(ctx, v, floors, tok, placed, blockers);
     if (layers.labels !== false) for (const it of items) if (isPassage(it) && shown(it)) drawLabel(ctx, v, it, tok, placed);
   }
-  // 10. hover + selection
-  if (opts.hover && opts.hover !== opts.sel) { ctx.save(); ctx.beginPath(); pathItem(ctx, v, opts.hover); ctx.lineWidth = 1.5; ctx.strokeStyle = tok.selHover; ctx.stroke(); ctx.restore(); }
-  if (opts.sel) { ctx.save(); ctx.beginPath(); pathItem(ctx, v, opts.sel); ctx.fillStyle = tok.selFill; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = tok.selStroke; ctx.stroke(); ctx.restore(); }
+  // 10. hover + selection (fixtures get the fill too; department blocks only the stroke so their colour stays readable)
+  if (opts.hover && !selIds.has(opts.hover.id)) { ctx.save(); ctx.beginPath(); pathItem(ctx, v, opts.hover); ctx.lineWidth = 1.5; ctx.strokeStyle = tok.selHover; ctx.stroke(); ctx.restore(); }
+  if (selIds.size) {
+    ctx.save();
+    for (const id of selIds) {
+      const it = layout.byId.get(id); if (!it) continue;
+      ctx.beginPath(); pathItem(ctx, v, it);
+      if (it.type !== "area") { ctx.fillStyle = tok.selFill; ctx.fill(); }
+      ctx.lineWidth = 2; ctx.strokeStyle = tok.selStroke; ctx.stroke();
+    }
+    ctx.restore();
+  }
 }
-// fixed desks, stairs and platforms belong to the Structure layer (SPEC-v3-API)
-const isStructureLike = it => it.type === "stairs" || it.type === "column" || it.fixed === true;
 
 function drawFixture(ctx, v, it, tok, mini) {
   ctx.save();
@@ -184,11 +217,12 @@ function drawRoomNames(ctx, v, floors, tok, placed, blockers) {
 }
 const overlaps = (a, b, pad = 2) => a.x0 < b.x1 + pad && b.x0 < a.x1 + pad && a.y0 < b.y1 + pad && b.y0 < a.y1 + pad;
 function screenBox(v, it) {
-  const cs = outlineOf(it).map(p => w2s(v, p[0], p[1]));
+  const cs = shapeOf(it).map(p => w2s(v, p[0], p[1]));
   return {x0: Math.min(...cs.map(c => c[0])), y0: Math.min(...cs.map(c => c[1])), x1: Math.max(...cs.map(c => c[0])), y1: Math.max(...cs.map(c => c[1]))};
 }
 // the building drawings' grid as calibrated (core/model.js): A-H west to east, 1-5 north to south
 function drawFoundationGrid(ctx, v, layout, tok) {
+  if (layout.building.L < 100) return; // only the real store has this grid
   const GX = FOUNDATION_GRID.columns, GY = FOUNDATION_GRID.rows;
   ctx.save();
   ctx.strokeStyle = tok.planGridMajor; ctx.setLineDash([6, 5]); ctx.lineWidth = 1; ctx.beginPath();
@@ -259,17 +293,23 @@ export function drawWalker(ctx, v, ME, halfH, tok, mini) {
 /* The interactive plan view                                                                */
 /* ======================================================================================= */
 /**
- * createPlanView({canvas, layout, overlay, getLayers, getTool, getWalker, onSelect, onGo, onPointer, onMeasure, snapAt, measure})
- *  - getTool() -> "look" | "measure"; snapAt(x, y, tolFt) -> snap result; measure = core/measure state machine
- *  - onSelect(item | null), onGo(x, y, item), onPointer({x, y} | null) for the status bar
+ * createPlanView({canvas, layout, overlay, getLayers, getTool, getWalker, onSelect, onGo, onPointer, onMeasure,
+ *                 snapAt, measure, getSelIds, getCats, isDark, getFaint, editor, onViewChange, pickBlocks})
+ *  - getTool() -> "select" | "pan" | "measure"; snapAt(x, y, tolFt) -> snap result; measure = core/measure state
+ *  - onSelect(item | null, {toggle}) : a tap / click chose an item (the app owns the selection; getSelIds() reads it back)
+ *  - onGo(x, y, item) : double-click / double-tap on the floor; onPointer({x, y} | null) for the status bar
+ *  - editor (optional, editor.js): {down, move, up, click, dblclick, draw, cursorAt} takes over gestures while editing
+ *    (set it to null to turn editing off, e.g. in a read-only mode); extraDraw(ctx, V, tok) draws a mode's own
+ *    overlays (collision outlines, the comparison diff, the advisor's heat and paths) on top of the plan
  */
 export function createPlanView(o) {
-  const {canvas, layout} = o;
+  const {canvas} = o;
+  let layout = o.layout;
   const ctx = canvas.getContext("2d");
-  const {L, W} = layout.building;
-  const V = {cx: L / 2, cy: W / 2, s: 6, W: 0, H: 0, dpr: 1, fitted: false};
+  const V = {cx: layout.building.L / 2, cy: layout.building.W / 2, s: 6, W: 0, H: 0, dpr: 1, fitted: false};
   const ZMIN = 1.2, ZMAX = 60;
-  let tok = readPlanTokens(), sel = null, hover = null, snapState = null, active = false, queued = false;
+  let tok = readPlanTokens(), hover = null, snapState = null, active = false, queued = false, ghost = null;
+  const editor = () => o.editor || null;
 
   function resize() {
     const r = canvas.getBoundingClientRect(); V.dpr = Math.min(window.devicePixelRatio || 1, 2); V.W = r.width; V.H = r.height;
@@ -279,8 +319,18 @@ export function createPlanView(o) {
   }
   function fit() {
     if (!V.W) return;
+    const {L, W} = layout.building;
     const pad = Math.min(V.W, V.H) < 500 ? 20 : 48;
     V.s = clamp(Math.min((V.W - pad * 2) / (L + 16), (V.H - pad * 2) / (W + 16)), ZMIN, ZMAX); V.cx = L / 2 - 2; V.cy = W / 2 - 2; V.fitted = true; draw();
+  }
+  /** Zooms so these items fill the view (0 = fit the selection). */
+  function fitTo(items, pad = 60) {
+    if (!items || !items.length || !V.W) return;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const it of items) for (const [x, y] of shapeOf(it)) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+    V.cx = (x0 + x1) / 2; V.cy = (y0 + y1) / 2;
+    V.s = clamp(Math.min((V.W - pad * 2) / Math.max(x1 - x0, 2), (V.H - pad * 2) / Math.max(y1 - y0, 2)), ZMIN, ZMAX);
+    draw();
   }
   function zoomAt(f, sx = V.W / 2, sy = V.H / 2) { const [wx, wy] = s2w(V, sx, sy); V.s = clamp(V.s * f, ZMIN, ZMAX); const [nx, ny] = s2w(V, sx, sy); V.cx += wx - nx; V.cy += wy - ny; draw(); }
   function draw() { if (queued || !active) return; queued = true; requestAnimationFrame(() => { queued = false; paint(); }); }
@@ -288,35 +338,81 @@ export function createPlanView(o) {
     if (!active || !V.W) return;
     ctx.setTransform(V.dpr, 0, 0, V.dpr, 0, 0); ctx.clearRect(0, 0, V.W, V.H);
     const layers = o.getLayers();
-    drawPlan(ctx, V, layout, tok, {layers, sel, hover, overlay: o.overlay()});
+    const selIds = o.getSelIds ? o.getSelIds() : new Set();
+    drawPlan(ctx, V, layout, tok, {layers, selIds, hover, overlay: o.overlay(), cats: o.getCats ? o.getCats() : null, dark: o.isDark ? o.isDark() : false, faint: o.getFaint ? o.getFaint() : false, ghost});
     const w = o.getWalker && o.getWalker(); if (w) drawWalker(ctx, V, w.ME, w.halfH, tok, false);
+    if (o.extraDraw) o.extraDraw(ctx, V, tok);
+    const ed = editor(); if (ed) ed.draw(ctx, V, tok);
     if (o.getTool() === "measure") drawMeasure(ctx, V, {...o.measure.state, snap: snapState}, tok, w2s);
     if (o.onViewChange) o.onViewChange(V);
   }
 
-  /* ---------- picking ---------- */
+  /* ---------- picking: the item under a plan point, topmost first ---------- */
+  /**
+   * Fixtures and desks first (drawn on top), then department blocks, then walls / columns / doors / stairs, upper
+   * levels and floors. Hidden layers are not hit; faint fixtures are not hit (they are only a backdrop).
+   */
   function hitItem(wx, wy) {
     const layers = o.getLayers();
-    const ok = it => (isStructureLike(it) || STRUCT_DRAW.has(it.type) || isPassage(it) ? layers.structure !== false : layers.fixtures !== false);
-    for (let i = layout.items.length - 1; i >= 0; i--) {
-      const it = layout.items[i]; if (["floor", "zone", "ceiling", "wall", "area"].includes(it.type) || !ok(it)) continue;
-      const tol = isPassage(it) ? 4 / V.s : 0;
-      if (inOutline(it, wx, wy, tol)) return it;
+    const faint = o.getFaint ? o.getFaint() : false;
+    const items = layout.items;
+    const fixturesOn = layers.fixtures !== false && !faint;
+    if (fixturesOn || layers.structure !== false) {
+      for (let i = items.length - 1; i >= 0; i--) {
+        const it = items[i];
+        if (["floor", "zone", "ceiling", "wall", "area"].includes(it.type)) continue;
+        if (!(isStructureLike(it) || isPassage(it) ? layers.structure !== false : fixturesOn)) continue;
+        const tol = isPassage(it) ? 4 / V.s : 0;
+        if (inOutline(it, wx, wy, tol)) return it;
+      }
     }
-    for (const it of layout.items) if (it.type === "wall" && layers.structure !== false && inOutline(it, wx, wy, 3 / V.s)) return it;
+    if (layers.categories !== false) {
+      for (let i = items.length - 1; i >= 0; i--) {
+        const it = items[i];
+        if (it.type === "area" && (it.shape === "poly" ? pointInPoly(wx, wy, blockOutline(it)) : inOutline(it, wx, wy, 0))) return it;
+      }
+    }
+    if (layers.structure !== false) {
+      for (const it of items) if (it.type === "wall" && inOutline(it, wx, wy, 3 / V.s)) return it;
+      for (let i = items.length - 1; i >= 0; i--) { const it = items[i]; if (it.type === "zone" && inOutline(it, wx, wy, 0)) return it; }
+      for (let i = items.length - 1; i >= 0; i--) { const it = items[i]; if (it.type === "floor" && inOutline(it, wx, wy, 0)) return it; }
+    }
     return null;
   }
-  function select(it) { sel = it || null; o.onSelect(sel); draw(); }
+  /** Is this plan point inside the item's own outline (a department block's polygon included)? */
+  function contains(it, wx, wy) {
+    if (!it) return false;
+    if (it.type === "area") return it.shape === "poly" ? pointInPoly(wx, wy, blockOutline(it)) : inOutline(it, wx, wy, 0);
+    return inOutline(it, wx, wy, isPassage(it) || it.type === "wall" ? 4 / V.s : 0);
+  }
+  /** Items whose outline lies inside a plan rectangle (marquee). Only movable kinds: never floors, zones or ceilings. */
+  function itemsIn(x0, y0, x1, y1) {
+    const layers = o.getLayers(), faint = o.getFaint ? o.getFaint() : false;
+    const lo = [Math.min(x0, x1), Math.min(y0, y1)], hi = [Math.max(x0, x1), Math.max(y0, y1)];
+    return layout.items.filter(it => {
+      if (["floor", "zone", "ceiling"].includes(it.type)) return false;
+      if (it.type === "area" ? layers.categories === false : !(isStructureLike(it) || STRUCT_DRAW.has(it.type) || isPassage(it) ? layers.structure !== false : layers.fixtures !== false && !faint)) return false;
+      return shapeOf(it).every(([x, y]) => x >= lo[0] && x <= hi[0] && y >= lo[1] && y <= hi[1]);
+    });
+  }
   function snapFor(wx, wy) { return o.snapAt(wx, wy, 12 / V.s); }
 
-  /* ---------- pointer: drag to pan, pinch, click / tap to pick or measure ---------- */
+  /* ---------- pointer: drag to pan, pinch, click / tap to pick or measure; the editor takes gestures first ---------- */
   const ptr = new Map(); let drag = null, lastTap = {t: 0, x: 0, y: 0};
   const offsetOf = e => { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  const isTouch = e => e.pointerType !== "mouse";
   canvas.addEventListener("pointerdown", e => {
     try { canvas.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
     const [sx, sy] = offsetOf(e); ptr.set(e.pointerId, {x: sx, y: sy});
-    if (ptr.size === 2) { const [a, b] = [...ptr.values()]; drag = {kind: "pinch", d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, s0: V.s, c: s2w(V, (a.x + b.x) / 2, (a.y + b.y) / 2)}; return; }
+    if (ptr.size === 2) {
+      if (drag && drag.kind === "edit") { editor().cancelGesture(); }
+      const [a, b] = [...ptr.values()]; drag = {kind: "pinch", d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, s0: V.s, c: s2w(V, (a.x + b.x) / 2, (a.y + b.y) / 2)}; return;
+    }
     if (ptr.size > 2) return;
+    if (e.button !== 0 && e.button !== undefined && e.pointerType === "mouse" && e.button !== 1) { drag = {kind: "pan", sx, sy, cx: V.cx, cy: V.cy, moved: false}; return; }
+    const [wx, wy] = s2w(V, sx, sy);
+    const ed = editor();
+    if (ed && o.getTool() === "select" && e.button !== 1 && ed.down({e, wx, wy, sx, sy, touch: isTouch(e)})) { drag = {kind: "edit", sx, sy, moved: false}; canvas.classList.add("dragging"); return; }
     drag = {kind: "pan", sx, sy, cx: V.cx, cy: V.cy, moved: false};
   });
   canvas.addEventListener("pointermove", e => {
@@ -326,8 +422,14 @@ export function createPlanView(o) {
     if (!drag) {
       o.onPointer({x: wx, y: wy});
       if (e.pointerType === "mouse") {
-        if (o.getTool() === "measure") { snapState = snapFor(wx, wy); o.measure.move({x: snapState.x, y: snapState.y}); if (o.onMeasure) o.onMeasure(snapState); canvas.classList.remove("over-item"); draw(); }
-        else { const h = hitItem(wx, wy); canvas.classList.toggle("over-item", !!h); if (h !== hover) { hover = h; draw(); } }
+        if (o.getTool() === "measure") { snapState = snapFor(wx, wy); o.measure.move({x: snapState.x, y: snapState.y}); if (o.onMeasure) o.onMeasure(snapState); canvas.classList.remove("over-item"); canvas.dataset.cursor = ""; draw(); }
+        else {
+          const ed = editor(), c = ed && o.getTool() === "select" ? ed.cursorAt(sx, sy) : "";
+          const h = c ? null : hitItem(wx, wy);
+          canvas.dataset.cursor = c || (h ? (o.getTool() === "select" && ed ? "move" : "pointer") : "");
+          canvas.classList.toggle("over-item", !!h && !c);
+          if (h !== hover) { hover = h; draw(); }
+        }
       }
       return;
     }
@@ -336,43 +438,89 @@ export function createPlanView(o) {
       V.s = clamp(drag.s0 * d / drag.d0, ZMIN, ZMAX); const m = s2w(V, (a.x + b.x) / 2, (a.y + b.y) / 2); V.cx += drag.c[0] - m[0]; V.cy += drag.c[1] - m[1]; draw(); return;
     }
     if (!drag.moved && Math.hypot(sx - drag.sx, sy - drag.sy) > 4) { drag.moved = true; canvas.classList.add("dragging"); }
+    if (drag.kind === "edit") { if (drag.moved) editor().move({e, wx, wy, sx, sy, touch: isTouch(e)}); return; }
     if (drag.moved) { V.cx = drag.cx - (sx - drag.sx) / V.s; V.cy = drag.cy + (sy - drag.sy) / V.s; draw(); }
   });
+  /** A touch tap that follows another one closely in time and place is a double tap (it also records this tap). */
+  function doubleTap(sx, sy) {
+    const now = performance.now();
+    if (now - lastTap.t < 320 && Math.hypot(sx - lastTap.x, sy - lastTap.y) < 24) { lastTap.t = 0; return true; }
+    lastTap = {t: now, x: sx, y: sy};
+    return false;
+  }
   function endPointer(e) {
     ptr.delete(e.pointerId); canvas.classList.remove("dragging");
     if (!drag) return;
     if (drag.kind === "pinch") { if (ptr.size === 0) drag = null; return; }
     const d = drag; drag = null;
-    if (d.moved || e.type === "pointercancel") return;
     const [sx, sy] = offsetOf(e), [wx, wy] = s2w(V, sx, sy);
+    if (d.kind === "edit") {
+      // the second tap of a double tap on an item that is already selected starts a move gesture (the editor claims
+      // the pointer), so the double tap is recognised here: that zero-length move is dropped (no undo step) and the
+      // item opens for fine-tuning
+      const tapped = isTouch(e) && !d.moved && e.type !== "pointercancel";
+      if (tapped && doubleTap(sx, sy)) {
+        editor().up({e, wx, wy, sx, sy, moved: false, cancelled: true, touch: true});
+        editor().dblclick({wx, wy, item: hitItem(wx, wy)});
+        return;
+      }
+      editor().up({e, wx, wy, sx, sy, moved: d.moved, cancelled: e.type === "pointercancel", touch: isTouch(e)});
+      return;
+    }
+    if (d.moved || e.type === "pointercancel") return;
     if (o.getTool() === "measure") {
       snapState = snapFor(wx, wy);
       o.measure.click({x: snapState.x, y: snapState.y});
       if (o.onMeasure) o.onMeasure(snapState);
       draw(); return;
     }
-    if (e.pointerType !== "mouse") { // touch / pen: double-tap = go there
-      const now = performance.now();
-      if (now - lastTap.t < 320 && Math.hypot(sx - lastTap.x, sy - lastTap.y) < 24) { lastTap.t = 0; o.onGo(wx, wy, hitItem(wx, wy)); return; }
-      lastTap = {t: now, x: sx, y: sy};
+    const ed = editor();
+    if (isTouch(e) && doubleTap(sx, sy)) { // touch / pen: double-tap = open / go there
+      const it = hitItem(wx, wy);
+      if (ed && o.getTool() === "select") ed.dblclick({wx, wy, item: it}); else o.onGo(wx, wy, it);
+      return;
     }
-    select(hitItem(wx, wy));
+    if (ed && o.getTool() === "select") { ed.click({e, wx, wy, sx, sy, touch: isTouch(e), item: hitItem(wx, wy)}); return; }
+    o.onSelect(hitItem(wx, wy), {toggle: e.shiftKey});
   }
   canvas.addEventListener("pointerup", endPointer);
   canvas.addEventListener("pointercancel", endPointer);
-  canvas.addEventListener("pointerleave", e => { if (e.pointerType === "mouse" && !drag) { o.onPointer(null); hover = null; if (o.getTool() === "measure") { o.measure.move(null); snapState = null; if (o.onMeasure) o.onMeasure(null); } draw(); } });
-  canvas.addEventListener("dblclick", e => { if (o.getTool() === "measure") return; const [sx, sy] = offsetOf(e), [wx, wy] = s2w(V, sx, sy); o.onGo(wx, wy, hitItem(wx, wy)); });
+  canvas.addEventListener("pointerleave", e => { if (e.pointerType === "mouse" && !drag) { o.onPointer(null); hover = null; canvas.dataset.cursor = ""; if (o.getTool() === "measure") { o.measure.move(null); snapState = null; if (o.onMeasure) o.onMeasure(null); } draw(); } });
+  canvas.addEventListener("dblclick", e => {
+    if (o.getTool() === "measure") return;
+    const [sx, sy] = offsetOf(e), [wx, wy] = s2w(V, sx, sy), it = hitItem(wx, wy);
+    const ed = editor();
+    if (ed && o.getTool() === "select") ed.dblclick({wx, wy, item: it}); else o.onGo(wx, wy, it);
+  });
   // touches are handled as pointer events above; stop the browser's follow-up mouse clicks / dblclick
   canvas.addEventListener("touchend", e => e.preventDefault(), {passive: false});
   canvas.addEventListener("wheel", e => { e.preventDefault(); const [sx, sy] = offsetOf(e); zoomAt(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015)), sx, sy); }, {passive: false});
+  canvas.addEventListener("contextmenu", e => { if (editor()) e.preventDefault(); });
 
   /* ---------- keyboard (while the plan is open) ---------- */
-  const pickable = () => layout.items.filter(it => !["floor", "zone", "wall", "ceiling", "area"].includes(it.type)).sort((a, b) => displayName(a).localeCompare(displayName(b)));
+  const pickable = () => {
+    const layers = o.getLayers();
+    return layout.items.filter(it => !["floor", "zone", "ceiling"].includes(it.type) && (it.type === "area" ? layers.categories !== false : it.type === "wall" ? layers.structure !== false : shownBy(it, layers)))
+      .sort((a, b) => displayName(a).localeCompare(displayName(b)));
+  };
   function step(dir) {
-    const list = pickable(), n = list.length, i = list.indexOf(sel), it = list[i < 0 ? (dir > 0 ? 0 : n - 1) : (i + dir + n) % n];
+    const list = pickable(), n = list.length; if (!n) return;
+    const selIds = o.getSelIds ? [...o.getSelIds()] : [];
+    const i = list.findIndex(it => it.id === selIds[selIds.length - 1]);
+    const it = list[i < 0 ? (dir > 0 ? 0 : n - 1) : (i + dir + n) % n];
+    ensureVisible(it);
+    o.onSelect(it, {});
+  }
+  /** Pans so the item is on screen (with a margin). */
+  function ensureVisible(it) {
     const [sx, sy] = w2s(V, it.x, it.y);
-    if (sx < 60 || sx > V.W - 60 || sy < 60 || sy > V.H - 60) { V.cx = it.x; V.cy = it.y; }
-    select(it);
+    if (sx < 60 || sx > V.W - 60 || sy < 60 || sy > V.H - 60) { V.cx = it.x; V.cy = it.y; draw(); }
+  }
+  /** Phone: a bottom sheet covers the lowest `inset` px, so pan until the item sits in the band above it. */
+  function revealAbove(it, inset) {
+    if (!it || !V.W) return;
+    const [sx, sy] = w2s(V, it.x, it.y), band = Math.max(80, V.H - inset);
+    if (sy > band - 30 || sy < 40 || sx < 40 || sx > V.W - 40) { V.cx = it.x; V.cy = it.y - (V.H / 2 - band / 2) / V.s; draw(); }
   }
   function keydown(e, onControl) {
     if (onControl && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return false;
@@ -380,7 +528,7 @@ export function createPlanView(o) {
     if (e.code === "KeyF") { fit(); return true; }
     if (e.code === "Equal" || e.code === "NumpadAdd") { zoomAt(1.25); return true; }
     if (e.code === "Minus" || e.code === "NumpadSubtract") { zoomAt(1 / 1.25); return true; }
-    // the arrow keys move the plan (S is Snap, as in the 3D view)
+    // the arrow keys move the plan when nothing is selected (the editor nudges a selection)
     const stp = (e.shiftKey ? 120 : 40) / V.s;
     const nd = {ArrowUp: [0, stp], ArrowDown: [0, -stp], ArrowLeft: [-stp, 0], ArrowRight: [stp, 0]}[e.code];
     if (nd) { e.preventDefault(); V.cx += nd[0]; V.cy += nd[1]; draw(); return true; }
@@ -388,9 +536,29 @@ export function createPlanView(o) {
   }
 
   return {
-    V, canvas, resize, fit, zoomAt, draw, keydown, select,
-    get selected() { return sel; },
+    V, canvas, resize, fit, fitTo, zoomAt, draw, keydown, hitItem, contains, itemsIn, ensureVisible, revealAbove,
+    /** The plan point in the middle of the view (where new items drop). */
+    center: () => ({x: V.cx, y: V.cy}),
+    toScreen: (x, y) => w2s(V, x, y),
+    toWorld: (sx, sy) => s2w(V, sx, sy),
+    /** The open map changed (edit, undo, another map): draw the new layout. */
+    setLayout(l) { const fresh = !layout || layout.building.L !== l.building.L || layout.building.W !== l.building.W; layout = l; if (hover && !l.byId.has(hover.id)) hover = null; if (fresh) V.fitted = false; if (active) resize(); },
+    /** A block being placed (drawn dashed), or null. */
+    setGhost(g) { ghost = g; draw(); },
+    /** Another plan's view (centre + zoom), for two plans locked together: copied only when it differs. */
+    setViewFrom(V2) {
+      if (!V2 || (Math.abs(V2.cx - V.cx) < 1e-9 && Math.abs(V2.cy - V.cy) < 1e-9 && Math.abs(V2.s - V.s) < 1e-9)) return false;
+      V.cx = V2.cx; V.cy = V2.cy; V.s = V2.s; V.fitted = true; draw(); return true;
+    },
+    /** Pans and zooms so a store-feet box fills the view (with room around it), never closer than 8 ft across. */
+    fitBox(b, pad = 60) {
+      if (!b || !V.W) return;
+      V.cx = b.cx; V.cy = b.cy;
+      V.s = clamp(Math.min((V.W - pad * 2) / Math.max(b.x1 - b.x0, 8), (V.H - pad * 2) / Math.max(b.y1 - b.y0, 8)), ZMIN, ZMAX);
+      draw();
+    },
     setActive(on) { active = on; if (on) { tok = readPlanTokens(); resize(); } },
+    get active() { return active; },
     retheme() { tok = readPlanTokens(); draw(); },
   };
 }

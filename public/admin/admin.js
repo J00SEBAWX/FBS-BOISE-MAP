@@ -41,6 +41,7 @@ async function api(method, path, body) {
   let data = {};
   try { data = await res.json(); } catch { /* empty body */ }
   if (res.status === 401) {
+    forgetDrafts(); // the session ended: this person's unsaved map edits must not stay on a shared device
     location.replace("/login?admin=1");
     throw new Error("You were signed out. Sign in again.");
   }
@@ -234,12 +235,13 @@ $("#new-set").addEventListener("click", async () => {
 
 /* ---------- people ---------- */
 function personItem(p) {
+  const maps = p.mapCount == null ? null : p.mapCount === 1 ? "1 map" : `${p.mapCount} maps`;
   return h("li.person",
     null,
     h("div.person-main", null,
       h("span.person-name", null, p.name),
       p.tel ? h("a.person-phone", {href: `tel:${p.tel}`}, p.phone) : null,
-      h("span.person-meta", null, `Joined ${fmtDate(p.joinedAt)} · Last visit ${fmtAgo(p.lastSeenAt)}`)),
+      h("span.person-meta", null, `Joined ${fmtDate(p.joinedAt)} · Last visit ${fmtAgo(p.lastSeenAt)}${maps ? ` · ${maps}` : ""}`)),
     h("button.btn.danger", {type: "button", "aria-label": `Remove ${p.name}`, onclick: e => remove(p, e.currentTarget)}, "Remove"));
 }
 
@@ -251,7 +253,8 @@ function renderPeople(d) {
 }
 
 async function remove(p, btn) {
-  if (!(await confirmBox(`Remove ${p.name}?`, "They'll be signed out right away and need a new code to come back.", "Remove", true))) return;
+  const theirMaps = p.mapCount ? (p.mapCount === 1 ? "their map" : `their ${p.mapCount} maps`) : "any maps they made";
+  if (!(await confirmBox(`Remove ${p.name}?`, `They'll be signed out right away and need a new code to come back. This also deletes ${theirMaps} and their proposals.`, "Remove", true))) return;
   const done = busy(btn, "Removing…");
   try {
     await api("DELETE", `/api/admin/people/${encodeURIComponent(p.id)}`);
@@ -264,6 +267,46 @@ async function remove(p, btn) {
     toast(e.message, true);
   }
 }
+
+/* ---------- map settings: sharing and the master lock ---------- */
+const settings = {data: null, busy: false};
+function renderSettings() {
+  const d = settings.data;
+  $("#settings-sec").hidden = !d;
+  if (!d) return;
+  $("#set-share").setAttribute("aria-checked", String(!!d.shareMaps));
+  $("#set-lock").setAttribute("aria-checked", String(!!d.masterLocked));
+  const state = $("#set-lock-state");
+  if (d.masterLocked) {
+    state.hidden = false;
+    state.textContent = `Locked${d.lockedByName ? ` by ${d.lockedByName}` : ""}${d.lockedAt ? ` · ${fmtDate(d.lockedAt)}` : ""}. Every save to the master says "The master map is locked" until you unlock it.`;
+  } else state.hidden = true;
+}
+async function loadSettings() {
+  try {
+    settings.data = await api("GET", "/api/admin/settings");
+    renderSettings();
+  } catch { /* migration 0005 not applied yet: the section stays hidden */ }
+}
+async function toggleSetting(btn, key) {
+  if (settings.busy || !settings.data) return;
+  settings.busy = true;
+  btn.setAttribute("aria-busy", "true");
+  const next = btn.getAttribute("aria-checked") !== "true";
+  try {
+    settings.data = await api("PUT", "/api/admin/settings", {[key]: next});
+    renderSettings();
+    toast(key === "shareMaps"
+      ? (next ? "Sharing is on. Everyone sees everyone's maps, read-only." : "Sharing is off. People see only their own maps and the master.")
+      : (next ? "The master map is locked. Nobody can change it until you unlock it." : "The master map is unlocked."));
+  } catch (e) {
+    toast(e.message, true);
+  }
+  btn.removeAttribute("aria-busy");
+  settings.busy = false;
+}
+$("#set-share").addEventListener("click", e => toggleSetting(e.currentTarget, "shareMaps"));
+$("#set-lock").addEventListener("click", e => toggleSetting(e.currentTarget, "masterLocked"));
 
 /* ---------- your account ---------- */
 $("#pw-form").addEventListener("submit", async e => {
@@ -293,9 +336,14 @@ $("#pw-form").addEventListener("submit", async e => {
   }
 });
 
+/** The map page keeps unsaved edits on the device per map ("fbs-draft-v1:<id>", core/drafts.js); the next person on a shared device must not find them. */
+function forgetDrafts() {
+  try { for (const k of Object.keys(localStorage)) if (k.startsWith("fbs-draft-v1:") || k === COPIED_KEY) localStorage.removeItem(k); } catch { /* no storage */ }
+}
 async function signOut(e) {
   busy(e.currentTarget, "Signing out…");
   try { await api("POST", "/api/logout", {}); } catch { /* signed out anyway */ }
+  forgetDrafts();
   location.replace("/login?admin=1");
 }
 $("#logout").addEventListener("click", signOut);
@@ -315,6 +363,7 @@ load().catch(e => {
   box.textContent = e.message;
   box.hidden = false;
 });
+loadSettings();
 // coming back to the tab (e.g. after texting a code): show who has joined since
 document.addEventListener("visibilitychange", () => { if (!document.hidden && !dlg.open) load().catch(() => {}); });
 })();

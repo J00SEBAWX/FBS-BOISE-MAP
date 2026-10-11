@@ -84,3 +84,18 @@ html{scroll-padding-top:84px;} /* keyboard focus never ends up under the sticky 
   .person .btn{width:100%;}
   .form-actions .btn{flex:1;}
 }
+
+/* ---------- map settings (Phase 4): sharing + the master lock ---------- */
+.settings{display:grid;gap:8px;}
+.setting{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:44px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);text-align:left;cursor:pointer;}
+.setting:focus-visible{outline:2px solid var(--focus);outline-offset:2px;}
+.setting[aria-busy="true"]{opacity:.6;}
+.setting-text{display:grid;gap:3px;min-width:0;}
+.setting-text b{font-weight:600;font-size:15px;}
+.setting-text span{font-size:13px;color:var(--ink-muted);}
+.sw-track{position:relative;width:40px;height:22px;flex:none;border-radius:999px;background:var(--line-strong);transition:background .15s ease;}
+.sw-knob{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s ease;}
+.setting[aria-checked="true"] .sw-track{background:var(--accent);}
+.setting[aria-checked="true"] .sw-knob{transform:translateX(18px);}
+.setting-state{margin-top:10px;}
+@media (prefers-reduced-motion:reduce){.sw-track,.sw-knob{transition:none;}}

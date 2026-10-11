@@ -8,8 +8,8 @@ import {rayPlaneZ} from "../core/geometry.js";
 export function createPicker(R, layout) {
   const THREE = R.THREE;
   const caster = new THREE.Raycaster(), ndc = new THREE.Vector2();
-  const boxes = buildPickBoxes(layout);
-  const ceilings = layout.items.filter(it => it.type === "ceiling");
+  let boxes = buildPickBoxes(layout);
+  let ceilings = layout.items.filter(it => it.type === "ceiling");
 
   /** The pointer's ray in plan coordinates (x east, y north, z up). */
   function ray(clientX, clientY, camera) {
@@ -36,5 +36,8 @@ export function createPicker(R, layout) {
     return fl ? {x: fl.x, y: fl.y} : null;
   }
 
-  return {ray, pick, floorAt};
+  /** The open map changed: pick against the new items. */
+  function setLayout(l) { layout = l; boxes = buildPickBoxes(l); ceilings = l.items.filter(it => it.type === "ceiling"); }
+
+  return {ray, pick, floorAt, setLayout};
 }

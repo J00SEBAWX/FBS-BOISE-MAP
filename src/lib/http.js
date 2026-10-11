@@ -100,11 +100,41 @@ export function checkCsrf(request) {
   if (site && site !== "same-origin" && site !== "none") throw new HttpError(403, "Request blocked.");
 }
 
+/**
+ * Reads a JSON object body of at most maxBytes (UTF-8). The size is checked before anything is parsed: first the
+ * Content-Length, then while the body streams in (a chunked body that grows past the limit is cut off at once).
+ */
 export async function readJson(request, maxBytes = 16 * 1024) {
+  const tooBig = () => new HttpError(413, "That's too much data.");
   const len = Number(request.headers.get("Content-Length") || "0");
-  if (len > maxBytes) throw new HttpError(413, "That's too much data.");
-  const body = await request.text();
-  if (body.length > maxBytes) throw new HttpError(413, "That's too much data.");
+  if (len > maxBytes) throw tooBig();
+  let body = "";
+  if (request.body) {
+    const reader = request.body.getReader();
+    const chunks = [];
+    let size = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) {
+        try {
+          await reader.cancel();
+        } catch {
+          /* already closed */
+        }
+        throw tooBig();
+      }
+      chunks.push(value);
+    }
+    const buf = new Uint8Array(size);
+    let off = 0;
+    for (const c of chunks) {
+      buf.set(c, off);
+      off += c.byteLength;
+    }
+    body = new TextDecoder().decode(buf);
+  }
   if (!body) return {};
   try {
     const v = JSON.parse(body);
