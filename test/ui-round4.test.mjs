@@ -234,15 +234,15 @@ describe("placement: where a new block lands", () => {
     assert.ok(Number.isFinite(t.x) && Number.isFinite(t.y));
   });
 
-  test("the hint texts say to draw it on the floor, in plain words, and the docs match", () => {
+  test("the hint texts say Place, then tap the floor, in plain words, and the docs match", () => {
     const pal = file("../public/js/ui/palette.js");
-    assert.match(pal, /Tap a department, then drag on the floor where it goes\. A single tap on the floor drops it at its usual size\./);
-    assert.match(pal, /Pick a department, then drag on the floor where it goes\./);
+    assert.match(pal, /Press Place next to a department, then tap the floor where it goes\. Drag the block to move it; pull a corner to resize it\./);
+    assert.match(pal, /Pick a department, then tap the floor where it goes\./);
     assert.doesNotMatch(pal, /middle of the (map|view)/);
     assert.doesNotMatch(file("../README.md"), /middle of the map you can see/);
-    assert.match(file("../README.md"), /drag on the\s+floor where it goes/);
-    assert.match(file("../docs/DESIGN.md"), /Tap a department, then drag on the floor where it goes/);
-    assert.match(file("../public/index.html"), /Tap a department in the list, then drag on the floor where it goes\./);
+    assert.match(file("../README.md"), /then tap the\s+floor where it goes/);
+    assert.match(file("../docs/DESIGN.md"), /Press Place next to a department, then tap the floor where it goes/);
+    assert.match(file("../public/index.html"), /Press <b>Place<\/b> next to a department in the list, then tap the floor where it goes\./);
   });
 });
 
@@ -303,9 +303,9 @@ describe("finder: honest answers", () => {
 /* ======================================================================= toasts, locks, long names */
 describe("small behaviours", () => {
   test("Delete on locked structure says why, in plain words, for a computer, a phone and the 3D view", () => {
-    assert.match(lockedDeleteHint({ touch: false, plan: true }), /Structure is locked.*Unlock Structure in the toolbar first/);
+    assert.match(lockedDeleteHint({ touch: false, plan: true }), /Structure is locked.*Unlock Structure in More first/);
     assert.match(lockedDeleteHint({ touch: true, plan: true }), /in More/);
-    assert.doesNotMatch(lockedDeleteHint({ touch: true, plan: true }), /toolbar/);
+    assert.doesNotMatch(lockedDeleteHint({ touch: false, plan: true }), /toolbar/);
     assert.match(lockedDeleteHint({ touch: false, plan: false }), /Open the Plan and unlock Structure first/);
     assert.notEqual(lockedDeleteHint(), unlockHint(), "it is about deleting, not adding");
     assert.match(file("../public/js/main.js"), /toast\(lockedDeleteHint\(/);

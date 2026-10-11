@@ -144,7 +144,6 @@ body{font:var(--text-md)/var(--leading-md) var(--font-body);overflow:hidden;over
 .app[data-view="3d"] [data-views]:not([data-views~="3d"]),
 .app[data-view="walk"] [data-views]:not([data-views~="walk"]){display:none!important;}
 /* modes: each panel / control says which view modes it belongs to */
-.app[data-mode="blank"] [data-modes]:not([data-modes~="blank"]),
 .app[data-mode="current"] [data-modes]:not([data-modes~="current"]),
 .app[data-mode="planning"] [data-modes]:not([data-modes~="planning"]),
 .app[data-mode="comparison"] [data-modes]:not([data-modes~="comparison"]),
@@ -155,6 +154,8 @@ body{font:var(--text-md)/var(--leading-md) var(--font-body);overflow:hidden;over
 .app:not([data-side="true"]) .only-side{display:none!important;}
 .app[data-edit="false"] .edit-only{display:none!important;}
 .only-phone{display:none!important;}
+/* the less-used tools (Duplicate, Rotate, Structure lock, Snap) live in More, on a computer as on a phone; their keys still work */
+.toolbar .tucked{display:none!important;}
 /* no WebGL on this device: the 3D and Walk tools have nothing to work on */
 .app.no-3d:not([data-view="plan"]) .toolbar > :not(.layers-wrap):not(.more-wrap){visibility:hidden;}
 
@@ -533,6 +534,12 @@ dialog::backdrop{background:var(--scrim);}
   .modes .tab{padding:0 9px;font-size:var(--text-sm);}
   .map-chip{max-width:220px;}
 }
+@media (max-width:1365px){
+  .hdr{gap:var(--space-2);}
+  /* room for the labelled modes: "Saved" folds into its tick (a warning such as "Not saved" keeps its words) */
+  .save-status.ok{padding:0;width:var(--hit);justify-content:center;}
+  .save-status.ok span{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);}
+}
 @media (max-width:1023px){
   .tool span{display:none;}
   .wordmark{display:none;}
@@ -840,6 +847,7 @@ details[open] > summary .adv-chev{transform:rotate(180deg);}
 .adv-engine dd{margin:0;color:var(--ink);font-variant-numeric:var(--numeric);text-align:right;}
 .adv-cfg-actions{padding-top:4px;}
 .pal-fix{margin-top:2px;}
+.pal-fix-label{margin:4px 0 0;font-size:var(--text-xs);color:var(--ink-muted);line-height:1.4;}
 @media (pointer:coarse){
   .cmp-main{min-height:56px;}
   .adv-chip,.adv-margin{min-height:36px;}
@@ -952,23 +960,26 @@ details[open] > summary .adv-chev{transform:rotate(180deg);}
   .prop-chip:hover{filter:brightness(.97);}
 }
 
-/* the header holds 6 mode tabs for the admin: below 1650px their labels fold into the icons (title + aria-label
- * keep the names); for everyone the same happens below 1450px, where even 5 labelled tabs would squeeze the
- * map switcher out. The OPEN mode keeps its name beside its icon, so a laptop still says which mode it is in.
- * Phones (<768px) keep their own labelled, scrollable row. */
+/* every mode tab keeps a name on a computer (an icon alone doesn't say what it does): the full name when there is
+ * room, a short one below 1450px (1650px for the admin's five tabs), where the full names would squeeze the map
+ * switcher out. title + aria-label keep the full name. Phones (<768px) keep their own labelled, scrollable row. */
+.modes .mode-tab .ms{display:none;}
 @media (min-width:768px) and (max-width:1649px){
-  .app[data-admin="true"] .modes .mode-tab span{display:none;}
-  .app[data-admin="true"] .modes .mode-tab{padding:0 11px;}
-  .app[data-admin="true"] .hdr .modes .mode-tab .i{display:block;}
-  .app[data-admin="true"] .modes .mode-tab[aria-selected="true"] span{display:inline;}
-  .app[data-admin="true"] .modes .mode-tab[aria-selected="true"]{padding:0 11px 0 9px;}
+  .app[data-admin="true"] .modes .mode-tab .ml{display:none;}
+  .app[data-admin="true"] .modes .mode-tab .ms{display:inline;}
+  .app[data-admin="true"] .hdr .modes .mode-tab .i{display:none;}
+  .app[data-admin="true"] .modes .mode-tab{padding:0 10px;}
 }
 @media (min-width:768px) and (max-width:1449px){
-  .modes .mode-tab span{display:none;}
-  .modes .mode-tab{padding:0 11px;}
-  .hdr .modes .mode-tab .i{display:block;}
-  .modes .mode-tab[aria-selected="true"] span{display:inline;}
-  .modes .mode-tab[aria-selected="true"]{padding:0 11px 0 9px;}
+  .modes .mode-tab .ml{display:none;}
+  .modes .mode-tab .ms{display:inline;}
+  .hdr .modes .mode-tab .i{display:none;}
+  .modes .mode-tab{padding:0 10px;}
+}
+/* the open map's name stays readable beside the labelled modes (not the touch-tablet layout, which has its own row) */
+@media (min-width:1024px),(min-width:768px) and (pointer:fine){
+  .map-switch{flex:0 1 auto;min-width:150px;}
+  .map-chip{width:100%;}
 }
 /* the account menu holds the admin's settings switches: a little wider so their hints breathe */
 .acct-menu{min-width:248px;max-height:calc(100dvh - 72px);overflow-y:auto;overscroll-behavior:contain;}

@@ -1,5 +1,5 @@
-/* The header's two segmented controls: the view MODE (Blank slate | Current layout | Area planning | Comparison |
- * Advisor; OWNER RULES v3.1 rule 4) and the DISPLAY (Plan | 3D | Walk). Both are tablists: arrow keys move
+/* The header's two segmented controls: the view MODE (Current layout | Area planning | Comparison | Advisor |
+ * Review; OWNER RULES v3.1 rule 4, with Blank slate folded into Area planning) and the DISPLAY (Plan | 3D | Walk). Both are tablists: arrow keys move
  * between the tabs, the URL hash reflects the display, the mode and the open map (core/route.js), and the last
  * display and mode are remembered on this device. */
 import {VIEWS, MODES, DEFAULT_MODE, parseHash, buildHash} from "../core/route.js";
@@ -7,12 +7,12 @@ import {focusEl} from "./dom.js";
 export {VIEWS, MODES};
 const KEY = "fbs-view", MODE_KEY = "fbs-mode";
 
-/** The display to open first: the URL hash, else the last one used here, else 3D. */
+/** The display to open first: the URL hash, else the last one used here, else the Plan (the easiest place to plan). */
 export function initialView() {
   const h = parseHash(location.hash);
   if (h.view) return h.view;
   try { const v = localStorage.getItem(KEY); if (VIEWS.includes(v)) return v; } catch { /* no storage */ }
-  return "3d";
+  return "plan";
 }
 /** The mode to open first: the URL hash, else the last one used here, else Area planning. */
 export function initialMode() {

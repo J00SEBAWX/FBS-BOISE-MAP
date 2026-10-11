@@ -15,9 +15,9 @@ can try out where every department should go. It lives at
   like what you made, **submit it for review** and the admin can put it on the
   master.
 - Three **displays** show whichever map is open:
-  - **Plan**: the floor from above. Click anything to see what it is, how big
+  - **Plan** (opens first): the floor from above. Click anything to see what it is, how big
     it is and where it is; **Go look at it** walks you over to face it.
-  - **3D** (opens first): the whole store. Drag to turn around it, right-drag
+  - **3D**: the whole store. Drag to turn around it, right-drag
     (or two fingers) to move, scroll or pinch to zoom, double-click to focus a
     spot. **Top view** looks straight down with north at the top; **Reset
     view** goes back to the whole store. The 3D scan of the real building is
@@ -51,16 +51,15 @@ nothing to install. It works on a computer, a tablet and a phone.
    blank store** (just the walls, doors, columns, floors and stairs) or **a
    copy of another map** you can see. Give it a name. Only you can change it,
    and it saves by itself ("Saved" at the top).
-2. **Switch to Area planning** (the third button at the top, the one with four squares, or press **3**; on a laptop the open mode keeps its name next to its icon).
+2. **Switch to Area planning** (the button with that name at the top, or press **2**). New maps open there.
    This is where you change things. On a phone the buttons are along the
    bottom of the screen: **Add** and **Departments**.
 3. **Place every department.** The **Departments** list (on the left on a
    computer, the **Departments** button on a phone) has all ten departments,
    plus any you add with **New category** (name, target size in square feet,
-   colour, and the products it holds). Tap a department, then drag on the
-   floor where it goes: the block is exactly the rectangle you drew, and a
-   single tap (or click) on the floor drops it at its usual size there
-   instead. On a phone two fingers still move the map while a department is
+   colour, and the products it holds). Press **Place** next to a department, then tap the
+   floor where it goes: it lands at its usual size there. (If you drag on
+   the floor instead, the block is exactly the rectangle you drew.) On a phone two fingers still move the map while a department is
    waiting. Drag the block to move it and drag its corners to resize it. (In
    the 3D view, click the floor to drop it.) The panel shows its square feet against the target and offers
    **Size to target**. A block that sits on a wall, a column, the stairs, a
@@ -73,18 +72,18 @@ nothing to install. It works on a computer, a tablet and a phone.
    typing in a box) removes it, and the message that appears has an **Undo**; you
    can also press **Ctrl+Z** any time, and **Redo** if you change your mind.
    Walls, doors, columns, floors and stairs are locked so they don't move by
-   accident: unlock the **Structure** (toolbar, or **More** on a phone) when
+   accident: unlock the **Structure** (in **More**, on a computer and a phone) when
    you really mean to change them.
 5. **Find a product.** Type what you stock into **Find a product** (for
    example "M18 battery" or "Diablo blade") at the top of the Departments
    list. It tells you which department that product belongs in and why; tap
    the answer to see that department on the map, or **Place it** if it isn't
    on your map yet.
-6. **Compare.** **Comparison** (key 4) puts two layouts side by side, or on top
+6. **Compare.** **Comparison** (key 3) puts two layouts side by side, or on top
    of each other, and lists every difference in plain words ("Moved
    “Safety isle” 4'6" north"). By default it compares the master with the map
    you have open.
-7. **Ask the Advisor.** **Advisor** (key 5) checks the open map against
+7. **Ask the Advisor.** **Advisor** (key 4) checks the open map against
    retail-flow rules (open space just inside the front door, aisles wide
    enough, doorways kept clear, related departments next to each other, each
    department close to its target size…), gives each a score and a reason, and
@@ -98,9 +97,11 @@ nothing to install. It works on a computer, a tablet and a phone.
    or **Declined**, with the admin's note. You can withdraw it or send it
    again; your map stays yours the whole time.
 
-**Blank slate** (key 1) shows only the building's bones, and **Current
-layout** (key 2) shows the master as confirmed, both read-only: handy for
-picturing the empty floor or checking what is official.
+**Current layout** (key 1) shows the master as confirmed, read-only: handy
+for checking what is official. For a **blank slate** (just the building's
+bones), start a new map from **a blank store**, or press **Hide** under
+"Shelves, racks and displays" in the Departments list; both are in Area
+planning, so you can start placing departments straight away.
 
 ## How people get in
 
@@ -188,13 +189,12 @@ The header's map switcher opens the **master map** or any of your own maps (**Ne
 blank store, or a copy of any map you can see). Your maps save by themselves about 1.5 seconds after each change
 ("Saved" in the header); unsaved edits are also kept on your device until the site has them.
 
-Next to the switcher are two controls. The **view mode** (keys 1 to 6):
+Next to the switcher are two controls. The **view mode** (keys 1 to 5; on a laptop every mode shows its name):
 
 | Mode | What it shows |
 | --- | --- |
-| **Blank slate** | Only the building's structure: walls, columns, doors, stairs and the sales desks. Read-only. |
 | **Current layout** | The master map as confirmed today, with its departments and fixtures. Read-only. |
-| **Area planning** | Edit this map: place and shape the departments (the list on the left), move fixtures, unlock the structure. Blocks that overlap a wall, column, stairs, desk, doorway clearance or another block get a red outline, a message in the panel's Checks and a "3 warnings" chip that takes you to the first one. |
+| **Area planning** | Edit this map: place and shape the departments (the list on the left), move fixtures, unlock the structure (in **More**). It is also the blank slate: hide the shelves and displays, or start from a blank store. Blocks that overlap a wall, column, stairs, desk, doorway clearance or another block get a red outline, a message in the panel's Checks and a "3 warnings" chip that takes you to the first one. |
 | **Comparison** | Two layouts (the master and this map by default; any two you can see) side by side with the plans locked together, or as an overlay (green = added, grey dashed = removed, blue = moved / resized / rotated), with every difference listed in plain words. The admin can **Apply** a row, or **Apply all**, to the master. |
 | **Advisor** | Retail-flow checks on this map: an overall score, each principle with its reasoning, ranked recommendations with **Show me** (highlights the spot) and **Apply** (a one-tap move or resize you can undo), overlays (heat, sight lines, traffic paths, choke points, door zones, cold spots) and the assumptions behind every number (the admin can change and save them). |
 | **Review** (admin only) | The team's proposals (filter by status), any map against the master, and the master's history. Opening a proposal shows its differences from today's master with before/after ghosts; tick the rows to apply and **Approve**, or send it back with **Needs changes** or **Decline**, each with a note. Old master versions can be previewed and **Restored** (a restore saves a new version; nothing is deleted). |
@@ -204,7 +204,7 @@ and the **display** (Shift+1 / 2 / 3): **Plan** (the floor from above), **3D** (
 
 | On a computer | |
 | --- | --- |
-| 1 / 2 / 3 / 4 / 5 / 6 | Blank slate / Current layout / Area planning / Comparison / Advisor / Review (admin) |
+| 1 / 2 / 3 / 4 / 5 | Current layout / Area planning / Comparison / Advisor / Review (admin) |
 | Shift+1 / 2 / 3 | Plan / 3D / Walk |
 | Click, Shift-click, drag on the floor (Plan) | Select, add to the selection, marquee select |
 | Arrows / Shift+arrows (something selected) | Nudge 6" / 5' |
@@ -244,7 +244,7 @@ The button with your name (or the person icon on a phone) in the top-right corne
 - **Propose your idea.** On a map of your own, press **Submit for review** in the header, say what you changed,
   and send it. The chip then shows where it stands: **Submitted**, **Approved**, **Needs changes** or
   **Declined**, with the admin's note. You can withdraw or re-submit any time; your map stays yours throughout.
-- **The admin reviews in the Review mode** (key 6): every proposal is listed with its differences from today's
+- **The admin reviews in the Review mode** (key 5): every proposal is listed with its differences from today's
   master in plain words ("Moved “Safety isle” 4'6" north"). The admin can approve all of it, tick just the rows
   to apply, ask for changes, or decline — always with a note back to you. Approved rows land on the master as a
   new version that records whose map it came from.

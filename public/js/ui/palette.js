@@ -46,7 +46,7 @@ export function createAddMenu(o) {
       const list = h("div", {class: "add-list one"});
       for (const c of o.session.categories.filter(c => !c.hidden)) list.appendChild(deptRow(c, placed.has(c.key)));
       pop.appendChild(list);
-      pop.appendChild(h("p", {class: "pop-hint", text: o.hint3d && o.hint3d() ? "Pick a department, then click the floor to place it." : "Pick a department, then drag on the floor where it goes."}));
+      pop.appendChild(h("p", {class: "pop-hint", text: o.hint3d && o.hint3d() ? "Pick a department, then click the floor to place it." : "Pick a department, then tap the floor where it goes."}));
       return;
     }
     pop.appendChild(h("p", {class: "pop-title", text: "Add"}));
@@ -101,10 +101,10 @@ export function createDeptPalette(o) {
     const totals = h("p", {class: "pal-total", text: `${formatSqft(T.plannedSqft)} planned of ${formatSqft(T.availableSqft)} sales floor · targets ${formatSqft(T.targetSqft)}`, title: T.method});
     if (!touch) head.appendChild(totals);
     head.appendChild(finder.el);
-    // the fixtures on the plan: shown (and selectable), a faint backdrop, or hidden (the blank-slate look)
+    // the fixtures on the plan: shown (and selectable), a faint backdrop, or hidden (the blank slate, inside Area planning)
     const fm = o.getFixtures ? o.getFixtures() : "on";
-    const seg = h("div", {class: "seg seg-wide pal-fix", role: "radiogroup", aria: {label: "Fixtures on the plan"}});
-    for (const [v, label] of [["on", "Fixtures shown"], ["faint", "Faint"], ["off", "Hidden"]]) {
+    const seg = h("div", {class: "seg seg-wide pal-fix", role: "radiogroup", aria: {labelledby: "palFixLabel"}});
+    for (const [v, label] of [["on", "Show"], ["faint", "Faint"], ["off", "Hide"]]) {
       seg.appendChild(h("button", {type: "button", role: "radio", aria: {checked: fm === v}, tabindex: fm === v ? 0 : -1, data: {fix: v}, text: label, onclick: () => o.onFixtures && o.onFixtures(v)}));
     }
     seg.addEventListener("keydown", e => {
@@ -115,7 +115,7 @@ export function createDeptPalette(o) {
       o.onFixtures && o.onFixtures(n);
       focusEl(el.querySelector(`[data-fix="${n}"]`));
     });
-    if (!touch) head.appendChild(seg);
+    if (!touch) { head.appendChild(h("p", {class: "pal-fix-label", id: "palFixLabel", text: "Shelves, racks and displays (Hide for a blank slate)"})); head.appendChild(seg); }
     clear(list);
     const selIds = new Set(session.selection);
     const placingKey = o.placingKey ? o.placingKey() : null;
@@ -148,7 +148,7 @@ export function createDeptPalette(o) {
     clear(foot);
     if (touch) { foot.appendChild(totals); foot.appendChild(seg); }
     else if (o.canEdit()) foot.appendChild(h("button", {type: "button", class: "btn small wide", onclick: () => o.onNew()}, icon("i-add"), "New category"));
-    foot.appendChild(h("p", {class: "pal-hint", text: o.canEdit() ? "Tap a department, then drag on the floor where it goes. A single tap on the floor drops it at its usual size." : "View only: tap a placed department to see it."}));
+    foot.appendChild(h("p", {class: "pal-hint", text: o.canEdit() ? "Press Place next to a department, then tap the floor where it goes. Drag the block to move it; pull a corner to resize it." : "View only: tap a placed department to see it."}));
   }
   return {render};
 }

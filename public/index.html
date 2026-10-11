@@ -35,24 +35,21 @@
       <div class="menu map-menu" id="mapMenu" role="menu" aria-labelledby="mapBtn" hidden></div>
     </div>
     <div class="modes" role="tablist" aria-label="View mode">
-      <button type="button" class="tab mode-tab" role="tab" id="mode-blank" data-mode="blank" aria-selected="false" tabindex="-1" aria-label="Blank slate" title="Blank slate: only the building's structure (1)">
-        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-grid"/></svg><span>Blank slate</span>
+      <button type="button" class="tab mode-tab" role="tab" id="mode-current" data-mode="current" aria-selected="false" tabindex="-1" aria-label="Current layout" title="Current layout: the master map as confirmed, read-only (1)">
+        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-star"/></svg><span class="ml">Current layout</span><span class="ms" aria-hidden="true">Current</span>
       </button>
-      <button type="button" class="tab mode-tab" role="tab" id="mode-current" data-mode="current" aria-selected="false" tabindex="-1" aria-label="Current layout" title="Current layout: the master map as confirmed, read-only (2)">
-        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-star"/></svg><span>Current layout</span>
+      <button type="button" class="tab mode-tab" role="tab" id="mode-planning" data-mode="planning" aria-selected="true" aria-label="Area planning" title="Area planning: place departments and move fixtures on this map (2)">
+        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-blocks"/></svg><span class="ml">Area planning</span><span class="ms" aria-hidden="true">Planning</span>
       </button>
-      <button type="button" class="tab mode-tab" role="tab" id="mode-planning" data-mode="planning" aria-selected="true" aria-label="Area planning" title="Area planning: place departments and move fixtures on this map (3)">
-        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-blocks"/></svg><span>Area planning</span>
+      <button type="button" class="tab mode-tab" role="tab" id="mode-comparison" data-mode="comparison" aria-selected="false" tabindex="-1" aria-label="Comparison" title="Comparison: two layouts side by side or on top of each other, with every difference (3)">
+        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-duplicate"/></svg><span class="ml">Comparison</span><span class="ms" aria-hidden="true">Compare</span>
       </button>
-      <button type="button" class="tab mode-tab" role="tab" id="mode-comparison" data-mode="comparison" aria-selected="false" tabindex="-1" aria-label="Comparison" title="Comparison: two layouts side by side or on top of each other, with every difference (4)">
-        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-duplicate"/></svg><span>Comparison</span>
-      </button>
-      <button type="button" class="tab mode-tab" role="tab" id="mode-advisor" data-mode="advisor" aria-selected="false" tabindex="-1" aria-label="Advisor" title="Advisor: retail-flow scores and recommendations for this map (5)">
-        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-info"/></svg><span>Advisor</span>
+      <button type="button" class="tab mode-tab" role="tab" id="mode-advisor" data-mode="advisor" aria-selected="false" tabindex="-1" aria-label="Advisor" title="Advisor: retail-flow scores and recommendations for this map (4)">
+        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-info"/></svg><span class="ml">Advisor</span><span class="ms" aria-hidden="true">Advisor</span>
       </button>
       <!-- admin only: unhidden before the tabs are wired, so members never reach it -->
-      <button type="button" class="tab mode-tab" role="tab" id="mode-review" data-mode="review" aria-selected="false" tabindex="-1" hidden aria-label="Review" title="Review: the team's proposals and the master's history (6)">
-        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-review"/></svg><span>Review</span>
+      <button type="button" class="tab mode-tab" role="tab" id="mode-review" data-mode="review" aria-selected="false" tabindex="-1" hidden aria-label="Review" title="Review: the team's proposals and the master's history (5)">
+        <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-review"/></svg><span class="ml">Review</span><span class="ms" aria-hidden="true">Review</span>
       </button>
     </div>
     <div class="tabs" role="tablist" aria-label="Display">
@@ -133,10 +130,10 @@
       <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-redo"/></svg><span>Redo</span>
     </button>
     <span class="tb-div hide-phone edit-only" data-views="plan 3d" aria-hidden="true"></span>
-    <button type="button" class="tool hide-phone edit-only" id="btnDup" data-views="plan 3d" disabled aria-label="Duplicate (Ctrl+D)" aria-keyshortcuts="Control+D" title="Duplicate (Ctrl+D)">
+    <button type="button" class="tool tucked hide-phone edit-only" id="btnDup" data-views="plan 3d" disabled aria-label="Duplicate (Ctrl+D)" aria-keyshortcuts="Control+D" title="Duplicate (Ctrl+D)">
       <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-duplicate"/></svg><span>Duplicate</span>
     </button>
-    <button type="button" class="tool hide-phone edit-only" id="btnRot" data-views="plan 3d" disabled aria-label="Rotate 90 degrees (R)" aria-keyshortcuts="R" title="Rotate 90° (R; Shift+R the other way)">
+    <button type="button" class="tool tucked hide-phone edit-only" id="btnRot" data-views="plan 3d" disabled aria-label="Rotate 90 degrees (R)" aria-keyshortcuts="R" title="Rotate 90° (R; Shift+R the other way)">
       <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-rotate"/></svg><span>Rotate</span>
     </button>
     <button type="button" class="tool hide-phone edit-only danger" id="btnDel" data-views="plan 3d" disabled aria-label="Delete (Del)" aria-keyshortcuts="Delete" title="Delete (Del)">
@@ -155,10 +152,10 @@
     <button type="button" class="tool slot" id="btnStart" data-views="walk" aria-label="Front door" title="Go back to just inside the front door">
       <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-arrow-left"/></svg><span>Front door</span>
     </button>
-    <button type="button" class="tool toggle hide-phone edit-only" id="btnLock" data-views="plan" aria-pressed="false" aria-label="Structure locked" title="Structure locked: walls, doors, columns, floors and stairs stay put. Click to unlock">
+    <button type="button" class="tool tucked toggle hide-phone edit-only" id="btnLock" data-views="plan" aria-pressed="false" aria-label="Structure locked" title="Structure locked: walls, doors, columns, floors and stairs stay put. Click to unlock">
       <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-lock"/></svg><span id="lockLabel">Structure locked</span>
     </button>
-    <button type="button" class="tool toggle hide-phone" id="toolSnap" data-views="plan 3d" aria-pressed="true" aria-label="Snap" aria-keyshortcuts="S" title="Snap to the 6-inch grid, walls, columns and other blocks (S)">
+    <button type="button" class="tool tucked toggle hide-phone" id="toolSnap" data-views="plan 3d" aria-pressed="true" aria-label="Snap" aria-keyshortcuts="S" title="Snap to the 6-inch grid, walls, columns and other blocks (S)">
       <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-snap"/></svg><span>Snap</span>
     </button>
     <!-- not hide-phone: the button hides on phones (CSS), but the popover doubles as the phone Layers sheet -->
@@ -229,7 +226,7 @@
         </button>
       </div>
     </div>
-    <div class="more-wrap only-phone slot">
+    <div class="more-wrap slot">
       <button type="button" class="tool" id="moreBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="morePop" aria-label="More" title="More">
         <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-more"/></svg><span>More</span>
       </button>
@@ -294,7 +291,7 @@
         <div class="empty-state" id="catsEmpty" hidden>
           <span class="empty-ico"><svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-blocks"/></svg></span>
           <h2>No departments placed yet</h2>
-          <p>Tap a department in the list, then drag on the floor where it goes.</p>
+          <p>Press <b>Place</b> next to a department in the list, then tap the floor where it goes.</p>
           <button type="button" class="btn primary only-phone" id="catsEmptyBtn">Show departments</button>
         </div>
       </section>
@@ -307,7 +304,7 @@
       </div>
       <p class="sr-only" id="planLive" aria-live="polite"></p>
     </div>
-    <aside class="inspector" id="inspector" data-views="plan 3d" data-modes="blank current planning" role="region" aria-label="Details" data-sheet="closed"></aside>
+    <aside class="inspector" id="inspector" data-views="plan 3d" data-modes="current planning" role="region" aria-label="Details" data-sheet="closed"></aside>
   </main>
 
   <footer class="status" id="status">
@@ -370,13 +367,12 @@
       </div>
       <div class="kg">
         <h3>Modes</h3>
-        <span><span class="kbd">1</span> <span class="kbd">2</span> <span class="kbd">3</span> <span class="kbd">4</span> <span class="kbd">5</span></span><span>Blank slate &middot; Current layout &middot; Area planning &middot; Comparison &middot; Advisor</span>
-        <span>Blank slate</span><span>Only walls, columns, doors, stairs and the sales desks</span>
+        <span><span class="kbd">1</span> <span class="kbd">2</span> <span class="kbd">3</span> <span class="kbd">4</span></span><span>Current layout &middot; Area planning &middot; Comparison &middot; Advisor</span>
         <span>Current layout</span><span>The master map as confirmed today (read-only)</span>
-        <span>Area planning</span><span>Edit this map: departments, fixtures, structure (when unlocked)</span>
+        <span>Area planning</span><span>Edit this map: departments, fixtures, structure (when unlocked). For a blank slate, start a new map from a blank store, or Hide fixtures in the Departments list</span>
         <span>Comparison</span><span>Two layouts side by side or as an overlay, with the change list (the admin can apply changes to the master)</span>
         <span>Advisor</span><span>Retail-flow scores, recommendations (Show me, Apply) and overlays</span>
-        <span>Review (<span class="kbd">6</span>, admin)</span><span>The team's proposals against the master, approve / needs changes / decline, and the master's history with Restore</span>
+        <span>Review (<span class="kbd">5</span>, admin)</span><span>The team's proposals against the master, approve / needs changes / decline, and the master's history with Restore</span>
         <span>Submit for review</span><span>On a map of your own, the chip in the header sends it to the admin with a note; the chip then shows the answer</span>
       </div>
       <div class="kg">
