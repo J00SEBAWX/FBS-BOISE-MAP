@@ -134,6 +134,18 @@ const ITEM_FIELDS = new Map([
 ]);
 const REQUIRED = ["x", "y", "w", "d"];
 
+/** Brand groups of a department ([{label, share}], share 0..1 of the department's target). Throws Bad. */
+function cleanGroups(v, k, extra = {}) {
+  if (!Array.isArray(v) || v.length > LIMITS.maxGroups) throw new Bad(`"groups" can have at most ${LIMITS.maxGroups} entries.`, k, extra);
+  return v.map((g) => {
+    if (!isObj(g)) throw new Bad(`A group must have a label and a share.`, k, extra);
+    const label = cleanText(g.label, 40);
+    if (!label) throw new Bad(`A group label must be 1 to 40 characters.`, k, extra);
+    if (!isNum(g.share) || g.share < 0 || g.share > 1) throw new Bad(`A group share must be between 0 and 1.`, k, extra);
+    return { label, share: round4(g.share) };
+  });
+}
+
 class Bad extends Error {
   constructor(error, field, extra = {}) {
     super(error);
@@ -211,16 +223,8 @@ function fieldValue(k, rule, v, item, cats) {
     case "cat":
       if (typeof v !== "string" || !CATEGORY_KEY_RE.test(v) || !(DEFAULTS.has(v) || cats.has(v))) throw new Bad(`This department block uses a category the map doesn't have.`, k);
       return v;
-    case "groups": {
-      if (!Array.isArray(v) || v.length > LIMITS.maxGroups) throw new Bad(`"groups" can have at most ${LIMITS.maxGroups} entries.`, k);
-      return v.map((g) => {
-        if (!isObj(g)) throw new Bad(`A group must have a label and a share.`, k);
-        const label = cleanText(g.label, 40);
-        if (!label) throw new Bad(`A group label must be 1 to 40 characters.`, k);
-        if (!isNum(g.share) || g.share < 0 || g.share > 1) throw new Bad(`A group share must be between 0 and 1.`, k);
-        return { label, share: round4(g.share) };
-      });
-    }
+    case "groups":
+      return cleanGroups(v, k);
     default:
       throw new Bad(`"${k}" isn't allowed.`, k);
   }
@@ -301,6 +305,7 @@ function cleanCategory(raw) {
     if (typeof raw.hidden !== "boolean") fail('"hidden" must be true or false.', "hidden");
     out.hidden = raw.hidden;
   }
+  if (has(raw, "groups")) out.groups = cleanGroups(raw.groups, "groups", { category: key }); // the brands placed as their own blocks
   if (!isDefault) {
     if (!out.name) fail("A new category needs a name.", "name");
     if (!out.color) fail("A new category needs a colour.", "color");

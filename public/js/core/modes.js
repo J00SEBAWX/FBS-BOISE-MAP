@@ -1,7 +1,8 @@
 /* The view modes (OWNER RULES v3.1, rule 4) and what each one shows and allows. Pure: no DOM.
  *   blank       Blank Slate: only the static structure (walls, columns, doors, floors, stairs, sales desks)
- *   current     Current Layout: the master map's departments and fixtures, read-only
- *   planning    Area Planning: editing the open map (the Phase 2 editor with the Departments palette)
+ *   current     Current Layout: the master map's fixtures as the store stands, read-only (no department areas)
+ *   planning    Area Planning: the blank slate (structure only, fixtures hidden unless asked for) plus this map's
+ *               department areas; the only place the areas are placed and shown (the Phase 2 editor)
  *   comparison  Comparison: two layout states side by side or as an overlay diff, with the change list
  *   advisor     Advisor: the retail-flow advisor on the open map
  * The display (Plan | 3D | Walk) is independent of the mode. */
@@ -13,9 +14,9 @@ export const MODE_INFO = Object.freeze({
   blank: Object.freeze({label: "Blank slate", short: "Blank", icon: "i-grid", key: "1",
     hint: "The building's bones: walls, columns, doors and the sales desks. Nothing else, so you can picture the floor from scratch."}),
   current: Object.freeze({label: "Current layout", short: "Current", icon: "i-star", key: "2",
-    hint: "The confirmed master map as it is today: its departments and fixtures, read-only."}),
+    hint: "The confirmed master map as it is today: its fixtures and structure, read-only. Department areas live in Area planning."}),
   planning: Object.freeze({label: "Area planning", short: "Planning", icon: "i-blocks", key: "3",
-    hint: "Place and shape the departments on this map; move fixtures; everything you change is saved to this map."}),
+    hint: "The blank slate with this map's department areas on it: place and shape them here. Everything you change is saved to this map."}),
   comparison: Object.freeze({label: "Comparison", short: "Compare", icon: "i-duplicate", key: "4",
     hint: "Two layouts side by side or on top of each other, with every difference listed."}),
   advisor: Object.freeze({label: "Advisor", short: "Advisor", icon: "i-info", key: "5",
@@ -33,7 +34,7 @@ export const isMode = m => MODES.includes(m);
 export function modeAllows(mode) {
   switch (mode) {
     case "blank": return {edit: false, select: true, palette: false, inspector: true, panel: null, showsBlocks: false, showsFixtures: false, usesMaster: false};
-    case "current": return {edit: false, select: false, palette: false, inspector: true, panel: null, showsBlocks: true, showsFixtures: true, usesMaster: true};
+    case "current": return {edit: false, select: false, palette: false, inspector: true, panel: null, showsBlocks: false, showsFixtures: true, usesMaster: true};
     case "comparison": return {edit: false, select: false, palette: false, inspector: false, panel: "compare", showsBlocks: true, showsFixtures: true, usesMaster: false};
     case "advisor": return {edit: false, select: true, palette: false, inspector: false, panel: "advisor", showsBlocks: true, showsFixtures: true, usesMaster: false};
     case "review": return {edit: false, select: false, palette: false, inspector: false, panel: "review", showsBlocks: true, showsFixtures: true, usesMaster: true};
@@ -43,14 +44,16 @@ export function modeAllows(mode) {
 
 /**
  * The layers a display draws in a mode: the person's layer choices with the mode's rules applied
- * (Blank Slate hides fixtures and departments; Current Layout and Comparison always show departments).
+ * (Blank Slate hides fixtures and departments; Current Layout always shows fixtures and never departments, which
+ * live in Area Planning; Comparison and Review always show departments).
  */
 export function modeLayers(mode, L) {
   const a = modeAllows(mode);
   const out = {...L};
   if (!a.showsFixtures) { out.fixtures = false; out.faint = false; }
   if (!a.showsBlocks) out.categories = false;
-  else if (mode === "current" || mode === "comparison" || mode === "review") out.categories = true;
+  else if (mode === "comparison" || mode === "review") out.categories = true;
+  if (mode === "current") { out.fixtures = true; out.faint = false; }
   if (mode === "blank") out.structure = true;
   return out;
 }

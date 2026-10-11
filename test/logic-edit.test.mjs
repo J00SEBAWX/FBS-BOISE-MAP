@@ -567,10 +567,100 @@ describe("areas: polygon shapes", () => {
     valid(m.doc);
   });
 
-  test("polygon edits need Edit shape (a polygon) first", () => {
+  test("polygon edits need Change shape (a polygon) first", () => {
     const r = A.createBlock(smallStore(), "woodworking", { x: 30, y: 20 });
     assert.ok(A.movePolyPoint(r.doc, r.id, 0, 1, 1).error);
     assert.ok(A.insertPolyPoint(r.doc, r.id, 0).error);
+  });
+});
+
+describe("areas: brands (a department's brand groups placed as their own blocks)", () => {
+  test("the catalog brands: Power Tools has Milwaukee / DeWalt / Makita with shares of the target", () => {
+    const doc = smallStore();
+    const pt = A.categoryFor(doc, "power_tools");
+    assert.deepEqual(A.brandsOf(pt).map(b => [b.key, b.label, b.share, b.targetSqft]), [["milwaukee", "Milwaukee", 0.45, 315], ["dewalt", "DeWalt", 0.3, 210], ["makita", "Makita", 0.25, 175]]);
+    assert.deepEqual(A.brandsOf(A.categoryFor(doc, "hand_tools")).map(b => b.key), ["milwaukee", "buck_knives"]);
+    assert.deepEqual(A.brandsOf(A.categoryFor(doc, "paint_finishing")), []);
+    assert.equal(A.brandKey("Simpson Strong-Tie"), "simpson_strong_tie");
+    assert.equal(A.brandKey("!!!"), null);
+    assert.deepEqual(A.parseBrandLine("Milwaukee 45%"), { label: "Milwaukee", share: 0.45 });
+    assert.deepEqual(A.parseBrandLine("DeWalt - 30 %"), { label: "DeWalt", share: 0.3 });
+    assert.deepEqual(A.parseBrandLine("Makita"), { label: "Makita", share: 0 });
+  });
+
+  test("a brand block: created with the brand, named for it, sized to its share, labelled BRAND / department", () => {
+    const doc = smallStore();
+    const pt = A.categoryFor(doc, "power_tools");
+    const r = A.createBlock(doc, "power_tools", { x: 50, y: 40 }, { brand: "milwaukee" });
+    const it = item(r.doc, r.id);
+    assert.equal(it.brand, "milwaukee");
+    assert.equal(it.name, "Milwaukee");
+    assert.ok(Math.abs(A.blockArea(it) - 315) < 0.01, "sized to 45% of the 700 sq ft target");
+    assert.equal(A.blockTitle(it, pt), "Milwaukee");
+    assert.equal(A.blockTarget(it, pt), 315);
+    assert.equal(A.blockLabel(it, pt), "Milwaukee - 315 sq ft / 315");
+    assert.deepEqual(A.startSize(A.categoryFor(doc, "hand_tools"), "buck_knives"), [8, 6], "no share yet: a modest block");
+    assert.ok(A.createBlock(doc, "power_tools", { x: 50, y: 40 }, { brand: "ryobi" }).error, "a brand the department doesn't list");
+    valid(r.doc);
+    // the summary: the brand row is placed, the department counts it
+    const S = A.summary(r.doc);
+    const row = S.rows.find(x => x.key === "power_tools");
+    assert.equal(row.placed, true);
+    assert.deepEqual(row.general, []);
+    assert.deepEqual(row.brands.map(b => [b.key, b.placed, b.status]), [["milwaukee", true, "ok"], ["dewalt", false, "none"], ["makita", false, "none"]]);
+    assert.ok(Math.abs(row.sqft - 315) < 0.01);
+    assert.equal(S.totals.placed, 1, "a brand block counts as the department being placed");
+    // Size to target uses the brand's share
+    const grown = A.resizeBlock(r.doc, r.id, "se", 70, 20);
+    const back = A.sizeToTarget(grown.doc, r.id);
+    assert.ok(Math.abs(A.blockArea(item(back.doc, r.id)) - 315) < 0.01);
+    const bk = A.createBlock(doc, "hand_tools", { x: 20, y: 10 }, { brand: "buck_knives" });
+    assert.match(A.sizeToTarget(bk.doc, bk.id).error, /share/);
+  });
+
+  test("setBlockBrand switches a block between a brand and the whole department; a department change drops a brand it lacks", () => {
+    const doc = smallStore();
+    const r = A.createBlock(doc, "power_tools", { x: 50, y: 40 });
+    const b = A.setBlockBrand(r.doc, r.id, "dewalt");
+    assert.equal(item(b.doc, r.id).brand, "dewalt");
+    assert.equal(item(b.doc, r.id).name, "DeWalt");
+    const whole = A.setBlockBrand(b.doc, r.id, null);
+    assert.equal(item(whole.doc, r.id).brand, undefined);
+    assert.equal(item(whole.doc, r.id).name, "Power Tools");
+    assert.ok(A.setBlockBrand(r.doc, r.id, "ryobi").error);
+    // Milwaukee exists in Hand Tools too: the brand survives that move, not a move to Paint
+    const m = A.setBlockBrand(r.doc, r.id, "milwaukee");
+    const ht = A.setBlockCategory(m.doc, r.id, "hand_tools");
+    assert.equal(item(ht.doc, r.id).brand, "milwaukee");
+    assert.equal(item(ht.doc, r.id).name, "Milwaukee");
+    const paint = A.setBlockCategory(m.doc, r.id, "paint_finishing");
+    assert.equal(item(paint.doc, r.id).brand, undefined);
+    assert.equal(item(paint.doc, r.id).name, "Paint, Stain & Finishing");
+    valid(paint.doc);
+  });
+
+  test("the category editor's Brands box: lines with optional shares, limits, saved as groups on the map", () => {
+    const doc = smallStore();
+    const r = A.updateCategory(doc, "paint_finishing", { groups: ["Penofin 40%", "DAP", "  "] });
+    assert.ok(!r.error, r.error);
+    const cat = A.categoryFor(r.doc, "paint_finishing");
+    assert.deepEqual(cat.groups, [{ label: "Penofin", share: 0.4 }, { label: "DAP", share: 0 }]);
+    assert.deepEqual(A.brandsOf(cat).map(b => [b.key, b.targetSqft]), [["penofin", 80], ["dap", 0]]);
+    valid(r.doc);
+    assert.match(A.updateCategory(doc, "paint_finishing", { groups: ["A 60%", "B 50%"] }).error, /more than 100%/);
+    assert.match(A.updateCategory(doc, "paint_finishing", { groups: ["Penofin", "penofin"] }).error, /twice/);
+    assert.match(A.updateCategory(doc, "paint_finishing", { groups: ["!!!"] }).error, /letter or number/);
+    assert.match(A.updateCategory(doc, "paint_finishing", { groups: ["a", "b", "c", "d", "e", "f", "g"] }).error, /at most 6/);
+    // renaming a department keeps its catalog brands; an empty box clears them
+    const renamed = A.updateCategory(doc, "power_tools", { name: "Cordless" });
+    assert.equal(A.brandsOf(A.categoryFor(renamed.doc, "power_tools")).length, 3);
+    const cleared = A.updateCategory(doc, "power_tools", { groups: [] });
+    assert.equal(A.brandsOf(A.categoryFor(cleared.doc, "power_tools")).length, 0);
+    valid(cleared.doc);
+    // the schema accepts groups on a category override and rejects bad ones
+    assert.equal(validateMapData({ items: [], categories: [{ key: "power_tools", groups: [{ label: "Makita", share: 1 }] }] }).ok, true);
+    assert.equal(validateMapData({ items: [], categories: [{ key: "power_tools", groups: [{ label: "", share: 1 }] }] }).ok, false);
+    assert.equal(validateMapData({ items: [], categories: [{ key: "power_tools", groups: [{ label: "Makita", share: 2 }] }] }).ok, false);
   });
 });
 

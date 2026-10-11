@@ -1,6 +1,6 @@
 /* Editing gestures on the plan (docs/DESIGN.md 4.1, 4.3, 4.4): select (click / tap, Shift-click or "Select several"
  * to add, drag a marquee), drag to move with edge / wall / grid snapping, the 8 resize handles, the rotate
- * handle (15 degree steps, Shift = free), Edit shape for department blocks (drag corners, "+" on an edge adds a
+ * handle (15 degree steps, 5 for a department block, Shift = free), Change shape for department blocks (drag corners, "+" on an edge adds a
  * corner), keyboard nudges, and the live readouts. Every change goes through core/doc.js and core/areas.js via
  * the session; a whole gesture is one undo step. Touch: a drag on a selected item moves it, anywhere else pans. */
 import {snapRect, snapPoint, GRID} from "../core/snap.js";
@@ -162,7 +162,9 @@ export function createPlanEditor(o) {
       return;
     }
     if (drag.kind === "rotate") {
-      const r = D.rotateToPoint(session.doc, drag.id, wx, wy, {...session.editOpts, free: shift});
+      // fixtures turn in 15 degree steps; a department block in 5 degree steps so it can lean any way the floor needs (Shift = free)
+      const turning = session.item(drag.id);
+      const r = D.rotateToPoint(session.doc, drag.id, wx, wy, {...session.editOpts, free: shift, step: turning && turning.type === "area" ? 5 : undefined});
       if (r.error) return;
       session.apply(r);
       setReadouts(primary(), {rotating: true});

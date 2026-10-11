@@ -13,7 +13,7 @@
 import {h, icon, clear, relTime, focusEl} from "./dom.js";
 import {formatFtIn, formatSqft} from "../core/units.js";
 import {TYPES, BRAND_NAMES, displayName, categoryOf, isStructure} from "../core/model.js";
-import {blockArea, categoryFor} from "../core/areas.js";
+import {blockArea, categoryFor, brandsOf, brandOf, blockTitle, blockTarget} from "../core/areas.js";
 import {checkItem} from "../core/collisions.js";
 import {ITEM_STATUSES} from "../shared/schema.js";
 
@@ -130,7 +130,10 @@ export function createInspector(o) {
   function headTexts(items) {
     if (items.length > 1) return {name: items.map(displayName).slice(0, 3).join(", ") + (items.length > 3 ? "…" : ""), meta: items.some(it => session.isLocked(it)) ? "Locked structure in the selection stays put." : ""};
     const it = items[0];
-    if (it.type === "area") { const cat = categoryFor(session.doc, it.cat, session.categories); return {name: (cat && cat.name) || it.name || "Department", meta: it.status ? STATUS_LABEL[it.status] : ""}; }
+    if (it.type === "area") {
+      const cat = categoryFor(session.doc, it.cat, session.categories), b = brandOf(it, cat);
+      return {name: blockTitle(it, cat), meta: [b && cat ? `${cat.name} · brand block` : "", it.status ? STATUS_LABEL[it.status] : ""].filter(Boolean).join(" · ")};
+    }
     const typeLabel = (TYPES[it.type] || {}).label || it.type;
     return {name: displayName(it), meta: categoryOf(it) !== typeLabel ? categoryOf(it) : ""};
   }
@@ -139,6 +142,14 @@ export function createInspector(o) {
       lengthField(ids, "x", LENGTH.x, it.x, {editable}), lengthField(ids, "y", LENGTH.y, it.y, {editable}),
       lengthField(ids, "w", LENGTH.w, it.w, {editable}), lengthField(ids, "d", LENGTH.d, it.d, {editable}),
       lengthField(ids, "h", LENGTH.h, it.h, {editable}), lengthField(ids, "rot", "Rotation (°)", it.rot || 0, {editable})));
+  }
+  function brandField(it, brands, cur) {
+    const opts = [["", "Whole department"], ...brands.map(b => [b.key, b.label])];
+    if (cur && !brands.some(b => b.key === cur.key)) opts.push([cur.key, cur.label]);
+    const sel = h("select", {class: "input f-in", id: "f-brand"}, opts.map(([v, t]) => h("option", {value: v, text: t, selected: v === (cur ? cur.key : "")})));
+    sel.addEventListener("change", () => { committed(); const err = o.act.setBrand(it.id, sel.value || null); if (err && o.toast) o.toast(err); });
+    sel.addEventListener("keydown", e => e.stopPropagation());
+    return h("div", {class: "field"}, h("label", {class: "f-label", for: "f-brand", text: "Brand"}), sel);
   }
   function catField(it, catOpts) {
     const sel = h("select", {class: "input f-in", id: "f-cat"}, catOpts.map(([v, t]) => h("option", {value: v, text: t, selected: v === it.cat})));
@@ -175,12 +186,13 @@ export function createInspector(o) {
   const targetOf = cat => (cat ? cat.targetSqft || 0 : 0);
   /** The area readout of a block: the big sq ft figure, how it compares with the target, the suggested size. Rebuilt in place. */
   function areaReadout(it, cat) {
-    const area = blockArea(it), target = targetOf(cat);
-    const range = cat && Array.isArray(cat.sqft) && cat.sqft[0] > 0 ? `Suggested size for this department: ${cat.sqft[0].toLocaleString("en-US")} to ${cat.sqft[1].toLocaleString("en-US")} sq ft` : "";
+    const area = blockArea(it), target = blockTarget(it, cat), b = brandOf(it, cat);
+    const range = !b && cat && Array.isArray(cat.sqft) && cat.sqft[0] > 0 ? `Suggested size for this department: ${cat.sqft[0].toLocaleString("en-US")} to ${cat.sqft[1].toLocaleString("en-US")} sq ft` : "";
     const over = target > 0 ? (area > target * 1.1 ? "Over the target" : area < target * 0.9 ? "Under the target" : "On target") : "";
+    const share = b && b.share > 0 ? ` (${Math.round(b.share * 100)}% of ${cat.name})` : "";
     return [
-      h("div", {class: "area-big"}, h("b", {text: formatSqft(area)}), h("span", {text: `${formatFtIn(it.w)} × ${formatFtIn(it.d)}${it.shape === "poly" ? ` · ${(it.pts || []).length} corners` : ""}`})),
-      target > 0 ? h("p", {class: "area-target", text: `Target ${formatSqft(target)} · ${over}`}) : h("p", {class: "area-target", text: "No target set for this department."}),
+      h("div", {class: "area-big"}, h("b", {text: formatSqft(area)}), h("span", {text: `${formatFtIn(it.w)} × ${formatFtIn(it.d)}${it.shape === "poly" ? ` · ${(it.pts || []).length} corners` : ""}${it.rot ? ` · turned ${Math.round(it.rot * 10) / 10}°` : ""}`})),
+      target > 0 ? h("p", {class: "area-target", text: `Target ${formatSqft(target)}${share} · ${over}`}) : h("p", {class: "area-target", text: b ? `No share set for ${b.label} yet. Edit category, Brands: "${b.label} 30%".` : "No target set for this department."}),
       range ? h("p", {class: "insp-hint", text: range}) : null,
     ];
   }
@@ -214,20 +226,23 @@ export function createInspector(o) {
       h("div", {class: "area-live"}, ...areaReadout(it, cat)),
       editable ? h("div", {class: "btn-row"},
         btn("Size to target", "i-fit", () => o.act.sizeToTarget(it.id), "btn small", {disabled: !(target > 0), title: sizeTitle(target), data: {live: "size"}}),
-        btn(o.editor.shapeEdit ? "Done editing shape" : "Edit shape", "i-pencil", () => { o.editor.setShapeEdit(!o.editor.shapeEdit); render(true); }, "btn small" + (o.editor.shapeEdit ? " pressed" : ""), {aria: {pressed: o.editor.shapeEdit}, data: {fk: "shape"}})) : null,
+        btn(o.editor.shapeEdit ? "Done with the shape" : "Change shape", "i-pencil", () => { o.editor.setShapeEdit(!o.editor.shapeEdit); render(true); }, "btn small" + (o.editor.shapeEdit ? " pressed" : ""), {aria: {pressed: o.editor.shapeEdit}, data: {fk: "shape"}})) : null,
       editable ? switchRow("Lock area (keep the sq ft while resizing)", !!it.lockArea, on => o.act.lockArea(it.id, on), {data: {live: "lockarea"}}) : null,
       editable && o.editor.shapeEdit ? h("div", {class: "btn-row"},
         btn("Remove corner", "i-minus", () => o.editor.removeCorner(), "btn small", {disabled: o.editor.cornerSel < 0, title: "Tap a corner first"}),
         btn("Back to a rectangle", "i-grid", () => { o.editor.setShapeEdit(false); o.act.toRectangle(it.id); }, "btn small")) : null,
-      editable && o.editor.shapeEdit ? h("p", {class: "insp-hint", text: "Drag a corner to move it. Tap + on an edge to add a corner. Tap a corner, then Remove corner."}) : null));
+      editable && o.editor.shapeEdit ? h("p", {class: "insp-hint", text: "Drag any corner where you need it: lean it, taper it, cut a notch. Tap + on an edge to add a corner. Tap a corner, then Remove corner."}) : null,
+      editable && !o.editor.shapeEdit ? h("p", {class: "insp-hint", text: "Pull a corner to resize, drag the ring to turn it to any angle, or Change shape to drag single corners."}) : null));
     // category + target
     const catOpts = session.categories.filter(c => !c.hidden || c.key === it.cat).map(c => [c.key, c.name]);
     const targetIn = h("input", {class: "input f-in", id: "f-target", type: "number", min: 0, max: 20000, step: 10, inputmode: "numeric", value: target ? String(Math.round(target)) : ""});
     targetIn.addEventListener("change", () => { const v = Number(targetIn.value); if (cat) { committed(); const err = o.act.setTarget(cat.key, Number.isFinite(v) ? v : 0); if (err && o.toast) o.toast(err); } });
     targetIn.addEventListener("keydown", e => e.stopPropagation());
+    const brands = brandsOf(cat), curBrand = brandOf(it, cat);
     kids.push(section("Department", grid(
       editable ? catField(it, catOpts) : h("div", {class: "field ro"}, h("span", {class: "f-label", text: "Department"}), h("span", {class: "f-value", text: name})),
-      editable ? h("div", {class: "field"}, h("label", {class: "f-label", for: "f-target", text: "Target sq ft"}), targetIn) : h("div", {class: "field ro"}, h("span", {class: "f-label", text: "Target sq ft"}), h("span", {class: "f-value", text: target ? String(Math.round(target)) : "–"})),
+      brands.length || curBrand ? (editable ? brandField(it, brands, curBrand) : h("div", {class: "field ro"}, h("span", {class: "f-label", text: "Brand"}), h("span", {class: "f-value", text: curBrand ? curBrand.label : "Whole department"}))) : null,
+      editable ? h("div", {class: "field"}, h("label", {class: "f-label", for: "f-target", text: curBrand ? "Department target sq ft" : "Target sq ft"}), targetIn) : h("div", {class: "field ro"}, h("span", {class: "f-label", text: curBrand ? "Department target sq ft" : "Target sq ft"}), h("span", {class: "f-value", text: target ? String(Math.round(target)) : "–"})),
       statusField(ids, it, editable)),
       cat ? h("div", {class: "btn-row"}, btn(canEdit() ? "Edit category…" : "Category details", "i-pencil", () => o.act.editCategory(cat.key), "btn small", {data: {fk: "editcat"}})) : null));
     // checks
@@ -254,6 +269,7 @@ export function createInspector(o) {
     if (!editable) return canEdit() ? null : h("div", {class: "insp-actions"}, o.act.goLook && it.type !== "wall" && it.type !== "ceiling" && it.type !== "area" ? btn("Go look at it", "i-walk", () => lookAt(it), "btn") : null);
     return h("div", {class: "insp-actions"},
       btn(block ? "Split into two" : "Duplicate", "i-duplicate", () => o.act.duplicate(), "btn"),
+      block ? btn(o.editor.shapeEdit ? "Done with the shape" : "Change shape", "i-pencil", () => { o.editor.setShapeEdit(!o.editor.shapeEdit); render(true); }, "btn" + (o.editor.shapeEdit ? " pressed" : ""), {aria: {pressed: o.editor.shapeEdit}}) : null,
       btn("Rotate 90°", "i-rotate", () => o.act.rotate(90), "btn"),
       h("button", {type: "button", class: "btn danger icon-only", aria: {label: block ? "Remove" : "Delete"}, title: block ? "Remove (Delete)" : "Delete (Del)", onclick: () => o.act.remove()}, icon("i-delete")));
   }
@@ -293,7 +309,7 @@ export function createInspector(o) {
         h("div", {class: "btn-row"}, btn("Show the first", "i-eye", () => o.onIssues && o.onIssues(), "btn small"))) : null,
       section("What's on it", h("ul", {class: "counts"}, top.map(([k, n]) => h("li", {}, h("b", {text: String(n)}), ` ${k}`)))),
       canEdit() ? section("How to edit", h("ul", {class: "tips"},
-        h("li", {text: "Tap an item to select it"}), h("li", {text: "Drag to move · corner handles resize"}), h("li", {text: "The top handle rotates (15° steps, Shift for free)"}),
+        h("li", {text: "Tap an item to select it"}), h("li", {text: "Drag to move · corner handles resize"}), h("li", {text: "The top handle turns it (15° steps for fixtures, 5° for a department block, Shift for free)"}),
         h("li", {text: "Shift-click adds to the selection · arrows nudge 6\" (Shift 5')"}), h("li", {text: o.isTouch() ? "Structure is locked until you unlock it in More" : "Structure is locked until you unlock it in the toolbar"}))) :
         notice ? null : section("View only", h("p", {class: "insp-hint", text: m.master ? "Only the admin changes the master map. Make your own copy to try ideas." : "This map belongs to someone else. Make your own copy to change it."})),
     ];
@@ -310,7 +326,7 @@ export function createInspector(o) {
       cat = (c ? [c.name, c.family, String(c.color || "").toLowerCase(), (c.subcats || []).join("\u0001"), (c.adjacency || []).join(","), c.custom ? 1 : 0, c.hidden ? 1 : 0, (c.sqft || []).join("-")].join("\u0002") : "")
         + "\u0003" + session.categories.filter(x => !x.hidden || x.key === one.cat).map(x => x.key + "\u0004" + x.name).join("\u0005");
     }
-    return [items.map(it => it.id).join(","), session.unlocked, canEdit(), o.editor.shapeEdit, o.editor.cornerSel, items.map(it => it.type + ":" + it.cat + ":" + it.shape).join(","), o.modeNotice ? o.modeNotice() : "", cat].join("|");
+    return [items.map(it => it.id).join(","), session.unlocked, canEdit(), o.editor.shapeEdit, o.editor.cornerSel, items.map(it => it.type + ":" + it.cat + ":" + (it.brand || "") + ":" + it.shape).join(","), o.modeNotice ? o.modeNotice() : "", cat].join("|");
   }
   function render(force) {
     const items = session.selected();

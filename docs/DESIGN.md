@@ -266,7 +266,7 @@ Rotate / Delete never scroll away.
 - **Re-drawing**: an edit, an undo or a target change never rebuilds the panel while the same thing is selected: values,
   the area readout and the Checks are patched in place, so the field the person clicks or Tabs into next (a field commits
   as it loses focus) is still there and keeps focus. It is rebuilt only when its structure changes (another selection,
-  the Structure lock, Edit shape, a department change), and then the focused control, its caret and the scroll position
+  the Structure lock, Change shape, a department change), and then the focused control, its caret and the scroll position
   are put back. A field that commits never makes the following keystrokes shortcuts (core/keys.js).
 - **Footer**: item id + a one-line tip (`--text-xs` `--ink-subtle`).
 - **Multi-select**: header "3 ITEMS SELECTED"; only shared fields (rotation, colour, height) + Align (left, centre,
@@ -392,8 +392,10 @@ the store's default size for that type, selected, so the inspector opens; one un
 Same shell and toolbar as Plan, with a **Departments palette** on the left (desktop) and a department inspector on
 the right. Grid: `var(--palette-w) minmax(0,1fr) var(--inspector-w)`.
 
-- Plan drawing: structure only (walls, doors, openings, arches, columns, floors, stairs, zones). Fixtures hidden;
-  "Show fixtures faintly" draws them at `--plan-faint`. Department blocks on top (4.4 step 5), labelled with the
+- Plan drawing: structure only (walls, doors, openings, arches, columns, floors, stairs, zones). Fixtures hidden by
+  default (the layers default, remembered per person); the Fixtures switch shows them, or "faint" draws them at
+  `--plan-faint`. This is the only mode where department areas are placed and drawn: Current layout always shows the
+  fixtures and never the areas (core/modes.js). Department blocks on top (4.4 step 5), labelled with the
   department name (Barlow Condensed 700 12px UPPERCASE, first word only when the full name does not fit) and the
   area ("613 sq ft", Plex 500 10px), both with the halo.
 - Toolbar: the Add button becomes "+ Department" (opens the same list as the palette); Structure toggle hidden
@@ -423,7 +425,27 @@ the right. Grid: `var(--palette-w) minmax(0,1fr) var(--inspector-w)`.
   starting size centred on the tap instead. Esc, Cancel, the row again or a second finger (pinch) cancels. In the 3D view the
   same pick + click-the-floor flow with a ghost block applies. Tap a placed one: selects it and pans to it. A department can
   be placed more than once (Split into two); the meta then reads "2 spots · 640 sq ft".
-- Footer hint: "Tap a department, then drag on the floor where it goes. A single tap on the floor drops it at its usual size."
+- Footer hint: "Tap a department or a brand, then drag on the floor where it goes. A single tap on the floor drops it at its
+  usual size. Add brands to any department with its pencil."
+- **Brands.** A department can list brands (catalog `groups`, or the map's own override through the category editor's
+  "Brands" box, one per line, optional share: "Milwaukee 45%"). Each brand gets an indented row under its department
+  (a 2px guide line on the left, a round swatch in a step of the department's colour: the first brand is the department
+  colour, the next ones a little lighter / darker in turn, `blockColour` in plan2d/blocks.js) with the same Place /
+  Cancel / check affordance and its own meta ("Not placed yet · target 315", "310 sq ft of 315 · under"). Placing a brand
+  makes a block with `brand: "<key>"` (the label as a token: "simpson_strong_tie"), named for the brand and drawn as
+  BRAND / "Power Tools · 310 sq ft / 315". Brand blocks count toward the department's total and progress; the department
+  row can still be placed whole ("3 brands below · or place it whole"). The inspector header reads "Milwaukee" with the
+  meta "Power Tools · brand block", the Department section gets a **Brand** select ("Whole department", Milwaukee, DeWalt,
+  Makita), Size to target uses the brand's share of the department target, and a brand with no share says how to set one.
+  The Add menu's department list and the product finder know brands too (an "M18 battery" result lands on the Milwaukee
+  block when there is one). Default brands: Power Tools (Milwaukee 45%, DeWalt 30%, Makita 25%), Hand Tools (Milwaukee,
+  Buck Knives), Safety & Workwear (Occidental Leather), Hardware & Fasteners (Simpson Strong-Tie), the last three with no
+  share yet (a new brand block starts at 8' × 6').
+- **Any shape, any angle.** A block's rotate ring turns it in 5° steps (fixtures keep 15°; Shift = free; the Rotation
+  field takes any number). **Change shape** (in the Area section and in the quick actions row next to Split / Rotate) turns
+  the rectangle into a polygon and shows its corner handles: drag any corner where it needs to go (lean it, taper it, cut a
+  notch), tap + on an edge for a new corner, tap a corner then Remove corner, or Back to a rectangle. The hint under Area
+  says so in plain words.
 
 **Department inspector**: header = swatch + eyebrow "DEPARTMENT · <family>", name, "Placed by AJ · 12 min ago".
 Sections: **Area** (big number "613 sq ft" in Barlow Condensed 700 28px + "24' 6" × 25' 0"", and "Suggested size for

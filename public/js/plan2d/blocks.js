@@ -1,13 +1,33 @@
 /* Department blocks on the plan (docs/DESIGN.md 4.4 step 5 and section 5): translucent coloured footprints
  * (rectangles or polygons) with a two-line label (NAME / "612 sq ft / 600"), drawn in the category's colour
  * (light or dark value) at --cat-fill-alpha. Pure canvas drawing; no DOM. */
-import {outline, blockArea} from "../core/areas.js";
+import {outline, blockArea, blockTitle, blockTarget, brandOf} from "../core/areas.js";
 import {w2s} from "./plan.js";
 
 /** The colour a category draws in for this theme (custom categories have one colour). */
 export function colourOf(cat, dark) {
   if (!cat) return "#677a8b";
   return (dark && cat.colorDark) || cat.color || "#677a8b";
+}
+/**
+ * The colour a block draws in: the department colour, and for a brand block a step of the same hue (the first brand
+ * is the department colour, the next ones a little lighter / darker in turn) so brands read as one family.
+ */
+export function blockColour(it, cat, dark) {
+  const base = colourOf(cat, dark);
+  const b = brandOf(it, cat);
+  if (!b || b.index <= 0) return base;
+  const STEPS = [0, 0.22, -0.2, 0.42, -0.36, 0.6];
+  return shade(base, STEPS[b.index % STEPS.length]);
+}
+/** Mixes a #rrggbb colour toward white (t > 0) or black (t < 0) by |t|. */
+export function shade(hex, t) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ""));
+  if (!m || !t) return hex;
+  const n = parseInt(m[1], 16), to = t > 0 ? 255 : 0, k = Math.min(1, Math.abs(t));
+  const ch = v => Math.round(v + (to - v) * k);
+  const r = ch((n >> 16) & 255), g = ch((n >> 8) & 255), b = ch(n & 255);
+  return "#" + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
 }
 export const catMap = cats => new Map((cats || []).map(c => [c.key, c]));
 
@@ -29,14 +49,14 @@ export function drawBlocks(ctx, v, layout, tok, opts = {}) {
   ctx.lineJoin = "round";
   for (const it of layout.items) {
     if (it.type !== "area") continue;
-    const col = colourOf(cats.get(it.cat), opts.dark);
+    const col = blockColour(it, cats.get(it.cat), opts.dark);
     const pts = outline(it);
     ctx.beginPath(); pathOutline(ctx, v, pts);
     ctx.globalAlpha = alpha; ctx.fillStyle = col; ctx.fill();
     ctx.globalAlpha = 1; ctx.lineWidth = 2; ctx.strokeStyle = col; ctx.stroke();
   }
   if (opts.ghost) {
-    const g = opts.ghost, col = colourOf(cats.get(g.cat), opts.dark);
+    const g = opts.ghost, col = blockColour(g, cats.get(g.cat), opts.dark);
     ctx.beginPath(); pathOutline(ctx, v, outline(g));
     ctx.globalAlpha = alpha * 0.6; ctx.fillStyle = col; ctx.fill();
     ctx.globalAlpha = 1; ctx.setLineDash([6, 4]); ctx.lineWidth = 2; ctx.strokeStyle = col; ctx.stroke(); ctx.setLineDash([]);
@@ -44,12 +64,14 @@ export function drawBlocks(ctx, v, layout, tok, opts = {}) {
   ctx.restore();
 }
 
-/** The label lines for a block: [NAME, "612 sq ft / 600"]. */
+/** The label lines for a block: [NAME, "612 sq ft / 600"]; a brand block: [BRAND, "Power Tools · 310 sq ft / 315"]. */
 export function blockLines(it, cat) {
-  const name = String((cat && cat.name) || it.name || "Department").toUpperCase();
+  const name = String(blockTitle(it, cat)).toUpperCase();
   const a = Math.round(blockArea(it)).toLocaleString("en-US");
-  const t = cat && cat.targetSqft > 0 ? ` / ${Math.round(cat.targetSqft).toLocaleString("en-US")}` : "";
-  return [name, `${a} sq ft${t}`];
+  const target = blockTarget(it, cat);
+  const t = target > 0 ? ` / ${Math.round(target).toLocaleString("en-US")}` : "";
+  const dept = brandOf(it, cat) && cat ? `${cat.name} · ` : "";
+  return [name, `${dept}${a} sq ft${t}`];
 }
 
 const overlaps = (a, b, pad = 2) => a.x0 < b.x1 + pad && b.x0 < a.x1 + pad && a.y0 < b.y1 + pad && b.y0 < a.y1 + pad;

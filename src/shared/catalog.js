@@ -81,7 +81,16 @@ export const CATALOG = deepFreeze({
         "Brand hand tools follow the hybrid rule: the Milwaukee hand tool panel stays intact as a brand block here. Replacement utility blades go to Bits, Blades & Cutting Accessories."
       ],
       "notes": "Today: the hand tool / hammer gondola (24'), the Milwaukee hand tool panel by the square arch and the Buck Knives case by the front sales desk.",
-      "groups": [],
+      "groups": [
+        {
+          "label": "Milwaukee",
+          "share": 0
+        },
+        {
+          "label": "Buck Knives",
+          "share": 0
+        }
+      ],
       "fixtures": [
         "i101",
         "i109",
@@ -134,7 +143,12 @@ export const CATALOG = deepFreeze({
         "The Occidental Leather bag aisle stays together as a brand block inside this department."
       ],
       "notes": "Today: the safety isle (32'6\"), the Occidental bag isle, four hardhat towers, the workwear & apparel corner and two boot lightboxes by the will-call doors. The first aid / AED station is store safety equipment, not merchandise.",
-      "groups": [],
+      "groups": [
+        {
+          "label": "Occidental Leather",
+          "share": 0
+        }
+      ],
       "fixtures": [
         "i51",
         "i58",
@@ -250,7 +264,12 @@ export const CATALOG = deepFreeze({
         "Deck screws stay here (the email says so); a small duplicate facing on the decking wall is optional."
       ],
       "notes": "Today: the nail/screw gondola (aisle 3A), the Simpson screw wall and the 6 ft Simpson Strong-Tie Fastening Systems unit beside it (it was 'Simpson Ornamental 13'9\"' by the pergola on Oct 1; the Outdoor Accents boxes now appear on the pergola display's shelving).",
-      "groups": [],
+      "groups": [
+        {
+          "label": "Simpson Strong-Tie",
+          "share": 0
+        }
+      ],
       "fixtures": [
         "i57",
         "i62",
@@ -2725,7 +2744,7 @@ export function getArea(key) {
 }
 
 // fields a map's CategoryDef may change on a default department
-const OVERRIDABLE = ["name", "color", "family", "subcats", "notes", "targetSqft", "hidden"];
+const OVERRIDABLE = ["name", "color", "family", "subcats", "notes", "targetSqft", "hidden", "groups"];
 
 /** A starting [length, depth] (ft) for a block of this many square feet: 2:1, rounded to 6 inches. */
 export function sizeForSqft(sqft) {

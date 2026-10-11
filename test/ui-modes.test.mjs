@@ -37,10 +37,12 @@ describe("route: modes in the hash", () => {
 
 /* ======================================================================= modes.js */
 describe("modes: what each mode shows and allows", () => {
-  test("only Area planning edits; Blank slate hides fixtures and departments; Current layout shows the master", () => {
+  test("only Area planning edits; Blank slate hides fixtures and departments; Current layout shows the master's fixtures, never department areas", () => {
     assert.equal(MODES.filter(m => modeAllows(m).edit).join(), "planning");
     assert.equal(modeAllows("blank").showsBlocks, false);
     assert.equal(modeAllows("current").usesMaster, true);
+    assert.equal(modeAllows("current").showsBlocks, false, "department areas live in Area planning only");
+    assert.equal(modeAllows("planning").showsBlocks, true);
     assert.equal(modeAllows("comparison").panel, "compare");
     assert.equal(modeAllows("advisor").panel, "advisor");
     assert.ok(isMode("advisor") && isMode("review") && !isMode("nope")); // review is the Phase 4 admin mode
@@ -49,8 +51,9 @@ describe("modes: what each mode shows and allows", () => {
   test("modeLayers applies the rules over the person's choices", () => {
     const L = { structure: true, fixtures: true, faint: false, categories: false, labels: true };
     assert.deepEqual(modeLayers("blank", L), { ...L, fixtures: false, faint: false, categories: false });
-    assert.equal(modeLayers("current", L).categories, true);
+    assert.deepEqual(modeLayers("current", { ...L, fixtures: false, faint: true }), { ...L, fixtures: true, faint: false, categories: false }, "the store as it stands: fixtures on, no areas");
     assert.equal(modeLayers("planning", L).categories, false);
+    assert.equal(modeLayers("planning", { ...L, fixtures: false, categories: true }).fixtures, false, "planning keeps the blank-slate look the person chose");
     assert.equal(modeLayers("advisor", { ...L, fixtures: false, faint: true }).faint, true);
   });
   test("a read-only notice for every mode but Area planning", () => {

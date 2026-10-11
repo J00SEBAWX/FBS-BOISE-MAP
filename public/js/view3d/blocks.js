@@ -6,7 +6,8 @@
 import {lin} from "./scene.js";
 import {outline, blockArea} from "../core/areas.js";
 import {rayPrism} from "../core/geometry.js";
-import {colourOf} from "../plan2d/blocks.js";
+import {blockColour} from "../plan2d/blocks.js";
+import {blockTitle} from "../core/areas.js";
 import {formatSqft} from "../core/units.js";
 import {readableOn} from "../core/contrast.js";
 
@@ -48,12 +49,12 @@ export function createBlocks3D(R, host) {
     for (const it of layout.items) {
       if (it.type !== "area") continue;
       seen.add(it.id);
-      const cat = cats.get(it.cat), col = colourOf(cat, dark), s = sig(it) + "|" + col;
+      const cat = cats.get(it.cat), col = blockColour(it, cat, dark), s = sig(it) + "|" + col;
       let e = byId.get(it.id);
       if (e && e.sig !== s) { dispose(e); e = null; }
       if (!e) { e = makeEntry(it, col); e.sig = s; byId.set(it.id, e); group.add(e.mesh, e.edges); }
       e.item = it; e.cat = cat;
-      e.label.firstChild.textContent = String((cat && cat.name) || it.name || "Department").toUpperCase();
+      e.label.firstChild.textContent = String(blockTitle(it, cat)).toUpperCase();
       e.label.lastChild.textContent = formatSqft(blockArea(it));
       e.top = new THREE.Vector3(it.x, (it.h || 8) + 0.6, -it.y);
     }
@@ -66,7 +67,7 @@ export function createBlocks3D(R, host) {
       const on = selected.has(id), bad = issues.has(id);
       e.mat.opacity = on ? 0.45 : 0.32;
       // a block with a collision warning (OWNER RULES v3.1 rule 5) keeps a red edge even while selected
-      e.edges.material.color.copy(lin(bad ? issueColour : on ? "#006CB4" : colourOf(e.cat, dark)));
+      e.edges.material.color.copy(lin(bad ? issueColour : on ? "#006CB4" : blockColour(e.item, e.cat, dark)));
       e.edges.material.opacity = on || bad ? 1 : 0.9;
       e.edges.material.linewidth = 1;
       e.label.classList.toggle("selected", on);
@@ -83,11 +84,11 @@ export function createBlocks3D(R, host) {
     if (ghostEntry) { group.remove(ghostEntry.mesh, ghostEntry.edges); ghostEntry.geo.dispose(); ghostEntry.mat.dispose(); ghostEntry.edges.geometry.dispose(); ghostEntry.edges.material.dispose(); ghostEntry.label.remove(); ghostEntry = null; }
     ghost = it || null;
     if (it) {
-      const cat = cats.get(it.cat), col = colourOf(cat, dark);
+      const cat = cats.get(it.cat), col = blockColour(it, cat, dark);
       ghostEntry = makeEntry(it, col);
       ghostEntry.mat.opacity = 0.22;
       ghostEntry.label.classList.add("ghost");
-      ghostEntry.label.firstChild.textContent = String((cat && cat.name) || "Department").toUpperCase();
+      ghostEntry.label.firstChild.textContent = String(blockTitle(it, cat)).toUpperCase();
       ghostEntry.label.lastChild.textContent = "Click to place";
       ghostEntry.top = new THREE.Vector3(it.x, (it.h || 8) + 0.6, -it.y);
       group.add(ghostEntry.mesh, ghostEntry.edges);

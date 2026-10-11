@@ -116,9 +116,9 @@ describe("modes: what stays selectable", () => {
     assert.equal(itemShownIn(gondola, blank), false);
     assert.equal(itemShownIn(wall, blank), true);
   });
-  test("Area planning and Current layout keep them", () => {
+  test("Area planning keeps them all; Current layout keeps fixtures and structure but never a department area", () => {
     for (const mode of ["planning", "current"]) {
-      assert.equal(itemShownIn(block, L(mode)), true, mode);
+      assert.equal(itemShownIn(block, L(mode)), mode === "planning", mode);
       assert.equal(itemShownIn(gondola, L(mode)), true, mode);
       assert.equal(itemShownIn(wall, L(mode)), true, mode);
     }

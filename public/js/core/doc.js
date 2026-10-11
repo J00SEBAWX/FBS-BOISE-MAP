@@ -414,7 +414,7 @@ export function setField(doc, id, field, value, opts = {}) {
   if (!it) return refuse(doc, "That item is no longer on the map.");
   if (isLocked(it, opts)) return refuse(doc, LOCKED_MSG);
   if (field === "id" || field === "type") return refuse(doc, "That can't be changed.");
-  if (it.type === "area" && (field === "pts" || field === "shape")) return refuse(doc, "Use Edit shape to change a department's corners.", {field});
+  if (it.type === "area" && (field === "pts" || field === "shape")) return refuse(doc, "Use Change shape to change a department's corners.", {field});
   const c = cleanField(it, field, value, doc.categories);
   if (c.error) return refuse(doc, c.error, {field});
   let to = c.item;

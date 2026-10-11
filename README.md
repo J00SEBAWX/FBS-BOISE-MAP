@@ -61,7 +61,13 @@ nothing to install. It works on a computer, a tablet and a phone.
    floor where it goes: the block is exactly the rectangle you drew, and a
    single tap (or click) on the floor drops it at its usual size there
    instead. On a phone two fingers still move the map while a department is
-   waiting. Drag the block to move it and drag its corners to resize it. (In
+   waiting. Departments that carry big brands (Power Tools: Milwaukee,
+   DeWalt, Makita) list each brand under the department; tap a brand to
+   place it as its own block, in a shade of the department's colour. Add
+   brands to any department with its pencil ("Brands", one per line, a share
+   like "Milwaukee 45%" is optional). Any block can lean or bend: drag the
+   ring to turn it to any angle, or tap **Change shape** and drag single
+   corners. Drag the block to move it and drag its corners to resize it. (In
    the 3D view, click the floor to drop it.) The panel shows its square feet against the target and offers
    **Size to target**. A block that sits on a wall, a column, the stairs, a
    desk, a doorway or another block turns red and says why; the red
@@ -193,8 +199,8 @@ Next to the switcher are two controls. The **view mode** (keys 1 to 6):
 | Mode | What it shows |
 | --- | --- |
 | **Blank slate** | Only the building's structure: walls, columns, doors, stairs and the sales desks. Read-only. |
-| **Current layout** | The master map as confirmed today, with its departments and fixtures. Read-only. |
-| **Area planning** | Edit this map: place and shape the departments (the list on the left), move fixtures, unlock the structure. Blocks that overlap a wall, column, stairs, desk, doorway clearance or another block get a red outline, a message in the panel's Checks and a "3 warnings" chip that takes you to the first one. |
+| **Current layout** | The master map as confirmed today: the store's fixtures and structure, as it stands. Read-only. Department areas never show here; they live in Area planning. |
+| **Area planning** | The blank slate (walls, columns, doors and the sales desks; fixtures hidden until you ask for them, shown or faint) with this map's department areas on it. Edit this map: place and shape the departments (the list on the left), move fixtures, unlock the structure. Blocks that overlap a wall, column, stairs, desk, doorway clearance or another block get a red outline, a message in the panel's Checks and a "3 warnings" chip that takes you to the first one. |
 | **Comparison** | Two layouts (the master and this map by default; any two you can see) side by side with the plans locked together, or as an overlay (green = added, grey dashed = removed, blue = moved / resized / rotated), with every difference listed in plain words. The admin can **Apply** a row, or **Apply all**, to the master. |
 | **Advisor** | Retail-flow checks on this map: an overall score, each principle with its reasoning, ranked recommendations with **Show me** (highlights the spot) and **Apply** (a one-tap move or resize you can undo), overlays (heat, sight lines, traffic paths, choke points, door zones, cold spots) and the assumptions behind every number (the admin can change and save them). |
 | **Review** (admin only) | The team's proposals (filter by status), any map against the master, and the master's history. Opening a proposal shows its differences from today's master with before/after ghosts; tick the rows to apply and **Approve**, or send it back with **Needs changes** or **Decline**, each with a note. Old master versions can be previewed and **Restored** (a restore saves a new version; nothing is deleted). |

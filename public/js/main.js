@@ -41,7 +41,7 @@ import {createBlocks3D} from "./view3d/blocks.js";
 import {createOverlays3D} from "./view3d/overlays.js";
 import {createPlanView} from "./plan2d/plan.js";
 import {createPlanEditor} from "./plan2d/editor.js";
-import {catMap, colourOf} from "./plan2d/blocks.js";
+import {catMap, blockColour} from "./plan2d/blocks.js";
 import {drawIssues} from "./plan2d/issues-draw.js";
 import {drawDiffOverlay, drawSideGhost} from "./plan2d/compare-draw.js";
 import {drawOverlays, drawHighlight} from "./plan2d/advisor-draw.js";
@@ -497,6 +497,7 @@ function start(me, overlay) {
     sizeToTarget(id) { applyOrToast(A.sizeToTarget(session.doc, id), {label: "Size to target"}); },
     lockArea(id, on) { applyOrToast(A.setLockArea(session.doc, id, on), {label: on ? "Lock area" : "Unlock area"}); inspector.render(true); },
     setCategory(id, key) { const r = session.apply(A.setBlockCategory(session.doc, id, key), {label: "Change department"}); return r && r.error ? r.error : null; },
+    setBrand(id, brand) { const r = session.apply(A.setBlockBrand(session.doc, id, brand), {label: brand ? "Set brand" : "Whole department"}); return r && r.error ? r.error : null; },
     setTarget(key, sqft) { const r = session.apply(A.updateCategory(session.doc, key, {targetSqft: sqft}), {label: "Change target"}); return r && r.error ? r.error : null; },
     toRectangle(id) { applyOrToast(A.toRectangle(session.doc, id), {label: "Back to a rectangle"}); },
     editCategory(key) { catDialog.open(key); },
@@ -537,17 +538,19 @@ function start(me, overlay) {
     return dropSpot(session.doc, probe, dropCentre(), {building: session.building, grid: layers.get().snap ? GRID : 0});
   }
   /** Places a department block: where the person clicked in 3D (at), else the middle of the visible map (Departments list / Add menu / finder). */
-  function placeDepartment(key, at) {
+  function placeDepartment(key, at, opts = {}) {
     if (!canEdit()) { toast("This map is view only. Make your own copy to place departments."); return; }
     const cat = A.categoryFor(session.doc, key);
     if (!cat) { toast("That department isn't on this map."); return; }
+    const brand = opts.brand || null;
     let p = at;
-    if (!p) { const [w, d] = A.startSize(cat); p = dropWhere({type: "area", cat: key, shape: "rect", name: "", w, d, h: A.BLOCK_HEIGHT, rot: 0}); }
-    const r = applyOrToast(A.createBlock(session.doc, key, p, {grid: layers.get().snap ? GRID : 0}), {label: "Place department"});
+    if (!p) { const [w, d] = A.startSize(cat, brand); p = dropWhere({type: "area", cat: key, shape: "rect", name: "", w, d, h: A.BLOCK_HEIGHT, rot: 0}); }
+    const r = applyOrToast(A.createBlock(session.doc, key, p, {grid: layers.get().snap ? GRID : 0, brand}), {label: "Place department"});
     if (!r) return;
     session.select(r.id);
-    if (planView()) plan.ensureVisible(session.layout.byId.get(r.id));
-    announce(`${(A.categoryFor(session.doc, key) || {}).name || "Department"} placed. Drag it into place.`);
+    const it = session.layout.byId.get(r.id);
+    if (planView()) plan.ensureVisible(it);
+    announce(`${A.blockTitle(it, A.categoryFor(session.doc, key))} placed. Drag it into place.`);
   }
   function addItem(type) {
     if (!canEdit()) return;
@@ -577,8 +580,9 @@ function start(me, overlay) {
     el: $("#palette"), session, canEdit, toast, isDark, isTouch: () => phoneMq.matches,
     getFixtures: () => layers.fixMode(),
     onFixtures: mode => layers.setFixtures(mode),
-    onPlace: key => (planView() || state.view === "3d" ? startPlacing(key) : placeDepartment(key)),
+    onPlace: (key, brand) => (planView() || state.view === "3d" ? startPlacing(key, brand) : placeDepartment(key, null, {brand})),
     placingKey: () => (state.placing ? state.placing.key : null),
+    placingBrand: () => (state.placing ? state.placing.brand || null : null),
     onSelectBlock: id => { session.select(id); const it = session.layout.byId.get(id); if (it && planView()) plan.ensureVisible(it); },
     onEdit: key => catDialog.open(key),
     onNew: () => catDialog.open(null),
@@ -612,16 +616,21 @@ function start(me, overlay) {
     hint3d: () => state.view === "3d",
     unlockHint: () => unlockHint({touch: phoneMq.matches, plan: planView()}),
     onAdd: type => addItem(type),
-    onDepartment: key => startPlacing(key),
+    onDepartment: (key, brand) => startPlacing(key, brand),
   });
   function showFound(r) {
-    const blocks = session.doc.items.filter(it => it.type === "area" && it.cat === r.key);
+    // a brand result (M18 battery -> Power Tools · Milwaukee) goes to the brand's own block when there is one
+    const cat = A.categoryFor(session.doc, r.key, session.categories);
+    const brand = r.group ? A.brandsOf(cat).find(b => b.label === r.group || b.key === A.brandKey(r.group)) : null;
+    const all = session.doc.items.filter(it => it.type === "area" && it.cat === r.key);
+    const blocks = brand ? all.filter(it => it.brand === brand.key).concat(all.filter(it => !it.brand)) : all;
+    const title = brand ? `${r.zoneName} · ${brand.label}` : r.zoneName;
     if (blocks.length) {
       session.select(blocks[0].id);
       if (planView()) plan.ensureVisible(session.layout.byId.get(blocks[0].id));
-      toast(`${r.zoneName}${r.subcat ? ` · ${r.subcat}` : ""}: highlighted on the plan.`, {icon: "i-check"});
-    } else if (canEdit()) toast(`${r.zoneName} isn't placed on this map yet.`, {action: {label: "Place it", onClick: () => placeDepartment(r.key)}});
-    else toast(`${r.zoneName} isn't placed on this map yet.`);
+      toast(`${title}${r.subcat ? ` · ${r.subcat}` : ""}: highlighted on the plan.`, {icon: "i-check"});
+    } else if (canEdit()) toast(`${title} isn't placed on this map yet.`, {action: {label: "Place it", onClick: () => placeDepartment(r.key, null, {brand: brand ? brand.key : null})}});
+    else toast(`${title} isn't placed on this map yet.`);
   }
   $("#deptBtn").addEventListener("click", () => {
     const p = $("#palette"); const open = !p.classList.contains("open");
@@ -1105,13 +1114,17 @@ function start(me, overlay) {
 
   /* ================= placing a department (docs/DESIGN.md 5): pick it, then draw it on the plan or click the 3D floor ================= */
   const placeChip = $("#placeChip");
-  function startPlacing(key) {
+  function startPlacing(key, brandKey) {
     if (!canEdit()) { toast("This map is view only. Make your own copy to place departments."); return; }
     const cat = A.categoryFor(session.doc, key);
     if (!cat) { toast("That department isn't on this map."); return; }
-    if (state.placing && state.placing.key === key) { cancelPlacing(); return; } // the same department again: never mind
-    const [w, d] = A.startSize(cat);
-    state.placing = {key, w, d, name: cat.name, colour: colourOf(cat, isDark())};
+    const brand = brandKey ? A.brandsOf(cat).find(b => b.key === brandKey) : null;
+    if (brandKey && !brand) { toast(`${cat.name} doesn't list that brand.`); return; }
+    if (state.placing && state.placing.key === key && (state.placing.brand || null) === (brand ? brand.key : null)) { cancelPlacing(); return; } // the same one again: never mind
+    const [w, d] = A.startSize(cat, brand ? brand.key : undefined);
+    const probe = {type: "area", cat: key, brand: brand ? brand.key : undefined};
+    const name = brand ? brand.label : cat.name;
+    state.placing = {key, brand: brand ? brand.key : null, w, d, name, dept: brand ? cat.name : "", colour: blockColour(probe, cat, isDark())};
     $("#three").classList.add("placing");
     $("#planCanvas").classList.add("placing");
     if (planView()) {
@@ -1119,14 +1132,14 @@ function start(me, overlay) {
       placeChip.textContent = "";
       placeChip.append(
         h("span", {class: "swatch-sm", style: {"--c": state.placing.colour}, aria: {hidden: true}}),
-        h("span", {class: "place-chip-text"}, h("b", {text: cat.name}), h("span", {text: phoneMq.matches ? "Drag on the floor where it goes. Two fingers move the map." : "Drag on the floor where it goes. A click drops its usual size."})),
+        h("span", {class: "place-chip-text"}, h("b", {text: state.placing.dept ? `${name} · ${state.placing.dept}` : name}), h("span", {text: phoneMq.matches ? "Drag on the floor where it goes. Two fingers move the map." : "Drag on the floor where it goes. A click drops its usual size."})),
         h("button", {type: "button", class: "btn small", onclick: () => cancelPlacing()}, "Cancel"));
       placeChip.hidden = false;
       // a phone: the sheet had pushed the plan to the top of the screen; bring the whole store back into the middle
       if (phoneMq.matches) { $("#palette").classList.remove("open"); $("#deptBtn").setAttribute("aria-expanded", "false"); plan.fit(); }
       session.clearSelection();
-      announce(`${cat.name}: drag on the floor where it goes.`);
-    } else toast(`Placing ${cat.name}: click the floor where it should go. Esc cancels.`, {ms: 4000});
+      announce(`${name}: drag on the floor where it goes.`);
+    } else toast(`Placing ${name}: click the floor where it should go. Esc cancels.`, {ms: 4000});
     palette.render();
     syncEmpty();
     hint();
@@ -1146,26 +1159,28 @@ function start(me, overlay) {
   }
   /** The block the person drew on the plan (r = {x, y, w, d}) or tapped (r = {x, y}: the usual size there). */
   function placeDrawn(key, r) {
+    const brand = state.placing && state.placing.key === key ? state.placing.brand || null : null;
     cancelPlacing();
     if (!canEdit()) return;
     const cat = A.categoryFor(session.doc, key);
     if (!cat) { toast("That department isn't on this map."); return; }
     const b = session.building, g = layers.get().snap ? GRID : 0;
-    const size = r.w > 0 && r.d > 0 ? [r.w, r.d] : A.startSize(cat);
+    const size = r.w > 0 && r.d > 0 ? [r.w, r.d] : A.startSize(cat, brand || undefined);
     // keep the whole block inside the walls: the person drew at the edge, not past it
     const x = clamp(r.x, size[0] / 2, Math.max(size[0] / 2, b.L - size[0] / 2)), y = clamp(r.y, size[1] / 2, Math.max(size[1] / 2, b.W - size[1] / 2));
-    const res = applyOrToast(A.createBlock(session.doc, key, {x, y}, {grid: g, size}), {label: "Place department"});
+    const res = applyOrToast(A.createBlock(session.doc, key, {x, y}, {grid: g, size, brand}), {label: "Place department"});
     if (!res) return;
     session.select(res.id);
     const it = session.layout.byId.get(res.id);
+    const title = A.blockTitle(it, cat);
     const left = A.summary(session.doc, {merged: session.categories}).totals;
     const rest = left.total - left.placed;
-    toast(`${cat.name} placed · ${formatSqft(it.w * it.d)}. ${rest > 0 ? `${rest} more to go.` : "All departments placed."}`, {icon: "i-check"});
-    announce(`${cat.name} placed. Drag it to move it, pull a corner to resize it.`);
+    toast(`${title} placed · ${formatSqft(it.w * it.d)}. ${rest > 0 ? `${rest} more to go.` : "All departments placed."}`, {icon: "i-check"});
+    announce(`${title} placed. Drag it to move it, pull a corner to resize it.`);
   }
   function ghostAt(snap) {
     const p = state.placing;
-    return {id: "ghost", type: "area", cat: p.key, shape: "rect", x: snap.x, y: snap.y, w: p.w, d: p.d, h: A.BLOCK_HEIGHT, rot: 0};
+    return {id: "ghost", type: "area", cat: p.key, brand: p.brand || undefined, shape: "rect", x: snap.x, y: snap.y, w: p.w, d: p.d, h: A.BLOCK_HEIGHT, rot: 0};
   }
 
   /* ================= 3D pointer: status bar, Measure cursor, click to pick, drag a block, double-click to focus ================= */
@@ -1267,9 +1282,9 @@ function start(me, overlay) {
       if (state.placing) {
         const snap = cursorAt(e.clientX, e.clientY);
         if (!snap) { toast("Click inside the building."); return; }
-        const key = state.placing.key;
+        const key = state.placing.key, brand = state.placing.brand || null;
         cancelPlacing();
-        placeDepartment(key, {x: snap.x, y: snap.y});
+        placeDepartment(key, {x: snap.x, y: snap.y}, {brand});
         return;
       }
       if (state.tool === "measure") {

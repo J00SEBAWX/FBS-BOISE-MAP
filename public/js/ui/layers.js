@@ -9,7 +9,9 @@
 import {focusEl} from "./dom.js";
 const KEY = "fbs-layers-v2";
 const BOOLS = ["structure", "fixtures", "labels", "categories", "grid", "dimensions", "scanLines", "snap", "faint"];
-const DEFAULTS = {structure: true, fixtures: true, labels: true, categories: true, grid: true, dimensions: false, scanLines: false, snap: true, faint: false,
+// fixtures start hidden: Area planning is the blank slate (walls, columns, desks) with the department areas on it; the
+// Fixtures switch brings them back shown or faint, and Current layout always shows them (core/modes.js)
+const DEFAULTS = {structure: true, fixtures: false, labels: true, categories: true, grid: true, dimensions: false, scanLines: false, snap: true, faint: false,
   ceiling: {"3d": false, walk: true}, scan: {"3d": "ghost", walk: "off"}};
 const SCAN = ["off", "ghost", "solid"];
 // a deep copy of the plain defaults (JSON, so it works on browsers without structuredClone)

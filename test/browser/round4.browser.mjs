@@ -80,7 +80,9 @@ async function newMap(name, from = "master") {
   return r.data.meta.id;
 }
 /** A signed-in page (a seeded session as the cookie) that records anything the console or the network complains about. */
-async function open(device, hash) {
+/** Area planning starts as the blank slate (fixtures hidden); the tests that pick fixtures on the plan switch them on first. */
+const showFixtures = (page) => page.evaluate(() => window.__fbsMap.layers.setFixtures("on"));
+async function open(device, hash, { fixtures = false } = {}) {
   const ctx = await browser.newContext(device);
   await ctx.addCookies([{ name: "__Host-fbs_s", value: PEOPLE.a.token, domain: "127.0.0.1", path: "/", secure: true, httpOnly: true, sameSite: "Strict", expires: Math.floor(Date.now() / 1000) + 86400 }]);
   await ctx.addInitScript(() => document.addEventListener("securitypolicyviolation", (e) => console.error("CSPV " + e.violatedDirective + " " + e.blockedURI)));
@@ -91,11 +93,12 @@ async function open(device, hash) {
   await page.goto(dev.base + "/" + hash);
   await page.waitForFunction(() => window.__fbsMap && window.__fbsMap.session.layout.items.length > 0, null, { timeout: 60000 });
   await sleep(500);
+  if (fixtures) { await showFixtures(page); await sleep(300); }
   return { ctx, page };
 }
 const stageTop = (page) => page.evaluate(() => ({ stage: document.getElementById("stage").scrollTop, main: document.getElementById("stageMain").scrollTop }));
 const active = (page) => page.evaluate(() => { const a = document.activeElement; return a ? a.id || a.tagName : null; });
-const blocks = (page) => page.evaluate(() => window.__fbsMap.session.layout.items.filter((i) => i.type === "area").map((i) => ({ cat: i.cat, x: i.x, y: i.y, w: i.w, d: i.d })));
+const blocks = (page) => page.evaluate(() => window.__fbsMap.session.layout.items.filter((i) => i.type === "area").map((i) => ({ cat: i.cat, brand: i.brand || null, name: i.name, x: i.x, y: i.y, w: i.w, d: i.d })));
 const count = (page) => page.evaluate(() => window.__fbsMap.session.layout.items.length);
 
 const FIXTURES = ["gondola", "wallunit", "rack", "counter", "table", "display", "tower"];
@@ -153,7 +156,7 @@ test("the stage can't be scrolled by script: scrollTop, scrollIntoView() and a p
 
 test("desktop inspector: change a field, click or Tab to the next: focus lands there, typing stays in it, Backspace never deletes", { skip: SKIP, timeout: 240000 }, async () => {
   const id = await newMap("Desktop fields");
-  const { ctx, page } = await open(DESK, `#plan&map=${id}`);
+  const { ctx, page } = await open(DESK, `#plan&map=${id}`, { fixtures: true });
   try {
     const g = await page.evaluate(() => { const it = window.__fbsMap.session.layout.items.find((i) => i.type === "gondola"); window.__fbsMap.session.select(it.id); return it.id; });
     await sleep(300);
@@ -289,9 +292,10 @@ for (const [label, device] of [["desktop 1366x800", DESK], ["phone 390x844", PHO
     const { ctx, page } = await open(device, `#plan&map=${id}`);
     try {
       const phone = !!device.isMobile;
-      const pick = async () => {
+      const pick = async (brand = false) => {
         if (phone) { await page.locator("#deptBtn").tap(); await sleep(700); }
-        const row = page.locator(".pal-row:not(.muted) .pal-main:has(.pal-place)").first();
+        const row = page.locator(`.pal-row:not(.muted)${brand ? ".brand" : ":not(.brand)"} .pal-main:has(.pal-place)`).first();
+        if (brand) await row.scrollIntoViewIfNeeded();
         const name = await row.locator("b").textContent();
         if (phone) await row.tap(); else await row.click();
         await sleep(500);
@@ -321,16 +325,29 @@ for (const [label, device] of [["desktop 1366x800", DESK], ["phone 390x844", PHO
       const b = bs[1];
       assert.ok(Math.abs(b.x - 120) <= 0.5 && Math.abs(b.y - 30) <= 0.5, `centred on the tap: ${b.x},${b.y}`);
       assert.ok(b.w * b.d >= 100, "the usual (catalog) size");
+      assert.equal(b.brand, null, "a whole-department block");
+      // 2b. a brand row (Hand Tools: Milwaukee) places a brand block of its department, named for the brand
+      const brandName = await pick(true);
+      assert.match(await page.locator("#placeChip").textContent(), new RegExp(brandName.trim().slice(0, 8)));
+      const pb = await at(page, 100, 60);
+      if (phone) await page.touchscreen.tap(pb.x, pb.y); else await page.mouse.click(pb.x, pb.y);
+      await sleep(600);
+      bs = await blocks(page);
+      assert.equal(bs.length, 3);
+      assert.ok(bs[2].brand, "the block carries its brand");
+      assert.equal(bs[2].name, brandName.trim());
+      assert.ok(bs[2].w * bs[2].d > 0 && Math.abs(bs[2].x - 100) <= 0.5 && Math.abs(bs[2].y - 60) <= 0.5, `the brand block is centred on the tap: ${bs[2].x},${bs[2].y}`);
+      assert.match(await page.locator("#inspector").textContent(), /brand block/, "the inspector says it is a brand block");
       // 3. pick, then Esc (desktop) or the chip's Cancel (phone): nothing is placed, the chip is gone
       await pick();
       if (phone) await page.locator("#placeChip button").tap(); else await page.keyboard.press("Escape");
       await sleep(400);
       assert.equal(await page.locator("#placeChip").isHidden(), true);
-      assert.equal((await blocks(page)).length, 2, "cancel placed nothing");
+      assert.equal((await blocks(page)).length, 3, "cancel placed nothing");
       // 4. after cancelling, a drag on the floor is a plain pan/marquee again, not a block
       await drag(page, phone, await at(page, 30, 60), await at(page, 40, 70));
       await sleep(400);
-      assert.equal((await blocks(page)).length, 2);
+      assert.equal((await blocks(page)).length, 3);
       for (const x of await blocks(page)) assert.ok(x.x - x.w / 2 >= -0.01 && x.x + x.w / 2 <= 169.01 && x.y - x.d / 2 >= -0.01 && x.y + x.d / 2 <= 80.01, `${x.cat} at ${x.x},${x.y} is outside the store`);
       assert.deepEqual(await stageTop(page), { stage: 0, main: 0 });
     } finally {
@@ -356,7 +373,7 @@ test("a department placed from the finder while in 3D goes inside the store, bes
 
 test("a selected department block under a fixture is grabbed by pressing it; a plain click still picks the fixture on top", { skip: SKIP, timeout: 240000 }, async () => {
   const id = await newMap("Grab block");
-  const { ctx, page } = await open(DESK, `#plan&map=${id}`);
+  const { ctx, page } = await open(DESK, `#plan&map=${id}`, { fixtures: true });
   try {
     const info = await page.evaluate(() => {
       const M = window.__fbsMap, s = M.session;
@@ -388,7 +405,7 @@ test("a selected department block under a fixture is grabbed by pressing it; a p
 
 test("touch plus a hardware keyboard: after a tap on the plan Delete removes the item; after a tap on the panel it does not", { skip: SKIP, timeout: 240000 }, async () => {
   const id = await newMap("Touch delete");
-  const { ctx, page } = await open(PHONE, `#plan&map=${id}`);
+  const { ctx, page } = await open(PHONE, `#plan&map=${id}`, { fixtures: true });
   try {
     const g = await page.evaluate(() => { const it = window.__fbsMap.session.layout.items.find((i) => i.type === "gondola" && i.w >= 8); window.__fbsMap.plan.fitTo([it], 160); window.__fbsMap.session.clearSelection(); return it.id; });
     await sleep(600);

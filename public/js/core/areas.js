@@ -52,7 +52,23 @@ export function cleanCategory(def) {
   if (notes === null) return {error: "Notes can be at most 500 characters."};
   const t = def.targetSqft === undefined || def.targetSqft === null || def.targetSqft === "" ? 0 : Number(def.targetSqft);
   if (!Number.isFinite(t) || t < 0 || t > 20000) return {error: "The target must be between 0 and 20,000 sq ft."};
+  // brands: [{label, share}] or plain lines like "Milwaukee 45%" / "Makita"
+  const groups = [], seenBrand = new Set();
+  for (const g of Array.isArray(def.groups) ? def.groups : []) {
+    const b = typeof g === "string" ? parseBrandLine(g) : g && typeof g === "object" ? {label: cleanText(String(g.label ?? ""), 40), share: Number(g.share ?? 0)} : null;
+    if (!b || b.label === null) return {error: "Each brand can be at most 40 characters."};
+    if (!b.label) continue;
+    if (!Number.isFinite(b.share) || b.share < 0 || b.share > 1) return {error: "A brand's share must be between 0% and 100%."};
+    const k = brandKey(b.label);
+    if (!k) return {error: `"${b.label}" needs at least one letter or number.`};
+    if (seenBrand.has(k)) return {error: `"${b.label}" is listed twice.`};
+    seenBrand.add(k);
+    groups.push({label: b.label, share: Math.round(b.share * 1e4) / 1e4});
+  }
+  if (groups.length > MAX_BRANDS) return {error: `A department can list at most ${MAX_BRANDS} brands.`};
+  if (groups.reduce((a, g) => a + g.share, 0) > 1.0001) return {error: "The brand shares add up to more than 100%."};
   const out = {key, name, color: color.toLowerCase(), family, subcats, notes, targetSqft: Math.round(t * 100) / 100, hidden: def.hidden === true};
+  if (def.groups !== undefined) out.groups = groups; // only when brands were given (an empty list clears a default's brands)
   const v = validateMapData({items: [], categories: [out]});
   return v.ok ? {def: v.data.categories[0]} : {error: v.error};
 }
@@ -67,7 +83,7 @@ export function newCategoryKey(doc, name) {
 }
 
 /** The CategoryDef to store for a merged category (only the fields a map may hold). */
-const defOf = c => ({key: c.key, name: c.name, color: c.color, family: c.family, subcats: [...(c.subcats || [])], notes: c.notes || "", targetSqft: num(c.targetSqft, 0), hidden: !!c.hidden});
+const defOf = c => ({key: c.key, name: c.name, color: c.color, family: c.family, subcats: [...(c.subcats || [])], notes: c.notes || "", targetSqft: num(c.targetSqft, 0), hidden: !!c.hidden, ...(Array.isArray(c.groups) && c.groups.length ? {groups: c.groups.map(g => ({...g}))} : {})});
 
 /** Adds a custom category {name, color, family?, subcats?, notes?, targetSqft?}. Returns {..., key}. */
 export function addCategory(doc, fields) {
@@ -87,7 +103,7 @@ export function addCategory(doc, fields) {
 export function updateCategory(doc, key, fields) {
   const cur = categoryFor(doc, key);
   if (!cur) return refuseEdit(doc, "That category isn't on this map.");
-  const c = cleanCategory({...defOf(cur), ...pick(fields, ["name", "color", "family", "subcats", "notes", "targetSqft", "hidden"]), key});
+  const c = cleanCategory({...defOf(cur), ...pick(fields, ["name", "color", "family", "subcats", "notes", "targetSqft", "hidden", "groups"]), key});
   if (c.error) return refuseEdit(doc, c.error);
   const exists = (doc.categories || []).some(d => d.key === key);
   if (!exists && (doc.categories || []).length >= MAX_CATEGORIES) return refuseEdit(doc, `A map can hold at most ${MAX_CATEGORIES} category changes.`);
@@ -132,17 +148,68 @@ export const outline = it => localPts(it).map(([a, b]) => toWorld(it, a, b));
 export const blockArea = it => (it.shape === "poly" && Array.isArray(it.pts) && it.pts.length >= MIN_PTS ? polygonArea(it.pts) : it.w * it.d);
 /** "Power Tools - 612 sq ft / 700" (the block label). */
 export function blockLabel(it, cat) {
-  const name = (cat && cat.name) || it.name || "Department";
+  const name = blockTitle(it, cat);
   const a = Math.round(blockArea(it)).toLocaleString("en-US");
-  return cat && cat.targetSqft > 0 ? `${name} - ${a} sq ft / ${Math.round(cat.targetSqft).toLocaleString("en-US")}` : `${name} - ${a} sq ft`;
+  const t = blockTarget(it, cat);
+  return t > 0 ? `${name} - ${a} sq ft / ${Math.round(t).toLocaleString("en-US")}` : `${name} - ${a} sq ft`;
+}
+
+/* ---------- brands: a department's brand groups, each placeable as its own block (it.brand = the brand key) ---------- */
+export const MAX_BRANDS = 6; // schema LIMITS.maxGroups
+/** "Simpson Strong-Tie" -> "simpson_strong_tie" (the token stored on a block), or null when nothing is left. */
+export function brandKey(label) {
+  const k = String(label || "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 24).replace(/_+$/, "");
+  return k || null;
+}
+/** One line of the category editor's Brands box: "Milwaukee 45%" -> {label: "Milwaukee", share: 0.45}; "Makita" -> share 0. */
+export function parseBrandLine(line) {
+  const m = /^(.*?)\s*(?:[-–:·]\s*)?(\d{1,3}(?:\.\d+)?)\s*%\s*$/.exec(String(line || "").trim());
+  const label = cleanText((m ? m[1] : String(line || "")).trim().replace(/\s+/g, " "), 40);
+  return {label, share: m ? Number(m[2]) / 100 : 0};
+}
+/** The brands of a category: [{key, label, share, targetSqft, index}] in catalog order (an empty list for most). */
+export function brandsOf(cat) {
+  const out = [], seen = new Set();
+  for (const g of (cat && Array.isArray(cat.groups) ? cat.groups : [])) {
+    const key = brandKey(g && g.label);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const share = num(g.share, 0);
+    out.push({key, label: String(g.label), share, targetSqft: Math.round(num(cat.targetSqft, 0) * share), index: out.length});
+  }
+  return out;
+}
+const titleCase = k => String(k).split("_").filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1)).join(" ");
+/** The brand a block is for ({key, label, share, targetSqft, index}), or null for a whole-department block. */
+export function brandOf(it, cat) {
+  if (!it || !it.brand) return null;
+  return brandsOf(cat).find(b => b.key === it.brand) || {key: it.brand, label: titleCase(it.brand), share: 0, targetSqft: 0, index: -1};
+}
+/** What the block is called on the plan: the brand ("Milwaukee") or the department ("Power Tools"). */
+export function blockTitle(it, cat) {
+  const b = brandOf(it, cat);
+  return b ? b.label : (cat && cat.name) || (it && it.name) || "Department";
+}
+/** The target that applies to this block: the brand's share of the department target, or the department target. */
+export function blockTarget(it, cat) {
+  const b = brandOf(it, cat);
+  return b ? b.targetSqft : num(cat && cat.targetSqft, 0);
 }
 
 /**
  * Starting [w, d] for a category's block: the catalog size when it matches the target, otherwise the catalog
  * proportions (or 2:1 for custom categories) scaled to the target area. No target -> the catalog size or 15' x 10'.
  */
-export function startSize(cat) {
+export function startSize(cat, brand) {
   const size = Array.isArray(cat && cat.size) && cat.size[0] > 0 && cat.size[1] > 0 ? cat.size : [15, 10];
+  if (brand) {
+    // a brand block: its share of the department, in the department's proportions; no share yet -> a modest 8' x 6'
+    const b = brandsOf(cat).find(x => x.key === brand);
+    const bt = b ? b.targetSqft : 0;
+    if (!(bt > 0)) return [8, 6];
+    const s = Math.sqrt(bt / (size[0] * size[1]));
+    return [r4(size[0] * s), r4(size[1] * s)];
+  }
   const t = num(cat && cat.targetSqft, 0);
   if (!(t > 0)) return [size[0], size[1]];
   const s = Math.sqrt(t / (size[0] * size[1]));
@@ -160,14 +227,17 @@ export const MIN_DRAWN = 2;
 export function createBlock(doc, key, at = {}, opts = {}) {
   const cat = categoryFor(doc, key);
   if (!cat) return refuseEdit(doc, "That category isn't on this map.");
-  let [w, d] = startSize(cat);
+  const brand = opts.brand ? brandsOf(cat).find(b => b.key === opts.brand) : null;
+  if (opts.brand && !brand) return refuseEdit(doc, `${cat.name} doesn't list that brand. Add it under Edit category first.`);
+  let [w, d] = startSize(cat, brand ? brand.key : undefined);
   if (Array.isArray(opts.size) && num(opts.size[0], 0) >= MIN_DRAWN && num(opts.size[1], 0) >= MIN_DRAWN) [w, d] = [r4(opts.size[0]), r4(opts.size[1])];
   const id = newId(doc, "a");
   const g = opts.grid > 0 ? opts.grid : 0, snap = v => (g ? Math.round(v / g) * g : v);
   const it = clampGeom({
-    id, type: "area", name: String(cat.name).slice(0, 80), cat: key, shape: "rect",
+    id, type: "area", name: String(brand ? brand.label : cat.name).slice(0, 80), cat: key, shape: "rect",
     x: snap(num(at.x, 0)), y: snap(num(at.y, 0)), w, d, h: BLOCK_HEIGHT, rot: num(opts.rot, 0), color: String(cat.color).toLowerCase(),
   });
+  if (brand) it.brand = brand.key;
   return {...commit(doc, [{id, to: it}]), id};
 }
 
@@ -183,8 +253,25 @@ export function setBlockCategory(doc, id, key) {
   const to = categoryFor(doc, key, merged), from = categoryFor(doc, it.cat, merged);
   if (!to) return refuseEdit(doc, "That category isn't on this map.");
   const next = {...it, cat: key};
-  if (!from || it.name === from.name || !it.name) next.name = String(to.name).slice(0, 80);
+  const keepBrand = it.brand && brandsOf(to).some(b => b.key === it.brand);
+  if (it.brand && !keepBrand) delete next.brand;
+  const oldTitle = blockTitle(it, from);
+  if (!from || it.name === oldTitle || !it.name) next.name = String(keepBrand ? blockTitle(next, to) : to.name).slice(0, 80);
   if (!from || String(it.color || "").toLowerCase() === String(from.color).toLowerCase() || !it.color) next.color = String(to.color).toLowerCase();
+  return {...commit(doc, [{id, to: next}]), id};
+}
+/** Makes a block stand for one brand of its department (brand = key from brandsOf, or null for the whole department). */
+export function setBlockBrand(doc, id, brand) {
+  const it = blockOr(doc, id);
+  if (!it) return refuseEdit(doc, "That block is no longer on the map.");
+  const cat = categoryFor(doc, it.cat);
+  if (!cat) return refuseEdit(doc, "That category isn't on this map.");
+  const b = brand ? brandsOf(cat).find(x => x.key === brand) : null;
+  if (brand && !b) return refuseEdit(doc, `${cat.name} doesn't list that brand.`);
+  if ((it.brand || null) === (b ? b.key : null)) return {...commit(doc, []), id};
+  const next = {...it};
+  if (b) next.brand = b.key; else delete next.brand;
+  if (!it.name || it.name === blockTitle(it, cat)) next.name = String(blockTitle(next, cat)).slice(0, 80);
   return {...commit(doc, [{id, to: next}]), id};
 }
 
@@ -199,8 +286,8 @@ function scaled(it, sx, sy) {
 export function sizeToTarget(doc, id, target) {
   const it = blockOr(doc, id);
   if (!it) return refuseEdit(doc, "That block is no longer on the map.");
-  const t = target ?? (categoryFor(doc, it.cat) || {}).targetSqft;
-  if (!(t > 0)) return refuseEdit(doc, "Set a target size first.");
+  const t = target ?? blockTarget(it, categoryFor(doc, it.cat));
+  if (!(t > 0)) return refuseEdit(doc, it.brand ? "Give this brand a share first (Edit category, Brands)." : "Set a target size first.");
   const s = Math.sqrt(t / blockArea(it));
   return {...commit(doc, [{id, to: scaled(it, s, s)}]), id};
 }
@@ -296,7 +383,7 @@ export function toRectangle(doc, id) {
 /** Moves corner index to world point (px, py) (snap it before calling). Refused if the edges would cross. */
 export function movePolyPoint(doc, id, index, px, py) {
   const it = blockOr(doc, id);
-  if (!it || it.shape !== "poly" || !Array.isArray(it.pts)) return refuseEdit(doc, "Turn on Edit shape first.");
+  if (!it || it.shape !== "poly" || !Array.isArray(it.pts)) return refuseEdit(doc, "Tap Change shape first.");
   if (!(index >= 0 && index < it.pts.length)) return refuseEdit(doc, "That corner doesn't exist.");
   const pts = it.pts.map(p => [p[0], p[1]]);
   pts[index] = toLocal(it, px, py);
@@ -305,7 +392,7 @@ export function movePolyPoint(doc, id, index, px, py) {
 /** Adds a corner on edge index (from corner index to the next) at the point of that edge nearest (px, py), or its middle. */
 export function insertPolyPoint(doc, id, edge, px, py) {
   const it = blockOr(doc, id);
-  if (!it || it.shape !== "poly" || !Array.isArray(it.pts)) return refuseEdit(doc, "Turn on Edit shape first.");
+  if (!it || it.shape !== "poly" || !Array.isArray(it.pts)) return refuseEdit(doc, "Tap Change shape first.");
   const n = it.pts.length;
   if (!(edge >= 0 && edge < n)) return refuseEdit(doc, "That edge doesn't exist.");
   if (n >= MAX_PTS) return refuseEdit(doc, `A shape can have at most ${MAX_PTS} corners.`);
@@ -323,7 +410,7 @@ export function insertPolyPoint(doc, id, edge, px, py) {
 /** Removes corner index (a shape keeps at least 3). */
 export function removePolyPoint(doc, id, index) {
   const it = blockOr(doc, id);
-  if (!it || it.shape !== "poly" || !Array.isArray(it.pts)) return refuseEdit(doc, "Turn on Edit shape first.");
+  if (!it || it.shape !== "poly" || !Array.isArray(it.pts)) return refuseEdit(doc, "Tap Change shape first.");
   if (it.pts.length <= MIN_PTS) return refuseEdit(doc, `A shape needs at least ${MIN_PTS} corners.`);
   if (!(index >= 0 && index < it.pts.length)) return refuseEdit(doc, "That corner doesn't exist.");
   return polyEdit(doc, id, it.pts.filter((_, i) => i !== index));
@@ -383,8 +470,15 @@ export function summary(doc, opts = {}) {
     const mine = blocks.filter(b => b.cat === c.key);
     const sqft = mine.reduce((s, b) => s + blockArea(b), 0);
     const t = num(c.targetSqft, 0);
-    const status = !mine.length ? "none" : t > 0 && sqft < t * 0.9 ? "under" : t > 0 && sqft > t * 1.1 ? "over" : "ok";
-    return {key: c.key, name: c.name, color: c.color, hidden: !!c.hidden, custom: !!c.custom, placed: mine.length > 0, blocks: mine.map(b => b.id), sqft, targetSqft: t, diff: sqft - t, status};
+    const statusOf = (list, target, area) => (!list.length ? "none" : target > 0 && area < target * 0.9 ? "under" : target > 0 && area > target * 1.1 ? "over" : "ok");
+    const status = statusOf(mine, t, sqft);
+    // the department's brands, each with its own blocks and share of the target
+    const brands = brandsOf(c).map(b => {
+      const bl = mine.filter(x => x.brand === b.key), a = bl.reduce((s, x) => s + blockArea(x), 0);
+      return {...b, placed: bl.length > 0, blocks: bl.map(x => x.id), sqft: a, status: statusOf(bl, b.targetSqft, a)};
+    });
+    const general = mine.filter(x => !x.brand).map(x => x.id);
+    return {key: c.key, name: c.name, color: c.color, hidden: !!c.hidden, custom: !!c.custom, placed: mine.length > 0, blocks: mine.map(b => b.id), general, brands, sqft, targetSqft: t, diff: sqft - t, status};
   });
   // blocks whose category isn't on the map any more (a deleted custom category)
   const known = new Set(merged.map(c => c.key));

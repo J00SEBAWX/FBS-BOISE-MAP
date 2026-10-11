@@ -3,10 +3,10 @@
  * is built with createElement; names and colours come from the catalog or the person's own categories. */
 import {h, icon, clear, modal, menuKeys, focusEl} from "./dom.js";
 import {PALETTE, isStructureType} from "../core/doc.js";
-import {summary, categoryFor} from "../core/areas.js";
+import {summary, categoryFor, brandsOf} from "../core/areas.js";
 import {CATALOG} from "../shared/catalog.js";
 import {find} from "../core/finder.js";
-import {colourOf} from "../plan2d/blocks.js";
+import {colourOf, blockColour} from "../plan2d/blocks.js";
 import {formatSqft} from "../core/units.js";
 
 const FIXTURES = ["gondola", "wallunit", "rack", "counter", "table", "display", "tower", "platform", "zone"];
@@ -38,13 +38,22 @@ export function createAddMenu(o) {
     return h("button", {type: "button", class: "add-row dept", role: "menuitem", tabindex: -1, data: {key: c.key}, onclick: () => { close(false); o.onDepartment(c.key); }},
       h("span", {class: "swatch-sm", style: {"--c": col}, aria: {hidden: true}}), h("span", {class: "add-name", text: c.name}), placed ? icon("i-check", "i i-sm add-ok") : null);
   }
+  function brandRow(c, b, placed) {
+    const col = blockColour({type: "area", cat: c.key, brand: b.key}, c, o.isDark());
+    return h("button", {type: "button", class: "add-row dept brand", role: "menuitem", tabindex: -1, data: {key: c.key, brand: b.key}, aria: {label: `${c.name}: ${b.label}`}, onclick: () => { close(false); o.onDepartment(c.key, b.key); }},
+      h("span", {class: "swatch-sm", style: {"--c": col}, aria: {hidden: true}}), h("span", {class: "add-name", text: b.label}), placed ? icon("i-check", "i i-sm add-ok") : null);
+  }
   function render() {
     clear(pop);
     if (mode === "departments") {
       pop.appendChild(h("div", {class: "pop-head"}, h("button", {type: "button", class: "icon-btn small", aria: {label: "Back"}, onclick: () => { mode = "items"; render(); focusFirst(); }}, icon("i-arrow-left")), h("p", {class: "pop-title", text: "Department"})));
-      const placed = new Set(o.session.doc.items.filter(it => it.type === "area").map(it => it.cat));
+      const areas = o.session.doc.items.filter(it => it.type === "area");
+      const placed = new Set(areas.map(it => it.cat)), placedBrand = new Set(areas.filter(it => it.brand).map(it => it.cat + "/" + it.brand));
       const list = h("div", {class: "add-list one"});
-      for (const c of o.session.categories.filter(c => !c.hidden)) list.appendChild(deptRow(c, placed.has(c.key)));
+      for (const c of o.session.categories.filter(c => !c.hidden)) {
+        list.appendChild(deptRow(c, placed.has(c.key)));
+        for (const b of brandsOf(c)) list.appendChild(brandRow(c, b, placedBrand.has(c.key + "/" + b.key)));
+      }
       pop.appendChild(list);
       pop.appendChild(h("p", {class: "pop-hint", text: o.hint3d && o.hint3d() ? "Pick a department, then click the floor to place it." : "Pick a department, then drag on the floor where it goes."}));
       return;
@@ -71,10 +80,12 @@ export function createAddMenu(o) {
 
 /* ======================================================================= the Departments palette (Categories tab) */
 /**
- * createDeptPalette({el, session, onPlace(key), placingKey() -> key | null, onSelectBlock(id), onEdit(key), onNew(), onFixtures(mode),
- *                    getFixtures() -> "on" | "faint" | "off", isDark(), canEdit(), onFind(result)}) -> {render()}
- * placingKey(): the department the person has picked and is about to draw on the floor; its row says so, and
- * tapping it again calls off the placing (onPlace with the same key).
+ * createDeptPalette({el, session, onPlace(key, brand?), placingKey() -> key | null, placingBrand() -> brand | null, onSelectBlock(id),
+ *                    onEdit(key), onNew(), onFixtures(mode), getFixtures() -> "on" | "faint" | "off", isDark(), canEdit(), onFind(result)}) -> {render()}
+ * placingKey() / placingBrand(): the department (and brand) the person has picked and is about to draw on the floor; its
+ * row says so, and tapping it again calls off the placing (onPlace with the same key and brand).
+ * A department with brands (Power Tools: Milwaukee, DeWalt, Makita) lists them under its row; each brand is placed
+ * as its own block, in a step of the department's colour, and counts toward the department's total.
  */
 export function createDeptPalette(o) {
   const {el, session} = o;
@@ -118,24 +129,43 @@ export function createDeptPalette(o) {
     if (!touch) head.appendChild(seg);
     clear(list);
     const selIds = new Set(session.selection);
-    const placingKey = o.placingKey ? o.placingKey() : null;
+    const placingKey = o.placingKey ? o.placingKey() : null, placingBrand = o.placingBrand ? o.placingBrand() : null;
+    const viewOnly = () => o.toast && o.toast("This map is view only. Make your own copy to place departments.");
     for (const r of S.rows) {
       if (r.hidden) continue;
       const cat = categoryFor(session.doc, r.key, session.categories);
       const col = colourOf(cat, o.isDark());
       const selected = r.blocks.some(id => selIds.has(id));
-      const placing = placingKey === r.key;
-      const meta = placing ? "Drag on the floor where it goes" : !r.placed ? "Not placed yet" : `${r.blocks.length > 1 ? `${r.blocks.length} spots · ` : ""}${formatSqft(r.sqft)}${r.targetSqft > 0 ? ` of ${formatSqft(r.targetSqft).replace(" sq ft", "")}` : ""}${r.status === "under" ? " · under" : r.status === "over" ? " · over" : ""}`;
+      const placing = placingKey === r.key && !placingBrand;
+      const brands = r.brands || [];
+      const metaBase = !r.placed ? "Not placed yet" : `${r.blocks.length > 1 ? `${r.blocks.length} spots · ` : ""}${formatSqft(r.sqft)}${r.targetSqft > 0 ? ` of ${formatSqft(r.targetSqft).replace(" sq ft", "")}` : ""}${r.status === "under" ? " · under" : r.status === "over" ? " · over" : ""}`;
+      const meta = placing ? "Drag on the floor where it goes" : brands.length && !r.placed ? `${brands.length === 1 ? "1 brand" : `${brands.length} brands`} below · or place it whole` : metaBase;
       // a placed department can still get another spot (Shift-click, or its Place again button): the main button selects it
-      const row = h("div", {class: "pal-row" + (selected ? " selected" : "") + (placing ? " placing" : ""), role: "listitem"},
+      const firstBlock = r.general && r.general.length ? r.general[0] : r.blocks[0];
+      const row = h("div", {class: "pal-row" + (selected ? " selected" : "") + (placing ? " placing" : "") + (brands.length ? " has-brands" : ""), role: "listitem"},
         h("button", {type: "button", class: "pal-main", aria: {label: `${cat.name}: ${meta}. ${placing ? "Tap again to cancel" : r.placed ? "Select it on the plan" : "Place it"}`, pressed: placing || undefined},
-          onclick: () => (r.placed && !placing ? o.onSelectBlock(r.blocks[0]) : (o.canEdit() ? o.onPlace(r.key) : o.toast && o.toast("This map is view only. Make your own copy to place departments.")))},
+          onclick: () => (r.placed && !placing ? o.onSelectBlock(firstBlock) : (o.canEdit() ? o.onPlace(r.key) : viewOnly()))},
           h("span", {class: "swatch-sm", style: {"--c": col}, aria: {hidden: true}}),
           h("span", {class: "pal-text"}, h("b", {text: cat.name}), h("span", {class: "pal-meta" + (placing ? " placing" : r.status === "under" || r.status === "over" ? " warn" : ""), text: meta})),
           placing ? h("span", {class: "pal-place on", aria: {hidden: true}}, icon("i-close", "i i-sm"), h("span", {class: "pal-place-t", text: "Cancel"}))
             : r.placed ? h("span", {class: "pal-ok"}, icon("i-check"), h("span", {class: "sr-only", text: "Placed"})) : (o.canEdit() ? h("span", {class: "pal-place", aria: {hidden: true}}, icon("i-add", "i i-sm"), h("span", {class: "pal-place-t", text: "Place"})) : null)),
         h("button", {type: "button", class: "pal-edit", aria: {label: `Edit category ${cat.name}`}, title: "Edit category", onclick: () => o.onEdit(r.key)}, icon("i-pencil")));
       list.appendChild(row);
+      // the department's brands: one placeable row each, indented under the department
+      for (const b of brands) {
+        const bcol = blockColour({type: "area", cat: r.key, brand: b.key}, cat, o.isDark());
+        const bPlacing = placingKey === r.key && placingBrand === b.key;
+        const bSel = b.blocks.some(id => selIds.has(id));
+        const bMeta = bPlacing ? "Drag on the floor where it goes" : !b.placed ? (b.targetSqft > 0 ? `Not placed yet · target ${formatSqft(b.targetSqft).replace(" sq ft", "")}` : "Not placed yet")
+          : `${b.blocks.length > 1 ? `${b.blocks.length} spots · ` : ""}${formatSqft(b.sqft)}${b.targetSqft > 0 ? ` of ${formatSqft(b.targetSqft).replace(" sq ft", "")}` : ""}${b.status === "under" ? " · under" : b.status === "over" ? " · over" : ""}`;
+        list.appendChild(h("div", {class: "pal-row brand" + (bSel ? " selected" : "") + (bPlacing ? " placing" : ""), role: "listitem", data: {brand: b.key}},
+          h("button", {type: "button", class: "pal-main", aria: {label: `${cat.name}, ${b.label}: ${bMeta}. ${bPlacing ? "Tap again to cancel" : b.placed ? "Select it on the plan" : "Place it"}`, pressed: bPlacing || undefined},
+            onclick: () => (b.placed && !bPlacing ? o.onSelectBlock(b.blocks[0]) : (o.canEdit() ? o.onPlace(r.key, b.key) : viewOnly()))},
+            h("span", {class: "swatch-sm", style: {"--c": bcol}, aria: {hidden: true}}),
+            h("span", {class: "pal-text"}, h("b", {text: b.label}), h("span", {class: "pal-meta" + (bPlacing ? " placing" : b.status === "under" || b.status === "over" ? " warn" : ""), text: bMeta})),
+            bPlacing ? h("span", {class: "pal-place on", aria: {hidden: true}}, icon("i-close", "i i-sm"), h("span", {class: "pal-place-t", text: "Cancel"}))
+              : b.placed ? h("span", {class: "pal-ok"}, icon("i-check"), h("span", {class: "sr-only", text: "Placed"})) : (o.canEdit() ? h("span", {class: "pal-place", aria: {hidden: true}}, icon("i-add", "i i-sm"), h("span", {class: "pal-place-t", text: "Place"})) : null))));
+      }
     }
     if (S.rows.some(r => r.hidden)) {
       const hidden = S.rows.filter(r => r.hidden);
@@ -148,7 +178,7 @@ export function createDeptPalette(o) {
     clear(foot);
     if (touch) { foot.appendChild(totals); foot.appendChild(seg); }
     else if (o.canEdit()) foot.appendChild(h("button", {type: "button", class: "btn small wide", onclick: () => o.onNew()}, icon("i-add"), "New category"));
-    foot.appendChild(h("p", {class: "pal-hint", text: o.canEdit() ? "Tap a department, then drag on the floor where it goes. A single tap on the floor drops it at its usual size." : "View only: tap a placed department to see it."}));
+    foot.appendChild(h("p", {class: "pal-hint", text: o.canEdit() ? "Tap a department or a brand, then drag on the floor where it goes. A single tap on the floor drops it at its usual size. Add brands to any department with its pencil." : "View only: tap a placed department to see it."}));
   }
   return {render};
 }
@@ -168,17 +198,20 @@ export function createFinder(o) {
     clear(results);
     if (!q) { results.hidden = true; input.setAttribute("aria-expanded", "false"); return; }
     const list = find(q, CATALOG, o.session.categories, {limit: 5});
-    const placed = new Set(o.session.doc.items.filter(it => it.type === "area").map(it => it.cat));
+    const areas = o.session.doc.items.filter(it => it.type === "area");
+    const placed = new Set(areas.map(it => it.cat));
     if (!list.length) results.appendChild(h("p", {class: "finder-none", text: NO_MATCH + (o.canEdit && o.canEdit() ? NO_MATCH_EDIT : "")}));
     for (const r of list) {
       const cat = categoryFor(o.session.doc, r.key, o.session.categories);
-      results.appendChild(h("button", {type: "button", class: "finder-row", role: "option", onclick: () => o.onPick({...r, placed: placed.has(r.key)})},
-        h("span", {class: "swatch-sm", style: {"--c": (cat && cat.color) || "#677a8b"}, aria: {hidden: true}}),
+      const brand = r.group && cat ? brandsOf(cat).find(b => b.label === r.group) : null;
+      const isPlaced = brand ? areas.some(it => it.cat === r.key && (it.brand === brand.key || !it.brand)) : placed.has(r.key);
+      results.appendChild(h("button", {type: "button", class: "finder-row", role: "option", onclick: () => o.onPick({...r, placed: isPlaced})},
+        h("span", {class: "swatch-sm", style: {"--c": brand ? blockColour({type: "area", cat: r.key, brand: brand.key}, cat, false) : (cat && cat.color) || "#677a8b"}, aria: {hidden: true}}),
         h("span", {class: "finder-text"},
           h("b", {text: r.zoneName + (r.group ? ` · ${r.group}` : "")}),
           r.subcat ? h("span", {class: "finder-sub", text: r.subcat}) : null,
           h("span", {class: "finder-why", text: r.why}),
-          h("span", {class: "finder-state " + (placed.has(r.key) ? "ok" : "no"), text: placed.has(r.key) ? "Placed on this map" : "Not placed yet"}))));
+          h("span", {class: "finder-state " + (isPlaced ? "ok" : "no"), text: isPlaced ? "Placed on this map" : "Not placed yet"}))));
     }
     results.hidden = false; input.setAttribute("aria-expanded", "true");
   }
@@ -208,7 +241,7 @@ export function createCategoryDialog(o) {
   const dlg = document.getElementById("catDlg"), form = dlg.querySelector("form");
   const title = dlg.querySelector("#cdTitle"), err = dlg.querySelector("#cdErr");
   const nameIn = dlg.querySelector("#cdName"), colorIn = dlg.querySelector("#cdColor"), swatches = dlg.querySelector("#cdSwatches"), familySel = dlg.querySelector("#cdFamily");
-  const subsIn = dlg.querySelector("#cdSubs"), notesIn = dlg.querySelector("#cdNotes"), targetIn = dlg.querySelector("#cdTarget"), hiddenRow = dlg.querySelector("#cdHiddenRow"), hiddenIn = dlg.querySelector("#cdHidden");
+  const subsIn = dlg.querySelector("#cdSubs"), brandsIn = dlg.querySelector("#cdBrands"), notesIn = dlg.querySelector("#cdNotes"), targetIn = dlg.querySelector("#cdTarget"), hiddenRow = dlg.querySelector("#cdHiddenRow"), hiddenIn = dlg.querySelector("#cdHidden");
   const save = dlg.querySelector("#cdSave"), del = dlg.querySelector("#cdDelete"), reset = dlg.querySelector("#cdReset"), cancel = dlg.querySelector("#cdCancel");
   const m = modal(dlg);
   let key = null;
@@ -233,11 +266,12 @@ export function createCategoryDialog(o) {
     title.textContent = !k ? "New category" : editable ? "Edit category" : "Category";
     nameIn.value = cat ? cat.name : ""; colorIn.value = cat ? String(cat.color).toLowerCase() : (PAL[9] ? String(PAL[9].color).toLowerCase() : "#db5471");
     familySel.value = cat ? cat.family : CATALOG.customFamily;
-    subsIn.value = cat ? (cat.subcats || []).join("\n") : ""; notesIn.value = cat ? cat.notes || "" : ""; targetIn.value = cat && cat.targetSqft ? String(Math.round(cat.targetSqft)) : "";
+    subsIn.value = cat ? (cat.subcats || []).join("\n") : ""; notesIn.value = cat ? cat.notes || "" : "";
+    brandsIn.value = cat ? brandsOf(cat).map(b => (b.share > 0 ? `${b.label} ${Math.round(b.share * 1000) / 10}%` : b.label)).join("\n") : ""; targetIn.value = cat && cat.targetSqft ? String(Math.round(cat.targetSqft)) : "";
     hiddenRow.hidden = !(cat && cat.isDefault); hiddenIn.checked = !!(cat && cat.hidden);
     del.hidden = !(cat && cat.custom && editable); reset.hidden = !(cat && cat.isDefault && cat.overridden && editable);
     save.hidden = !editable; save.disabled = false; save.textContent = k ? "Save" : "Create category";
-    for (const f of [nameIn, colorIn, familySel, subsIn, notesIn, targetIn, hiddenIn]) f.disabled = !editable;
+    for (const f of [nameIn, colorIn, familySel, subsIn, brandsIn, notesIn, targetIn, hiddenIn]) f.disabled = !editable;
     for (const b of swatches.querySelectorAll("button")) b.disabled = !editable;
     err.hidden = true; err.textContent = "";
     syncSwatches();
@@ -246,7 +280,7 @@ export function createCategoryDialog(o) {
   form.addEventListener("submit", e => {
     e.preventDefault();
     const fields = {name: nameIn.value, color: colorIn.value, family: familySel.value, subcats: subsIn.value.split(/\r?\n/).map(s => s.trim()).filter(Boolean),
-      notes: notesIn.value, targetSqft: targetIn.value === "" ? 0 : Number(targetIn.value), hidden: hiddenRow.hidden ? undefined : hiddenIn.checked};
+      groups: brandsIn.value.split(/\r?\n/).map(s => s.trim()).filter(Boolean), notes: notesIn.value, targetSqft: targetIn.value === "" ? 0 : Number(targetIn.value), hidden: hiddenRow.hidden ? undefined : hiddenIn.checked};
     const error = o.onSave(key, fields);
     if (error) { err.textContent = error; err.hidden = false; return; }
     m.close("ok");
