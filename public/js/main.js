@@ -4,7 +4,7 @@
  *   3D          - orbit around the store with the cleaned 3D scan as a ghost; department blocks as volumes (view3d/)
  *   Walk        - the customer's-eye walk (view3d/cameras.js)
  * in one of five view modes (OWNER RULES v3.1 rule 4; core/modes.js):
- *   Blank slate | Current layout (the master, read-only) | Area planning (the editor: plan2d/editor.js, the
+ *   Current layout (the master, read-only) | Area planning (the editor: plan2d/editor.js, the
  *   Departments palette, the inspector) | Comparison (two layouts, the change list, Apply to master) |
  *   Advisor (core/advisor.js: scores, recommendations, overlays)
  * plus the map switcher, autosave with optimistic concurrency, real-time collision warnings (core/issues.js),
@@ -321,7 +321,7 @@ function start(me, overlay) {
     onViewChange: V => { if (sideBySide()) plan.setViewFrom(V); },
     extraDraw: (ctx, V, tok) => { if (state.mode === "comparison") drawSideGhost(ctx, V, comparePanel.selectedRow(), "a", tok); },
   });
-  /** What a click on the plan does outside the editor: select (Blank slate, Advisor), pick a difference (Comparison), nothing (Current layout). */
+  /** What a click on the plan does outside the editor: select (Advisor), pick a difference (Comparison), nothing (Current layout). */
   function planClick(it, opts) {
     if (state.mode === "comparison") { if (it) compareClick(it.id); return; }
     if (state.mode === "review") { if (it && reviewPanel) reviewClick(it.id); return; }
@@ -923,7 +923,7 @@ function start(me, overlay) {
       return;
     }
     const id = state.map.id, who = id === "master" ? "the master map" : `${state.map.ownerName || "someone"}'s map`;
-    banner.show("readonly", [{text: `Viewing ${who}`, bold: true}, {text: " (read-only)"}], [{label: "Make my own copy", primary: true, onClick: () => mapMenu.newMap({from: id === "master" ? "master" : "map", mapId: id === "master" ? null : id, name: id === "master" ? `My master copy` : `Copy of ${state.map.name}`.slice(0, 60)})}]);
+    banner.show("readonly", [{text: `Viewing ${who}`, bold: true}, {text: " (read-only)"}], [{label: id === "master" ? "Start my own plan" : "Make my own copy", primary: true, onClick: () => mapMenu.newMap({from: id === "master" ? "master" : "map", mapId: id === "master" ? null : id, name: id === "master" ? `My master copy` : `Copy of ${state.map.name}`.slice(0, 60)})}]);
   }
 
   /**
@@ -1090,14 +1090,13 @@ function start(me, overlay) {
     if (!state.has3D && !planView()) { readout.hint(""); return; }
     const m = state.tool === "measure", edit = canEdit();
     const modeHint = {
-      blank: state.legacy ? "Blank slate · click an item for its size" : "Blank slate · click an item for its size · switch to Area planning to change the map",
       current: "Current layout: the master map as confirmed · hover an item for its name",
       comparison: "Tap a difference in the list, or click a changed item on the plan",
       advisor: "Show me highlights a recommendation · Apply makes the change on this map",
       review: "Open a proposal in the list to see its changes against the master",
     }[state.mode];
     readout.hint({
-      plan: state.placing ? `Placing ${state.placing.name} · drag on the floor where it goes · a click drops its usual size · Esc cancels` : m ? "Click to set A, click again for B · Esc clears" : modeHint || (edit ? "Click an item · drag to move · Shift-click adds · Delete removes · Ctrl+Z undoes · tap a department in the list, then drag on the floor" : "Click an item for details · N steps through the items · double-click the floor to walk there"),
+      plan: state.placing ? `Placing ${state.placing.name} · click the floor where it goes (or drag to draw its size) · Esc cancels` : m ? "Click to set A, click again for B · Esc clears" : modeHint || (edit ? "Click an item to see or change it · drag to move it · Ctrl+Z undoes · press Place in the list to add a department" : "Click an item for details · double-click the floor to walk there"),
       "3d": state.placing ? "Click the floor to place the block · Esc cancels" : m ? "Click to set A, click again for B · drag still turns the view · Esc clears" : modeHint || (edit ? "Drag to turn · right-drag to move · click a department block to select it, drag it along the floor" : "Drag to turn · right-drag to move · scroll to zoom · double-click to focus"),
       walk: "W A S D to walk · drag to look · double-click the floor to walk there",
     }[state.view]);
@@ -1361,7 +1360,7 @@ function start(me, overlay) {
     tabs.setMode(m);
     const a = allows();
     if (!a.select || was === "comparison" || was === "advisor" || was === "review") session.clearSelection();
-    else pruneSelection(); // Blank slate draws no departments or fixtures: none of them stays selected
+    else pruneSelection(); // what the new mode doesn't draw doesn't stay selected
     if (was === "advisor") { advisorPanel.clearShow(); if (overlays3d) { overlays3d.setOverlays(null, null, overlayColours()); overlays3d.setHighlight(null, overlayColours()); } }
     planOpts.editor = a.edit ? editor : null;
     app.dataset.edit = String(canEdit());
@@ -1401,7 +1400,7 @@ function start(me, overlay) {
     if (todo.mode) setMode(todo.mode);
   });
 
-  /* ================= phone: the More sheet ================= */
+  /* ================= More: the less-used tools (a sheet on a phone, a menu on a computer) ================= */
   const moreBtn = $("#moreBtn"), morePop = $("#morePop");
   function moreRow(label, ico, onclick, pressed) {
     return h("button", {type: "button", class: "layer-row", role: pressed === undefined ? "menuitem" : "switch", aria: pressed === undefined ? {} : {checked: pressed}, onclick: () => { onclick(); syncMore(); }},
@@ -1453,7 +1452,7 @@ function start(me, overlay) {
     }
     if (e.altKey) return;
     if (e.key === "?") { e.preventDefault(); help.open(); return; }
-    const modeKeys = {Digit1: "blank", Digit2: "current", Digit3: "planning", Digit4: "comparison", Digit5: "advisor", Digit6: "review"};
+    const modeKeys = {Digit1: "current", Digit2: "planning", Digit3: "comparison", Digit4: "advisor", Digit5: "review"};
     const viewKeys = {Digit1: "plan", Digit2: "3d", Digit3: "walk"};
     if (e.shiftKey && viewKeys[e.code]) { setView(viewKeys[e.code]); return; }
     if (modeKeys[e.code] && !e.shiftKey) { setMode(modeKeys[e.code]); return; }

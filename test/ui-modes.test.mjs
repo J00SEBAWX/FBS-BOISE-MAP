@@ -25,21 +25,23 @@ describe("route: modes in the hash", () => {
     assert.deepEqual(parseHash("#comparison&3d&master"), { view: "3d", mode: "comparison", map: "master" });
     assert.deepEqual(parseHash("#walk"), { view: "walk", mode: null, map: null });
     assert.equal(buildHash({ view: "plan", mode: "planning", map: "m_1" }), "#plan&map=m_1");
-    assert.equal(buildHash({ view: "3d", mode: "blank", map: "master" }), "#3d&blank&master");
+    assert.equal(buildHash({ view: "3d", mode: "current", map: "master" }), "#3d&current&master");
+    assert.equal(buildHash({ view: "3d", mode: "blank", map: "master" }), "#3d&master"); // not a mode any more
     for (const m of MODES) assert.equal(parseHash(buildHash({ view: "plan", mode: m })).mode, m === "planning" ? null : m);
     for (const v of VIEWS) assert.equal(parseHash("#" + v).view, v);
   });
   test("the Phase 2 #categories hash opens the plan in Area planning; junk is ignored", () => {
     assert.deepEqual(parseHash("#categories&map=m_abc"), { view: "plan", mode: "planning", map: "m_abc" });
-    assert.deepEqual(parseHash("#nope&map=%E0%A4%A&blank"), { view: null, mode: "blank", map: null });
+    assert.deepEqual(parseHash("#nope&map=%E0%A4%A&advisor"), { view: null, mode: "advisor", map: null });
   });
 });
 
 /* ======================================================================= modes.js */
 describe("modes: what each mode shows and allows", () => {
-  test("only Area planning edits; Blank slate hides fixtures and departments; Current layout shows the master", () => {
+  test("only Area planning edits (it holds the blank slate too); Current layout shows the master", () => {
     assert.equal(MODES.filter(m => modeAllows(m).edit).join(), "planning");
-    assert.equal(modeAllows("blank").showsBlocks, false);
+    assert.deepEqual([...MODES], ["current", "planning", "comparison", "advisor", "review"]);
+    assert.deepEqual(MODES.map(m => MODE_INFO[m].key), ["1", "2", "3", "4", "5"]);
     assert.equal(modeAllows("current").usesMaster, true);
     assert.equal(modeAllows("comparison").panel, "compare");
     assert.equal(modeAllows("advisor").panel, "advisor");
@@ -48,14 +50,13 @@ describe("modes: what each mode shows and allows", () => {
   });
   test("modeLayers applies the rules over the person's choices", () => {
     const L = { structure: true, fixtures: true, faint: false, categories: false, labels: true };
-    assert.deepEqual(modeLayers("blank", L), { ...L, fixtures: false, faint: false, categories: false });
     assert.equal(modeLayers("current", L).categories, true);
     assert.equal(modeLayers("planning", L).categories, false);
     assert.equal(modeLayers("advisor", { ...L, fixtures: false, faint: true }).faint, true);
   });
   test("a read-only notice for every mode but Area planning", () => {
     assert.equal(modeNotice("planning"), null);
-    for (const m of ["blank", "current", "comparison", "advisor"]) assert.match(modeNotice(m), /\w/);
+    for (const m of ["current", "comparison", "advisor"]) assert.match(modeNotice(m), /\w/);
   });
 });
 

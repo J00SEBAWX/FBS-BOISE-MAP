@@ -13,7 +13,7 @@ export const LEGACY_BANNER = Object.freeze({
 export const LEGACY_BANNER_TEXT = LEGACY_BANNER.title + LEGACY_BANNER.text;
 
 /** The view modes that still work without the API: they only read the master map. */
-export const LEGACY_MODES = Object.freeze(["blank", "current"]);
+export const LEGACY_MODES = Object.freeze(["current"]);
 
 /**
  * Does this API failure mean "the server isn't ready for maps yet" (rather than a dropped connection, a signed-out
@@ -28,7 +28,7 @@ export function apiNotReady(err, {master = false} = {}) {
 
 /** May this mode be used while the API is not ready? */
 export const legacyAllows = mode => LEGACY_MODES.includes(mode);
-/** The mode to show instead: Blank slate stays, everything else becomes Current layout. */
+/** The mode to show instead: Current layout. */
 export const legacyMode = mode => (legacyAllows(mode) ? mode : "current");
 
 /**

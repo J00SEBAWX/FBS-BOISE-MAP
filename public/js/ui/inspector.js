@@ -294,7 +294,7 @@ export function createInspector(o) {
       section("What's on it", h("ul", {class: "counts"}, top.map(([k, n]) => h("li", {}, h("b", {text: String(n)}), ` ${k}`)))),
       canEdit() ? section("How to edit", h("ul", {class: "tips"},
         h("li", {text: "Tap an item to select it"}), h("li", {text: "Drag to move · corner handles resize"}), h("li", {text: "The top handle rotates (15° steps, Shift for free)"}),
-        h("li", {text: "Shift-click adds to the selection · arrows nudge 6\" (Shift 5')"}), h("li", {text: o.isTouch() ? "Structure is locked until you unlock it in More" : "Structure is locked until you unlock it in the toolbar"}))) :
+        h("li", {text: "Shift-click adds to the selection · arrows nudge 6\" (Shift 5')"}), h("li", {text: "Structure is locked until you unlock it in More"}))) :
         notice ? null : section("View only", h("p", {class: "insp-hint", text: m.master ? "Only the admin changes the master map. Make your own copy to try ideas." : "This map belongs to someone else. Make your own copy to change it."})),
     ];
   }

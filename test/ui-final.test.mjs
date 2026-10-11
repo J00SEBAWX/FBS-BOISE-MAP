@@ -37,13 +37,13 @@ describe("readiness: the new page published before migration 0005 / the master s
   });
 
   test("only the modes that just read the master stay; everything else becomes Current layout", () => {
-    assert.deepEqual([...LEGACY_MODES], ["blank", "current"]);
-    for (const m of MODES) assert.equal(legacyAllows(m), m === "blank" || m === "current", m);
+    assert.deepEqual([...LEGACY_MODES], ["current"]);
+    for (const m of MODES) assert.equal(legacyAllows(m), m === "current", m);
     assert.equal(legacyMode("planning"), "current");
     assert.equal(legacyMode("comparison"), "current");
     assert.equal(legacyMode("advisor"), "current");
     assert.equal(legacyMode("review"), "current");
-    assert.equal(legacyMode("blank"), "blank");
+    assert.equal(legacyMode("blank"), "current"); // Blank slate is part of Area planning now
     assert.equal(legacyMode("current"), "current");
     assert.equal(legacyMode("junk"), "current");
   });
@@ -76,10 +76,8 @@ describe("readiness: the new page published before migration 0005 / the master s
     assert.equal(collectIssues(s.doc).count >= 0, true);
   });
 
-  test("the notices for Blank slate don't send people to a mode that isn't there", () => {
-    assert.match(modeNotice("blank", { master: true }), /Area planning/);
-    assert.doesNotMatch(modeNotice("blank", { master: true, legacy: true }), /Area planning/);
-    assert.match(modeNotice("blank", { master: true, legacy: true }), /Current layout/);
+  test("the notices don't send people to a mode that isn't there", () => {
+    assert.equal(modeNotice("blank", { master: true }), null); // no Blank slate mode any more
     assert.match(modeNotice("current", { master: true, legacy: true }), /can't be changed/);
   });
 });
@@ -99,19 +97,23 @@ describe("route: a hash typed by hand", () => {
     assert.deepEqual(planHashChange("#junk&map=../x", cur), { map: null, view: null, mode: null });
   });
   test("the old Phase 2 #categories link still opens the plan in Area planning", () => {
-    assert.deepEqual(planHashChange("#categories", { view: "3d", mode: "blank", map: "master" }), { map: null, view: "plan", mode: "planning" });
+    assert.deepEqual(planHashChange("#categories", { view: "3d", mode: "current", map: "master" }), { map: null, view: "plan", mode: "planning" });
     assert.equal(parseHash("#categories").mode, "planning");
+  });
+  test("an old Blank slate link opens Area planning, where the blank slate lives now", () => {
+    assert.deepEqual(parseHash("#plan&blank&master"), { view: "plan", mode: "planning", map: "master" });
+    assert.ok(!MODES.includes("blank"));
   });
 });
 
-/* ======================================================================= Blank slate and the selection */
+/* ======================================================================= layers and the selection */
 describe("modes: what stays selectable", () => {
   const L = (mode, over = {}) => modeLayers(mode, { structure: true, fixtures: true, categories: true, faint: false, ...over });
   const block = { id: "b1", type: "area", cat: "power-tools" };
   const gondola = { id: "g1", type: "gondola" };
   const wall = { id: "w1", type: "wall" };
-  test("Blank slate draws only the structure, so a selected department block or fixture must be dropped", () => {
-    const blank = L("blank");
+  test("Hide fixtures and departments (the blank slate in Area planning) leaves only the structure selectable", () => {
+    const blank = L("planning", { fixtures: false, categories: false });
     assert.equal(itemShownIn(block, blank), false);
     assert.equal(itemShownIn(gondola, blank), false);
     assert.equal(itemShownIn(wall, blank), true);
@@ -133,13 +135,13 @@ describe("modes: what stays selectable", () => {
 });
 
 describe("modes: where to unlock the Structure", () => {
-  test("says where the lock is on a computer and on a phone, and points the 3D view to the Plan", () => {
-    assert.match(unlockHint({ touch: false, plan: true }), /in the toolbar/);
-    assert.match(unlockHint({ touch: true, plan: true }), /in More/);
-    assert.doesNotMatch(unlockHint({ touch: true, plan: true }), /toolbar/);
-    assert.match(unlockHint({ touch: true, plan: false }), /Plan/);
-    assert.match(unlockHint({ touch: false, plan: false }), /Plan/);
-    assert.match(unlockHint(), /in the toolbar/);
+  test("says the lock is in More (computer and phone), and points the 3D view to the Plan", () => {
+    for (const touch of [false, true]) {
+      assert.match(unlockHint({ touch, plan: true }), /in More/);
+      assert.doesNotMatch(unlockHint({ touch, plan: true }), /toolbar/);
+      assert.match(unlockHint({ touch, plan: false }), /Plan/);
+    }
+    assert.match(unlockHint(), /in More/);
   });
 });
 

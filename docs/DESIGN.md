@@ -225,9 +225,9 @@ groups separated by a 1px x 24px `--line` divider with 6px margins):
 | Tools | Select `i-select` (V), Pan `i-hand` (H / hold Space), Measure `i-measure` (M) | radio-like: active tool `aria-pressed="true"` = `--accent-soft` fill, `--accent-soft-ink` icon, 1px `--accent-line` inset ring |
 | Add | Primary button "Add" with `i-add` + `i-chevron` (36px tall) | opens the Add palette (4.6) |
 | History | Undo `i-undo` (Ctrl+Z), Redo `i-redo` (Ctrl+Shift+Z / Ctrl+Y) | disabled = `--ink-disabled`, no hover |
-| Selection | Duplicate `i-duplicate` (Ctrl+D), Rotate 90° `i-rotate` (R), Delete `i-delete` (Del, icon in `--danger-text`) | disabled with no selection |
+| Selection | Delete `i-delete` (Del, icon in `--danger-text`); Duplicate (Ctrl+D) and Rotate 90° (R) are in **More** and the inspector | disabled with no selection |
 | (spacer) | | |
-| Toggles (label buttons, 36px, 13px 500, 18px icon) | **Structure locked / unlocked** (`i-lock` / `i-unlock`), **Snap** (`i-snap`, S), **Layers** (`i-layers` + chevron) | Structure locked = neutral pressed (`--surface-2`, `--line` border) because locked is the safe default; unlocked = `--warning-soft` fill, `--warning-soft-ink` text + `i-unlock`, so it is obvious structure can now move. Snap on = accent-soft pressed. |
+| Toggles (label buttons, 36px, 13px 500, 18px icon) | **Layers** (`i-layers` + chevron), **More** (`i-more`: Structure locked / unlocked, Snap, Duplicate, Rotate 90°, Dimensions, help; the same menu as the phone's More sheet, so the bar keeps only what a first-time planner needs) | Structure locked = neutral pressed (`--surface-2`, `--line` border) because locked is the safe default; unlocked = `--warning-soft` fill, `--warning-soft-ink` text + `i-unlock`, so it is obvious structure can now move. Snap on = accent-soft pressed. |
 
 Every icon button has `aria-label` and a `title` tooltip with its shortcut ("Undo (Ctrl+Z)"). Tooltips appear after
 500ms hover or on keyboard focus, `--surface-inverse` / `--ink-inverse`, 12px, `--radius-sm`, `--z-tooltip`.
@@ -274,7 +274,7 @@ Rotate / Delete never scroll away.
 - **Nothing selected**: map summary card (name, maker, item counts by type, last changed), "How to edit" tips
   (Tap an item to select it · Drag to move · Corner handles resize · Top handle rotates), and the layers list.
 - **Structure item while locked**: fields render read-only (plain text, no input chrome) with an inline notice
-  "Structure is locked. Unlock it in the toolbar to change walls, doors, columns, floors and stairs." and an
+  "Structure is locked. Unlock it in More to change walls, doors, columns, floors and stairs." and an
   "Unlock structure" button.
 
 ### 4.3 Phone layout (< 768px; also any `pointer: coarse` window under 1024px)
@@ -304,7 +304,7 @@ Rotate / Delete never scroll away.
   piece (head, list and foot together; a foot with actions, such as Review's Approve / Needs changes / Decline row,
   stays pinned at the bottom): *peek* is 76% of the canvas, *expanded* 92%, switched by the 36 x 4 grab bar; in
   landscape they dock to the left edge, 340px wide, full height.
-- **More** sheet: Structure locked/unlocked switch, Snap switch, Select several (multi-select mode, since there is
+- **More** sheet (a menu under the More button on a computer too): Structure locked/unlocked switch, Snap switch, Select several (multi-select mode, since there is
   no Shift key), Layers, Keyboard & help, Fit to store.
 - **Gestures** (no hover, no right-click): tap = select (tap empty floor = clear); drag a selected item = move;
   drag on empty floor or on an unselected item = pan; two-finger pinch/drag = zoom/pan; long-press (500ms) on an
@@ -382,7 +382,7 @@ Categories, Grid on and fixtures faint off. Saved per device (localStorage, try/
 Popover from "Add" (phone: sheet from the Add tab button). Two groups in a 2-column grid of 40px rows: a 30 x 22
 proportional preview of the item (drawn with plan tokens) + name. **Fixtures**: Gondola, Wall unit, Rack, Counter,
 Table, Display, Tower, Platform, Zone. **Structure**: Wall, Column, Door, Opening, Stairs. While structure is
-locked the structure rows show `i-lock` and are `aria-disabled` with the hint "Unlock **Structure** in the toolbar
+locked the structure rows show `i-lock` and are `aria-disabled` with the hint "Unlock **Structure** in More
 to add walls, doors, columns, openings or stairs." Choosing an item drops it in the middle of the visible plan with
 the store's default size for that type, selected, so the inspector opens; one undo step.
 
@@ -423,7 +423,10 @@ the right. Grid: `var(--palette-w) minmax(0,1fr) var(--inspector-w)`.
   starting size centred on the tap instead. Esc, Cancel, the row again or a second finger (pinch) cancels. In the 3D view the
   same pick + click-the-floor flow with a ghost block applies. Tap a placed one: selects it and pans to it. A department can
   be placed more than once (Split into two); the meta then reads "2 spots · 640 sq ft".
-- Footer hint: "Tap a department, then drag on the floor where it goes. A single tap on the floor drops it at its usual size."
+- Footer hint: "Press Place next to a department, then tap the floor where it goes. Drag the block to move it; pull a corner to resize it."
+  (Dragging on the floor while a department is waiting still draws exactly that rectangle.)
+- Above the list on a computer: "Shelves, racks and displays (Hide for a blank slate)" with **Show / Faint / Hide**. Hide is the
+  blank slate: there is no separate Blank slate mode; a map started from "A blank store" is the other way to get one.
 
 **Department inspector**: header = swatch + eyebrow "DEPARTMENT · <family>", name, "Placed by AJ · 12 min ago".
 Sections: **Area** (big number "613 sq ft" in Barlow Condensed 700 28px + "24' 6" × 25' 0"", and "Suggested size for
@@ -523,7 +526,7 @@ full width under the tabs row). They do not auto-dismiss.
 
 | Banner | Look | Copy | Action |
 |---|---|---|---|
-| Read-only | `--accent-soft` / `--accent-soft-ink`, `--accent-line` border, `i-eye` | "**Viewing Dana's map** (read-only)" (master for members: "**Viewing the master map** (read-only)") | primary **Make my own copy** |
+| Read-only | `--accent-soft` / `--accent-soft-ink`, `--accent-line` border, `i-eye` | "**Viewing Dana's map** (read-only)" (master for members: "**Viewing the master map** (read-only)") | primary **Start my own plan** on the master (opens New map), **Make my own copy** on someone else's map |
 | Conflict (409) | `--danger-soft` / `--danger-soft-ink`, `i-error`, `role="alert"` | "This map was changed somewhere else. Reload it to keep going. Your unsaved edits are kept on this device." | secondary **Reload** |
 | Offline | `--warning-soft` / `--warning-soft-ink`, `i-cloud-off` (`--warning`) | "You're offline. Changes are kept on this device and saved when you're back." | none |
 | Not saved | same as offline with `i-warning` | "Couldn't save. Trying again in 10 s." | **Try now** |
@@ -542,8 +545,8 @@ headline, one 14px `--ink-muted` sentence ≤ 34ch, one primary action):
 
 - No own maps: `i-map`, "NO MAPS OF YOUR OWN YET", "Make a copy of the master map or start from a blank store. Only
   you can change it.", **New map**.
-- Categories with nothing placed: `i-blocks`, "NO DEPARTMENTS PLACED YET", "Tap a department in the list to place it
-  on the plan.", (phone) **Show departments**.
+- Categories with nothing placed: `i-blocks`, "NO DEPARTMENTS PLACED YET", "Press **Place** next to a department in the list,
+  then tap the floor where it goes.", (phone) **Show departments**.
 - Review with no other maps: `i-review`, "NOTHING TO REVIEW YET", "When someone saves a map, you can compare it with
   the master here."
 - Nothing selected (inspector): see 4.2.

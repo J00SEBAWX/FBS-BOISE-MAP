@@ -4,9 +4,10 @@
  *   #3d&advisor&master            the master map, 3D display, Advisor mode
  *   #plan&comparison&map=m_1      a map in Comparison mode
  * Parts may come in any order; unknown parts are ignored. The old one-word hashes (#plan, #3d, #walk) still
- * work, and the Phase 2 "#categories" opens the plan in Area Planning. */
+ * work, and the Phase 2 "#categories" opens the plan in Area Planning. The old "#blank" (Blank slate, now part of
+ * Area planning: a blank-store map, or Hide fixtures in the Departments list) opens Area planning too. */
 export const VIEWS = Object.freeze(["plan", "3d", "walk"]);
-export const MODES = Object.freeze(["blank", "current", "planning", "comparison", "advisor", "review"]);
+export const MODES = Object.freeze(["current", "planning", "comparison", "advisor", "review"]);
 export const DEFAULT_MODE = "planning";
 const MAP_ID = /^m_[A-Za-z0-9_-]{1,60}$/;
 
@@ -18,6 +19,7 @@ export function parseHash(hash) {
   for (const part of s.split("&")) {
     if (VIEWS.includes(part)) out.view = part;
     else if (part === "categories") { out.view = "plan"; out.mode = "planning"; }
+    else if (part === "blank") out.mode = "planning";
     else if (MODES.includes(part)) out.mode = part;
     else if (part === "master") out.map = "master";
     else if (part.startsWith("map=")) { let id = ""; try { id = decodeURIComponent(part.slice(4)); } catch { id = ""; } if (MAP_ID.test(id)) out.map = id; }
