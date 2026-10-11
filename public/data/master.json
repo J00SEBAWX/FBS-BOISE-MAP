@@ -937,16 +937,15 @@
    "id": "i66",
    "type": "wallunit",
    "name": "STRAP ISLE 12'",
-   "x": 127.1,
-   "y": 29.5,
+   "x": 148.75,
+   "y": 46.8,
    "w": 5,
    "d": 1.8,
    "h": 6,
-   "rot": 90,
+   "rot": 0,
    "color": "#1c1c1c",
    "brand": "straps",
-   "toConfirm": "Owner (10 Oct): the strap isle faces the front sales desk, on the west side of the cubicles, across from the desk's east side. Placed against the cubicles' west edge (x 128), front facing west, centred on the desk's walkway. Only about 2 ft is free between the desk's back partition (east face x 125.95) and the cubicles, so this needs a tape measure: length (12 ft by its name, 5 ft by the survey) and the gap.",
-   "src": "owner 10 Oct 2026 (position and facing); length still open"
+   "toConfirm": "Owner (10 Oct): this unit is supposed to face the front sales desk, on the west side of the cubicles. Left where the photo survey had it (at the east end of the cubicle panel line, facing north) until the exact spot is confirmed. Free space west of the cubicles is only about 2 ft between the sales desk back partition and the cubicles, too tight for a 1.8 ft deep unit plus an aisle. Length: 12 ft by its name, 5 ft by the survey."
   },
   {
    "id": "i67",
@@ -2475,11 +2474,12 @@
     "i99b": "Pellet grill 2 (same)",
     "diablo_af": "Diablo blade A-frame (not needed as a fixture; its stock counts under Bits, Blades & Cutting Accessories)"
    },
-   "moved": {
-    "i66": "Strap isle: now faces the front sales desk, west of the cubicles"
-   },
+   "moved": {},
    "kept": {
     "grill_wh": "Pellet grill (demo) in the warehouse: not mentioned, kept; confirm"
+   },
+   "pending": {
+    "i66": "Strap isle: owner wants it facing the front sales desk on the west side of the cubicles; exact spot to be confirmed (left at the survey position for now)"
    }
   }
  }
