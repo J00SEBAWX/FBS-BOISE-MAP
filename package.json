@@ -12,7 +12,8 @@
     "test": "node --test test/*.test.mjs",
     "test:browser": "node --test --test-concurrency=1 test/browser/*.browser.mjs",
     "setup-code": "node scripts/setup-code.mjs",
-    "seed-master": "node scripts/seed-master.mjs"
+    "seed-master": "node scripts/seed-master.mjs",
+    "master-patch": "node scripts/master-patch.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.135.0"

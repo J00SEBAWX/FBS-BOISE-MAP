@@ -241,12 +241,15 @@ function start(me, overlay) {
 
   /* ================= layers ================= */
   const layers = createLayers({btn: $("#layersBtn"), pop: $("#layersPop"), onChange: key => applyLayers(key)});
-  const planLayers = () => modeLayers(state.mode, layers.get("plan"));
+  // Area planning on the master, for the team (who can't change it), shows the blank store: what a new plan starts
+  // from. The admin, who edits the master here, and anyone viewing someone else's map still see everything.
+  const blankView = () => state.mode === "planning" && state.map.id === "master" && !isAdmin && !state.legacy;
+  const planLayers = () => modeLayers(state.mode, layers.get("plan"), {blank: blankView()});
   function applyLayers(key) {
     const v = state.view;
     $("#toolSnap").setAttribute("aria-pressed", String(layers.get().snap));
     if (R) {
-      const L3 = modeLayers(state.mode, layers.get(planView() ? "3d" : v));
+      const L3 = modeLayers(state.mode, layers.get(planView() ? "3d" : v), {blank: blankView()});
       groups.structure.visible = L3.structure; groups.fixtures.visible = L3.fixtures; groups.ceiling.visible = L3.ceiling;
       walk.setCeiling(L3.ceiling);
       labels3d.show(v === "3d" && L3.labels);
@@ -576,6 +579,7 @@ function start(me, overlay) {
   const palette = createDeptPalette({
     el: $("#palette"), session, canEdit, toast, isDark, isTouch: () => phoneMq.matches,
     getFixtures: () => layers.fixMode(),
+    blank: () => blankView(),
     onFixtures: mode => layers.setFixtures(mode),
     onPlace: key => (planView() || state.view === "3d" ? startPlacing(key) : placeDepartment(key)),
     placingKey: () => (state.placing ? state.placing.key : null),
@@ -923,7 +927,9 @@ function start(me, overlay) {
       return;
     }
     const id = state.map.id, who = id === "master" ? "the master map" : `${state.map.ownerName || "someone"}'s map`;
-    banner.show("readonly", [{text: `Viewing ${who}`, bold: true}, {text: " (read-only)"}], [{label: id === "master" ? "Start my own plan" : "Make my own copy", primary: true, onClick: () => mapMenu.newMap({from: id === "master" ? "master" : "map", mapId: id === "master" ? null : id, name: id === "master" ? `My master copy` : `Copy of ${state.map.name}`.slice(0, 60)})}]);
+    if (blankView()) banner.show("readonly", [{text: "The empty store", bold: true}, {text: ": start your own plan to place departments, aisles and displays."}],
+      [{label: "Start my own plan", primary: true, onClick: () => mapMenu.newMap({from: "blank", name: "My plan"})}]);
+    else banner.show("readonly", [{text: `Viewing ${who}`, bold: true}, {text: " (read-only)"}], [{label: id === "master" ? "Start my own plan" : "Make my own copy", primary: true, onClick: () => mapMenu.newMap(id === "master" ? {from: "blank", name: "My plan"} : {from: "map", mapId: id, name: `Copy of ${state.map.name}`.slice(0, 60)})}]);
   }
 
   /**
@@ -1168,7 +1174,7 @@ function start(me, overlay) {
   }
 
   /* ================= 3D pointer: status bar, Measure cursor, click to pick, drag a block, double-click to focus ================= */
-  const visibleLayers = () => { const L3 = modeLayers(state.mode, layers.get(state.view === "walk" ? "walk" : "3d")); return {structure: L3.structure, fixtures: L3.fixtures, ceiling: L3.ceiling}; };
+  const visibleLayers = () => { const L3 = modeLayers(state.mode, layers.get(state.view === "walk" ? "walk" : "3d"), {blank: blankView()}); return {structure: L3.structure, fixtures: L3.fixtures, ceiling: L3.ceiling}; };
   function feetPerPixel(p) {
     const cam = orbit.camera, dist = cam.position.distanceTo(new R.THREE.Vector3(p.x, 0, -p.y));
     return dist * 2 * Math.tan(cam.fov * Math.PI / 360) / Math.max(1, R.h);
@@ -1205,7 +1211,7 @@ function start(me, overlay) {
   function pick3D(clientX, clientY) {
     const hit = picker.pick(clientX, clientY, orbit.camera, visibleLayers());
     const ray = picker.ray(clientX, clientY, orbit.camera);
-    const b = modeLayers(state.mode, layers.get("3d")).categories ? blocks3d.pick(ray.o, ray.d) : null;
+    const b = modeLayers(state.mode, layers.get("3d"), {blank: blankView()}).categories ? blocks3d.pick(ray.o, ray.d) : null;
     if (b && (!hit.item || b.t <= hit.t + 0.01)) return b.item;
     return hit.item;
   }

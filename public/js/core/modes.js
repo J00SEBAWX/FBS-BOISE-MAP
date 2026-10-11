@@ -40,11 +40,13 @@ export function modeAllows(mode) {
 
 /**
  * The layers a display draws in a mode: the person's layer choices with the mode's rules applied
- * (Current Layout and Comparison always show departments).
+ * (Current Layout and Comparison always show departments). blank: Area planning on a map that can't be changed
+ * here shows the blank store (structure and the built-in desks; no fixtures, no departments).
  */
-export function modeLayers(mode, L) {
+export function modeLayers(mode, L, {blank = false} = {}) {
   const a = modeAllows(mode);
   const out = {...L};
+  if (blank && mode === "planning") { out.fixtures = false; out.faint = false; out.categories = false; out.structure = true; }
   if (!a.showsFixtures) { out.fixtures = false; out.faint = false; }
   if (!a.showsBlocks) out.categories = false;
   else if (mode === "current" || mode === "comparison" || mode === "review") out.categories = true;

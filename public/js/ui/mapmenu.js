@@ -108,12 +108,12 @@ export function createMapMenu(o) {
     const mine = [...maps.mine].sort((a, b) => b.updatedAt - a.updatedAt);
     menu.appendChild(h("p", {class: "mm-label", role: "none", text: `My maps · ${mine.length} of ${MAX_MAPS}`}));
     if (!loaded) menu.appendChild(h("p", {class: "mm-empty", role: "none", text: "Loading your maps…"}));
-    else if (!mine.length) menu.appendChild(h("p", {class: "mm-empty", role: "none", text: "No maps of your own yet. Make a copy of the master map or start from a blank store; only you can change it."}));
+    else if (!mine.length) menu.appendChild(h("p", {class: "mm-empty", role: "none", text: "No maps of your own yet. Start from a blank store (or a copy of the master map); only you can change it."}));
     for (const m of mine) menu.appendChild(row(m, "mine"));
     const full = mine.length >= MAX_MAPS;
     menu.appendChild(h("button", {type: "button", class: "mm-new", role: "menuitem", tabindex: -1, disabled: full, aria: {disabled: full},
       title: full ? `You have ${MAX_MAPS} maps, the most allowed. Delete one to make a new one.` : "",
-      onclick: () => { close(false); newDlg.start({from: "master"}); }}, icon("i-add"), "New map"));
+      onclick: () => { close(false); newDlg.start({from: "blank"}); }}, icon("i-add"), "New map"));
     if (full) menu.appendChild(h("p", {class: "mm-empty", role: "none", text: `You have ${MAX_MAPS} maps, the most allowed. Delete one to make a new one.`}));
     const team = [...maps.team].sort((a, b) => b.updatedAt - a.updatedAt);
     if (team.length || (me && me.role === "admin") || sharing) {
@@ -181,7 +181,7 @@ export function createMapMenu(o) {
     copySel.closest(".nm-copy").hidden = v !== "map";
   }
   fromBox.addEventListener("change", syncFrom);
-  newDlg.start = ({from = "master", mapId = null, name = ""} = {}) => {
+  newDlg.start = ({from = "blank", mapId = null, name = ""} = {}) => {
     mode = "new"; renaming = null;
     title.textContent = "New map";
     nameIn.value = name || `My map ${maps.mine.length + 1}`;

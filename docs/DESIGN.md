@@ -526,7 +526,7 @@ full width under the tabs row). They do not auto-dismiss.
 
 | Banner | Look | Copy | Action |
 |---|---|---|---|
-| Read-only | `--accent-soft` / `--accent-soft-ink`, `--accent-line` border, `i-eye` | "**Viewing Dana's map** (read-only)" (master for members: "**Viewing the master map** (read-only)") | primary **Start my own plan** on the master (opens New map), **Make my own copy** on someone else's map |
+| Read-only | `--accent-soft` / `--accent-soft-ink`, `--accent-line` border, `i-eye` | "**Viewing Dana's map** (read-only)" (master for members: "**Viewing the master map** (read-only)") | primary **Start my own plan** on the master (opens New map, starting from a blank store), **Make my own copy** on someone else's map. In Area planning the team sees the master as the empty store (structure and built-in desks) with "**The empty store**: start your own plan to place departments, aisles and displays." |
 | Conflict (409) | `--danger-soft` / `--danger-soft-ink`, `i-error`, `role="alert"` | "This map was changed somewhere else. Reload it to keep going. Your unsaved edits are kept on this device." | secondary **Reload** |
 | Offline | `--warning-soft` / `--warning-soft-ink`, `i-cloud-off` (`--warning`) | "You're offline. Changes are kept on this device and saved when you're back." | none |
 | Not saved | same as offline with `i-warning` | "Couldn't save. Trying again in 10 s." | **Try now** |
