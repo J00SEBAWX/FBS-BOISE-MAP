@@ -24,21 +24,40 @@
       <span class="wordmark" id="brand"><span>FBS BOISE</span><b>STORE MAP</b></span>
     </header>
 
-    <!-- Step 1: access code -->
-    <form id="step-code" class="panel" method="post" novalidate>
-      <h1>This map is private.</h1>
-      <p class="lead">Enter the access code you were given. If you don't have one, ask the person who sent you this link.</p>
+    <!-- Sign in: username + password, for everyone -->
+    <form id="sign-in" class="panel" method="post" novalidate hidden>
+      <h1>Sign in</h1>
+      <p class="notice error" id="msg-signin" role="alert" hidden></p>
+      <div class="field">
+        <label for="username">Username</label>
+        <input class="input" id="username" name="username" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="100" required aria-describedby="msg-signin">
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input class="input" id="password" name="password" type="password" autocomplete="current-password" maxlength="200" required aria-describedby="msg-signin">
+      </div>
+      <button class="btn primary wide" type="submit">Sign in</button>
+      <p class="note">Forgot your password? Ask the admin for a reset code, then tap the button below.</p>
+      <button class="btn wide" type="button" id="to-code">I have a code from the admin</button>
+      <a class="link small" id="to-setup" href="/login?setup=1" hidden>Set up or reset the admin password</a>
+    </form>
+
+    <!-- Step 1: a code from the admin (an access code for new people, or a reset code) -->
+    <form id="step-code" class="panel" method="post" novalidate hidden>
+      <h1>Enter your code</h1>
+      <p class="lead">New here, or forgot your password? Type the code the admin gave you.</p>
       <p class="notice error" id="msg-code" role="alert" hidden></p>
       <div class="field">
-        <label for="code">Access code</label>
+        <label for="code">Code</label>
         <input class="input code" id="code" name="code" type="text" inputmode="text" autocomplete="one-time-code" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="24" placeholder="XXXX-XXXX" required aria-describedby="msg-code">
       </div>
       <button class="btn primary wide" type="submit">Continue</button>
+      <button class="btn wide" type="button" id="to-signin">I already have a username</button>
     </form>
 
-    <!-- Step 2: name and phone -->
+    <!-- Step 2 (access code): make your profile -->
     <form id="step-details" class="panel" method="post" novalidate hidden>
-      <h1>One more step.</h1>
+      <h1>Make your profile</h1>
       <p class="code-ok"><span class="tick" aria-hidden="true"></span><span>Code <b class="mono" id="code-echo"></b> works.</span> <button type="button" class="link" id="change-code">Change</button></p>
       <p class="notice error" id="msg-details" role="alert" hidden></p>
       <div class="field">
@@ -46,27 +65,44 @@
         <input class="input" id="name" name="name" type="text" autocomplete="name" autocapitalize="words" maxlength="60" required aria-describedby="msg-details">
       </div>
       <div class="field">
-        <label for="phone">Mobile phone</label>
-        <input class="input" id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="208-555-0123" required aria-describedby="msg-details">
+        <label for="new-username">Pick a username</label>
+        <input class="input" id="new-username" name="username" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40" required aria-describedby="new-username-hint msg-details">
+        <span class="hint" id="new-username-hint">3 to 40 letters or numbers (dots, dashes and underscores are fine). Example: dana.k</span>
       </div>
-      <button class="btn primary wide" type="submit">Open the store map</button>
-      <p class="note">Only the site's admin can see your name and number.</p>
+      <div class="field">
+        <label for="new-password">Pick a password</label>
+        <input class="input" id="new-password" name="password" type="password" autocomplete="new-password" maxlength="200" required aria-describedby="new-password-hint msg-details">
+        <span class="hint" id="new-password-hint">At least 10 characters. A short sentence is easy to remember.</span>
+      </div>
+      <div class="field">
+        <label for="new-password2">Type the password again</label>
+        <input class="input" id="new-password2" name="password2" type="password" autocomplete="new-password" maxlength="200" required aria-describedby="msg-details">
+      </div>
+      <button class="btn primary wide" type="submit">Save and open the store map</button>
+      <p class="note">Write down your username and password. You'll use them to sign in next time. Only the site's admin can see your name and username.</p>
     </form>
 
-    <!-- Admin sign-in -->
-    <form id="admin-login" class="panel" method="post" novalidate hidden>
-      <h1>Admin sign-in</h1>
-      <p class="notice error" id="msg-admin" role="alert" hidden></p>
+    <!-- Step 2 (reset code): pick a new password -->
+    <form id="step-reset" class="panel" method="post" novalidate hidden>
+      <h1>Pick a new password</h1>
+      <p class="code-ok"><span class="tick" aria-hidden="true"></span><span>Hi <b id="reset-name"></b>, your reset code works.</span> <button type="button" class="link" id="change-code-2">Change</button></p>
+      <p class="notice error" id="msg-reset" role="alert" hidden></p>
       <div class="field">
-        <label for="username">Username</label>
-        <input class="input" id="username" name="username" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="100" required aria-describedby="msg-admin">
+        <label for="reset-username">Your username</label>
+        <input class="input" id="reset-username" name="username" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40" required aria-describedby="reset-username-hint msg-reset">
+        <span class="hint" id="reset-username-hint">Keep it, or change it. 3 to 40 letters or numbers (dots, dashes and underscores are fine).</span>
       </div>
       <div class="field">
-        <label for="password">Password</label>
-        <input class="input" id="password" name="password" type="password" autocomplete="current-password" maxlength="200" required aria-describedby="msg-admin">
+        <label for="reset-password">New password</label>
+        <input class="input" id="reset-password" name="password" type="password" autocomplete="new-password" maxlength="200" required aria-describedby="reset-password-hint msg-reset">
+        <span class="hint" id="reset-password-hint">At least 10 characters. A short sentence is easy to remember.</span>
       </div>
-      <button class="btn primary wide" type="submit">Sign in</button>
-      <a class="link small" href="/login?setup=1">Set up or reset the admin password</a>
+      <div class="field">
+        <label for="reset-password2">Type it again</label>
+        <input class="input" id="reset-password2" name="password2" type="password" autocomplete="new-password" maxlength="200" required aria-describedby="msg-reset">
+      </div>
+      <button class="btn primary wide" type="submit">Save and open the store map</button>
+      <p class="note">This signs you out on your other devices. Your maps stay just as they were.</p>
     </form>
 
     <!-- First-time setup / password reset -->
@@ -95,10 +131,8 @@
       <button class="btn primary wide" type="submit">Save and sign in</button>
     </form>
 
-    <footer class="auth-foot">
-      <a class="link small" id="to-admin" href="/login?admin=1">Admin sign-in</a>
-      <a class="link small" id="to-code" href="/login" hidden>I have an access code</a>
-      <a class="link small" id="to-login" href="/login?admin=1" hidden>Back to admin sign-in</a>
+    <footer class="auth-foot" id="setup-foot" hidden>
+      <a class="link small" id="to-login" href="/login?admin=1">Back to admin sign-in</a>
     </footer>
   </section>
   <!-- always present, so screen readers hear what changed when a step opens -->

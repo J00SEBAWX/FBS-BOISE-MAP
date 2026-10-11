@@ -1,7 +1,8 @@
-/* Account control in the map's header: who is signed in (initials avatar), the admin dashboard (admins only),
+/* Account control in the map's header: who is signed in (initials avatar), the admin dashboard and admin guide (admins only),
+ * the planning guide and the Nerdy Documents (everyone),
  * the theme (System / Light / Dark) and Sign out.
  * A menu button: Enter, Space or Down opens it, the arrow keys move, Esc closes.
- * Members are asked before signing out (their code is used up, so they'd need a new one to come back).
+ * Members are asked before signing out (they need their username and password, or a reset code, to come back).
  * The session is checked again whenever the tab comes back into view (and every few minutes while it's
  * visible), so someone the admin removed doesn't keep an open map. */
 import {getTheme, setTheme} from "./ui/theme.js";
@@ -70,7 +71,7 @@ export function initAccount() {
   // members: ask first (in a modal, so the map's keys don't fire behind it)
   function askSignOut() {
     if (!dlg || typeof dlg.showModal !== "function") {
-      if (window.confirm("Sign out? You'll need a new code from the person who sent you the link to get back in.")) signOut();
+      if (window.confirm("Sign out? To get back in, sign in with your username and password.")) signOut();
       return;
     }
     dlg.returnValue = "";

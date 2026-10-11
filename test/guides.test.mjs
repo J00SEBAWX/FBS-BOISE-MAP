@@ -8,6 +8,7 @@ import { startDev, hmacHex, sha256Hex, aesEncrypt, sqlStr } from "./helpers/devs
 import { Client } from "./helpers/client.mjs";
 
 const UG = "/guides/FBS-Store-Map-Planning-Guide.pdf", AG = "/admin/guide/FBS-Store-Map-Admin-Guide.pdf";
+const ND = "/guides/FBS-Store-Map-Nerdy-Documents.pdf";
 const DAY = 86400000;
 const P = { m: { id: "u_m", name: "Dana", role: "member", phone: "+12085550301", u: null }, a: { id: "u_a", name: "AJ", role: "admin", phone: "+12085550309", u: "aj" } };
 for (const p of Object.values(P)) p.token = crypto.randomBytes(32).toString("base64url");
@@ -21,10 +22,10 @@ before(async () => {
 after(async () => { if (dev) await dev.stop(); });
 const as = who => { const c = new Client(dev.base, { ip: "10.77.0." + (who === "m" ? 1 : who === "a" ? 2 : 3) }); if (who) c.cookie = `__Host-fbs_s=${P[who].token}`; return c; };
 
-test("the planning guide opens for anyone signed in, the admin guide only for the admin; signed out, neither", async () => {
+test("the planning guide and the Nerdy Documents open for anyone signed in, the admin guide only for admins; signed out, none", async () => {
   const out = as(null), m = as("m"), a = as("a");
-  for (const path of [UG, AG]) { const r = await out.get(path); assert.notEqual(r.status, 200, `signed out: ${path}`); assert.doesNotMatch(r.headers.get("content-type") || "", /pdf/); }
-  for (const c of [m, a]) { const r = await c.get(UG); assert.equal(r.status, 200); assert.match(r.headers.get("content-type"), /application\/pdf/); assert.ok(r.text.startsWith("%PDF")); }
+  for (const path of [UG, AG, ND]) { const r = await out.get(path); assert.notEqual(r.status, 200, `signed out: ${path}`); assert.doesNotMatch(r.headers.get("content-type") || "", /pdf/); }
+  for (const c of [m, a]) for (const path of [UG, ND]) { const r = await c.get(path); assert.equal(r.status, 200); assert.match(r.headers.get("content-type"), /application\/pdf/); assert.ok(r.text.startsWith("%PDF")); }
   assert.equal((await m.get(AG)).status, 404, "a member never gets the admin guide");
   const r = await a.get(AG);
   assert.equal(r.status, 200);
@@ -39,4 +40,8 @@ test("the links point at the files: help dialog and More (everyone), account men
   assert.ok(admin.includes(`href="${AG}"`));
   assert.ok(readFileSync(new URL("../public/js/main.js", import.meta.url), "utf8").includes(`h("a", {href: "${UG}", download: ""})`));
   assert.ok(html.includes(`href="${UG}" download`), "downloaded, so it opens in the device's own PDF viewer");
+  // the profile (account) menu: both guides for everyone, the admin guide hidden until the page knows it's an admin
+  assert.match(html, new RegExp(`href="${UG}" id="acctGuide" download`));
+  assert.match(html, new RegExp(`href="${ND}" id="acctNerdy" download`));
+  assert.ok(admin.includes(`href="${ND}" download`));
 });

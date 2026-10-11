@@ -1,20 +1,25 @@
-// Sign-in and account endpoints: admin username + password, first-time setup / reset, me, logout.
+// Sign-in and account endpoints: username + password for everyone (members and the admin), the admin's first-time
+// setup / reset, the admin's password change, me, logout. A member's forgotten password is reset with a code
+// the admin makes for them (routes/admin.js resetCode, routes/access.js reset).
 import { HttpError, json, readJson, rateIp, clearSessionCookie } from "../lib/http.js";
 import { allow, audit } from "../lib/ratelimit.js";
 import { normalizeCode, cleanUsername } from "../lib/validate.js";
 import { newId, encryptText, hmacHex } from "../lib/crypto.js";
 import { config, setupTokenHash, limitKey, createSession, destroySession, requireAdmin } from "../lib/auth.js";
 import { checkNewPassword, hashPassword, verifyPassword } from "../lib/password.js";
+import { USERNAME_RULES, USERNAME_TAKEN } from "./access.js";
+import { ownerId } from "./admin.js";
 
 const BAD_LOGIN = "That username and password don't match.";
 const BAD_SETUP = "That setup code doesn't work. It may be used or expired.";
 const TOO_MANY = "Too many tries. Wait 15 minutes and try again.";
-const USERNAME_RULES = "Pick a username of 3 to 40 letters, numbers, dots, dashes or underscores.";
-const USERNAME_TAKEN = "That username belongs to another account. Pick a different one.";
 const badSetup = () => new HttpError(400, BAD_SETUP, { field: "setupCode" });
 
-/** POST /api/admin/login {username, password} */
-export async function adminLogin(request, env, ctx) {
+/**
+ * POST /api/login {username, password}: anyone with a username and password (members and the admin).
+ * POST /api/admin/login: the same for the admin only. Both share one set of rate limits.
+ */
+export async function login(request, env, ctx, { adminOnly = false } = {}) {
   config(env);
   const ipKey = "alog:ip:" + (await limitKey(env, "ip", rateIp(request)));
   if (!(await allow(env.DB, ipKey, 10, 900))) throw new HttpError(429, TOO_MANY);
@@ -26,8 +31,8 @@ export async function adminLogin(request, env, ctx) {
 
   const row = username
     ? await env.DB.prepare(
-        `SELECT id, password_hash, password_salt FROM users
-          WHERE lower(username) = lower(?1) AND role = 'admin' AND status = 'approved'
+        `SELECT id, role, password_hash, password_salt FROM users
+          WHERE lower(username) = lower(?1) AND ${adminOnly ? "role = 'admin'" : "role IN ('admin', 'member')"} AND status = 'approved'
           ORDER BY created_at LIMIT 1`
       )
         .bind(username)
@@ -38,20 +43,26 @@ export async function adminLogin(request, env, ctx) {
     // The failure is noted after the answer has gone (waitUntil), with one identical audit row whether or not the
     // username exists (no actor, no username), so neither the timing nor the work done can tell the two apart.
     // Lockouts are the per-IP and per-username rate limits above; nothing is counted on the users row.
-    const note = audit(env.DB, null, "admin.login_failed");
+    const note = audit(env.DB, null, "login.failed"); // members and admins alike
     if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(note);
     throw new HttpError(400, BAD_LOGIN);
   }
   await env.DB.prepare("UPDATE users SET pw_attempts = 0, last_login_at = ?1 WHERE id = ?2").bind(Date.now(), row.id).run();
   const { cookie } = await createSession(env, row.id, request);
-  await audit(env.DB, row.id, "admin.login");
-  return json({ ok: true, redirect: "/admin/" }, 200, { "Set-Cookie": cookie });
+  const isAdmin = row.role === "admin";
+  await audit(env.DB, row.id, isAdmin ? "admin.login" : "member.login");
+  return json({ ok: true, redirect: isAdmin ? "/admin/" : "/" }, 200, { "Set-Cookie": cookie });
+}
+
+/** POST /api/admin/login {username, password}: the admin only (kept for the admin's old bookmarks and tools). */
+export function adminLogin(request, env, ctx) {
+  return login(request, env, ctx, { adminOnly: true });
 }
 
 /**
  * POST /api/admin/setup {setupCode, username, password}
  * First-time setup or password reset with a one-time setup code (made with `npm run setup-code`).
- * Keeps the existing admin row (the oldest one) and only replaces its username and password.
+ * Keeps the owner's admin row (the first admin; see ownerId) and only replaces its username and password.
  */
 export async function adminSetup(request, env) {
   const cfg = config(env);
@@ -71,7 +82,9 @@ export async function adminSetup(request, env) {
     .first();
   if (!token) throw badSetup();
 
-  const admin = await env.DB.prepare("SELECT id FROM users WHERE role = 'admin' ORDER BY created_at, id LIMIT 1").first();
+  // the owner (the first admin), never a second admin made later
+  const owner = await ownerId(env);
+  const admin = owner ? { id: owner } : null;
   const taken = await env.DB.prepare("SELECT id FROM users WHERE lower(username) = lower(?1) AND id != ?2")
     .bind(username, admin?.id ?? "")
     .first();

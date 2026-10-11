@@ -1,6 +1,7 @@
 // End-to-end checks against a real local Worker (wrangler dev) with a fresh database.
 // Covers: what is gated, security headers, CSRF, admin setup / sign-in / password, access codes
-// (check, redeem, races, sets of 5), members vs admin, removing people, rate limits, logout.
+// (check, redeem with a username and password, reset codes, races, sets of 5), member sign-in, members vs admin,
+// removing people, rate limits, logout. No phone numbers anywhere.
 // Run: npm test
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -90,11 +91,14 @@ async function takeCode() {
   const left = await availableCodes();
   return left[0] || (await newSet())[0];
 }
-async function join(client, name, phone) {
+let userN = 0;
+const PW = "a good long password";
+/** makes a member with a fresh code: {code, username, password} */
+async function join(client, name, username = `member${++userN}`, password = PW) {
   const code = await takeCode();
-  const r = await client.post("/api/access/redeem", { code, name, phone });
+  const r = await client.post("/api/access/redeem", { code, name, username, password });
   assert.equal(r.status, 200, JSON.stringify(r.data));
-  return code;
+  return { code, username, password };
 }
 function assertSecurityHeaders(r, what) {
   const csp = r.headers.get("content-security-policy") || "";
@@ -128,7 +132,9 @@ test("only the sign-in page and what it needs are public", async () => {
   assert.equal(login.status, 200);
   assert.match(login.headers.get("content-type"), /text\/html/);
   assert.equal(login.headers.get("cache-control"), "no-store");
-  assert.match(login.text, /This map is private\./);
+  assert.match(login.text, /Enter your code/);
+  assert.match(login.text, /<h1>Sign in<\/h1>/);
+  assert.doesNotMatch(login.text, /phone/i, "no phone numbers asked for");
   // FBS branding on the sign-in page: tokens first, the logo and favicons, no old red; all of it loads without a session
   assert.match(login.text, /<link rel="stylesheet" href="\/assets\/tokens.css">[\s\S]*<link rel="stylesheet" href="\/assets\/base.css">/);
   assert.match(login.text, /src="\/assets\/brand\/fbs-logo-64.png"/);
@@ -305,13 +311,17 @@ test("the admin gets the dashboard; /login sends a signed-in admin there", async
 test("CSRF: every POST and DELETE needs X-FBS, our Origin and a same-site fetch", async () => {
   const targets = [
     ["POST", "/api/access/check", { code: HAND_CODE }],
-    ["POST", "/api/access/redeem", { code: HAND_CODE, name: "Eve", phone: "2085550666" }],
+    ["POST", "/api/access/redeem", { code: HAND_CODE, name: "Eve", username: "eve", password: PW }],
+    ["POST", "/api/access/reset", { code: HAND_CODE, username: "eve", password: PW }],
+    ["POST", "/api/login", { username: "boss", password: "correct horse battery" }],
     ["POST", "/api/admin/login", { username: "boss", password: "correct horse battery" }],
     ["POST", "/api/admin/setup", { setupCode: SETUP_B, username: "eve", password: "correct horse battery" }],
     ["POST", "/api/logout", {}],
     ["POST", "/api/admin/codes/new-set", {}],
     ["POST", "/api/admin/password", { currentPassword: "correct horse battery", newPassword: "evil evil evil evil" }],
     ["DELETE", "/api/admin/people/u_denied", undefined],
+    ["POST", "/api/admin/people/u_denied/reset-code", {}],
+    ["POST", "/api/admin/people/u_hand/role", { role: "member" }],
   ];
   const bad = [{ "X-FBS": null }, { "X-FBS": "0" }, { Origin: "https://evil.example" }, { Origin: "null" }, { "Sec-Fetch-Site": "cross-site" }, { "Sec-Fetch-Site": "same-site" }];
   for (const [m, p, body] of targets) {
@@ -324,7 +334,7 @@ test("CSRF: every POST and DELETE needs X-FBS, our Origin and a same-site fetch"
   assert.equal((await admin.get("/api/me")).status, 200);
   const o = await overview();
   assert.deepEqual(o.codes.map((c) => c.code), [HAND_CODE]);
-  assert.equal(o.people.length, 0);
+  assert.equal(o.people.filter((p) => p.role === "member").length, 0, "no member was made (the two admins are listed too)");
 });
 
 // ---------- access codes ----------
@@ -338,7 +348,7 @@ test("an access code made by hand with the documented formula works and is shown
   for (const code of [HAND_CODE, "hndmade2", " hndm ade2 ", "HNDM.ADE2"]) {
     const r = await c.post("/api/access/check", { code });
     assert.equal(r.status, 200, code);
-    assert.deepEqual(r.data, { ok: true });
+    assert.deepEqual(r.data, { ok: true, kind: "join" });
   }
 });
 
@@ -380,7 +390,7 @@ test("checking a code doesn't use it; redeeming uses it exactly once", async () 
   const [code] = await availableCodes();
   const v = visitor();
   for (let i = 0; i < 3; i++) assert.equal((await v.post("/api/access/check", { code: code.toLowerCase() })).status, 200);
-  const r = await v.post("/api/access/redeem", { code, name: "Ann Example", phone: "(208) 555-0101" });
+  const r = await v.post("/api/access/redeem", { code, name: "Ann Example", username: "ann.example", password: PW });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   assert.deepEqual(r.data, { ok: true, redirect: "/" });
   assert.ok(v.cookie);
@@ -389,7 +399,7 @@ test("checking a code doesn't use it; redeeming uses it exactly once", async () 
   assert.deepEqual(meAnn, { id: meAnn.id, name: "Ann Example", role: "member" });
 
   const w = visitor();
-  const again = await w.post("/api/access/redeem", { code, name: "Ben", phone: "2085550102" });
+  const again = await w.post("/api/access/redeem", { code, name: "Ben", username: "ben", password: PW });
   assert.equal(again.status, 400);
   assert.equal(again.data.error, BAD_CODE);
   assert.equal(again.data.field, "code");
@@ -402,8 +412,9 @@ test("checking a code doesn't use it; redeeming uses it exactly once", async () 
   assert.equal(used.usedByName, "Ann Example");
   assert.ok(used.usedAt);
   const ann = o.people.find((p) => p.name === "Ann Example");
-  assert.equal(ann.phone, "(208) 555-0101");
-  assert.equal(ann.tel, "+12085550101");
+  assert.equal(ann.username, "ann.example");
+  assert.equal(ann.hasPassword, true);
+  assert.deepEqual(Object.keys(ann).sort(), ["hasPassword", "id", "joinedAt", "lastSeenAt", "mapCount", "name", "owner", "role", "username"], "no phone number");
   assert.ok(ann.joinedAt && ann.lastSeenAt);
   assert.equal(o.codes.filter((c) => c.status === "available").length, 4);
 });
@@ -413,38 +424,43 @@ test("two people racing on one code: exactly one gets in", async () => {
   const before = (await overview()).people.length;
   const x = visitor(), y = visitor();
   const results = await Promise.all([
-    x.post("/api/access/redeem", { code, name: "Racer One", phone: "2085550121" }),
-    y.post("/api/access/redeem", { code, name: "Racer Two", phone: "2085550122" }),
+    x.post("/api/access/redeem", { code, name: "Racer One", username: "racer1", password: PW }),
+    y.post("/api/access/redeem", { code, name: "Racer Two", username: "racer2", password: PW }),
   ]);
   assert.deepEqual(results.map((r) => r.status).sort(), [200, 400]);
   assert.equal([x, y].filter((c) => c.cookie).length, 1);
   assert.equal((await overview()).people.length, before + 1);
 });
 
-test("name and phone are checked, and a rejected form doesn't use up the code", async () => {
+test("name, username and password are checked, and a rejected form doesn't use up the code", async () => {
   const code = await takeCode();
   const v = visitor();
   const bad = [
-    [{ name: "", phone: "2085550131" }, "name"],
-    [{ name: "   ", phone: "2085550131" }, "name"],
-    [{ name: "<script>alert(1)</script>", phone: "2085550131" }, "name"],
-    [{ name: "Robert'); DROP TABLE users;--", phone: "2085550131" }, "name"],
-    [{ name: "A".repeat(61), phone: "2085550131" }, "name"],
-    [{ name: "1337", phone: "2085550131" }, "name"],
-    [{ name: { first: "x" }, phone: "2085550131" }, "name"],
-    [{ name: "\u3164", phone: "2085550131" }, "name"], // Hangul filler: a "letter" that shows nothing
-    [{ name: "\u115F\u1160 \uFFA0", phone: "2085550131" }, "name"],
-    [{ name: "\u200B\u200D", phone: "2085550131" }, "name"],
-    [{ name: "A" + "\u0301".repeat(59), phone: "2085550131" }, "name"], // accents stacked into a tower
-    [{ name: "Ann" + "\u0334\u0335\u0336\u0337", phone: "2085550131" }, "name"],
-    [{ name: "Cara", phone: "" }, "phone"],
-    [{ name: "Cara", phone: "12345" }, "phone"],
-    [{ name: "Cara", phone: "208-555-01234" }, "phone"],
-    [{ name: "Cara", phone: "+1234567" }, "phone"],
-    [{ name: "Cara", phone: "+1234567890123456" }, "phone"],
-    [{ name: "Cara", phone: "208-555-CALL" }, "phone"],
-    [{ name: "Cara", phone: 2085550131 }, "phone"],
-    [{ name: "Cara", phone: ["2085550131"] }, "phone"],
+    [{ name: "", username: "cara", password: PW }, "name"],
+    [{ name: "   ", username: "cara", password: PW }, "name"],
+    [{ name: "<script>alert(1)</script>", username: "cara", password: PW }, "name"],
+    [{ name: "Robert'); DROP TABLE users;--", username: "cara", password: PW }, "name"],
+    [{ name: "A".repeat(61), username: "cara", password: PW }, "name"],
+    [{ name: "1337", username: "cara", password: PW }, "name"],
+    [{ name: { first: "x" }, username: "cara", password: PW }, "name"],
+    [{ name: "\u3164", username: "cara", password: PW }, "name"], // Hangul filler: a "letter" that shows nothing
+    [{ name: "\u115F\u1160 \uFFA0", username: "cara", password: PW }, "name"],
+    [{ name: "\u200B\u200D", username: "cara", password: PW }, "name"],
+    [{ name: "A" + "\u0301".repeat(59), username: "cara", password: PW }, "name"], // accents stacked into a tower
+    [{ name: "Ann" + "\u0334\u0335\u0336\u0337", username: "cara", password: PW }, "name"],
+    [{ name: "Cara", username: "", password: PW }, "username"],
+    [{ name: "Cara", username: "ca", password: PW }, "username"],
+    [{ name: "Cara", username: "cara k", password: PW }, "username"],
+    [{ name: "Cara", username: "cara!", password: PW }, "username"],
+    [{ name: "Cara", username: "c".repeat(41), password: PW }, "username"],
+    [{ name: "Cara", username: ["cara"], password: PW }, "username"],
+    [{ name: "Cara", username: "cara", password: "" }, "password"],
+    [{ name: "Cara", username: "cara", password: "too short" }, "password"],
+    [{ name: "Cara", username: "cara", password: "x".repeat(201) }, "password"],
+    [{ name: "Cara", username: "cara", password: 1234567890123 }, "password"],
+    // someone else's username, whatever the letter case (the admins' here)
+    [{ name: "Cara", username: "HANDMADE", password: PW }, "username"],
+    [{ name: "Cara", username: "BOSS", password: PW }, "username"],
   ];
   for (const [body, field] of bad) {
     const r = await v.post("/api/access/redeem", { code, ...body });
@@ -453,20 +469,22 @@ test("name and phone are checked, and a rejected form doesn't use up the code", 
   }
   assert.equal((await v.post("/api/access/check", { code })).status, 200, "still unused");
   // invisible characters are dropped, not stored
-  const ok = await v.post("/api/access/redeem", { code, name: "  Zoë \u200B  O’Brien-Smith Jr.\u3164  ", phone: "+44 20 7946 0958" });
+  const ok = await v.post("/api/access/redeem", { code, name: "  Zoë \u200B  O’Brien-Smith Jr.\u3164  ", username: " Zoe.OB ", password: PW });
   assert.equal(ok.status, 200, JSON.stringify(ok.data));
   assert.equal((await v.get("/api/me")).data.name, "Zoë O’Brien-Smith Jr.");
   const zoe = (await overview()).people.find((p) => p.name.startsWith("Zoë"));
-  assert.equal(zoe.phone, "+442079460958");
-  // 10 digits, 11 digits with a leading 1, dots and spaces all become the same +1 number
+  assert.equal(zoe.username, "Zoe.OB", "trimmed, letter case kept");
+  // the username is taken now, in any letter case
   const w = visitor();
-  await join(w, "Dee", "1.208.555.0141");
-  assert.equal((await overview()).people.find((p) => p.name === "Dee").tel, "+12085550141");
+  const again = await w.post("/api/access/redeem", { code: await takeCode(), name: "Zed", username: "zoe.ob", password: PW });
+  assert.equal(again.status, 400);
+  assert.equal(again.data.field, "username");
+  assert.equal(again.data.error, "That username belongs to another account. Pick a different one.");
 });
 
 test("members get the map, but nothing of the admin's", async () => {
   const m = visitor();
-  await join(m, "Mia Member", "2085550151");
+  await join(m, "Mia Member");
   const page = await m.get("/", { Accept: "text/html" });
   assert.equal(page.status, 200);
   assert.equal(page.headers.get("cache-control"), "no-store");
@@ -511,7 +529,7 @@ test("members get the map, but nothing of the admin's", async () => {
 test("a session lasts 30 days from the last visit and 90 days at most", async () => {
   const m = visitor();
   const code = await takeCode();
-  const r = await m.post("/api/access/redeem", { code, name: "Lena Longtime", phone: "2085550192" });
+  const r = await m.post("/api/access/redeem", { code, name: "Lena Longtime", username: "lena", password: PW });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   assert.match(r.headers.get("set-cookie"), /; Max-Age=7776000$/);
   const hash = sha256Hex(m.cookie.slice(m.cookie.indexOf("=") + 1));
@@ -528,7 +546,7 @@ test("a session lasts 30 days from the last visit and 90 days at most", async ()
   assert.equal((await m.get("/", { Accept: "text/html" })).headers.get("location"), "/login");
   // 90 days in all: signed out even after a visit yesterday
   const n = visitor();
-  await join(n, "Nina Ninety", "2085550193");
+  await join(n, "Nina Ninety");
   const nHash = sha256Hex(n.cookie.slice(n.cookie.indexOf("=") + 1));
   await dev.sql(`UPDATE sessions SET created_at = ${now - 90 * DAY}, last_seen_at = ${now - DAY}, expires_at = ${now + 29 * DAY}, absolute_expires_at = ${now - 1000} WHERE token_hash = '${nHash}'`);
   assert.equal((await n.get("/api/me")).status, 401);
@@ -536,7 +554,7 @@ test("a session lasts 30 days from the last visit and 90 days at most", async ()
 
 test("a page that doesn't exist gets a small page with a way back, the same one members see at /admin/", async () => {
   const m = visitor();
-  await join(m, "Nell Nowhere", "2085550194");
+  await join(m, "Nell Nowhere");
   const pages = [];
   for (const [c, p] of [[admin, "/nope"], [admin, "/admin/nope"], [admin, "/tex/nope.jpg"], [m, "/nope"], [m, "/admin/"], [m, "/admin/admin.js"], [m, "/ADMIN/"], [m, "/admin.html"]]) {
     const r = await c.get(p, { Accept: "text/html" });
@@ -569,7 +587,7 @@ test("a page that doesn't exist gets a small page with a way back, the same one 
 
 test("removing a member signs them out on their very next request", async () => {
   const m = visitor();
-  await join(m, "Rex Removed", "2085550161");
+  await join(m, "Rex Removed");
   assert.equal((await m.get("/js/main.js")).status, 200);
   const before = await overview();
   const rex = before.people.find((p) => p.name === "Rex Removed");
@@ -595,42 +613,165 @@ test("the admin can't be removed through the API", async () => {
   assert.deepEqual((await admin.get("/api/me")).data, { id: "u_legacy", name: "AJ", role: "admin" });
 });
 
-test("the same phone with a new code reuses the person's row (even an old denied one)", async () => {
-  const v = visitor();
-  await join(v, "Olive", "208.555.0188");
-  let o = await overview();
-  const olive = o.people.find((p) => p.id === "u_denied");
-  assert.ok(olive, "the old row is reused and approved");
-  assert.equal(olive.name, "Olive");
-  const w = visitor();
-  await join(w, "Olive Two", "+1 (208) 555-0188");
-  o = await overview();
-  assert.equal(o.people.filter((p) => p.tel === OLD_MEMBER_PHONE).length, 1);
-  assert.equal(o.people.find((p) => p.id === "u_denied").name, "Olive Two");
-  assert.equal((await v.get("/api/me")).data.name, "Olive Two", "the first device stays signed in");
-  // removing works even with rows left from the old planner (builds)
-  assert.equal((await admin.del("/api/admin/people/u_denied")).status, 200);
-  assert.equal((await w.get("/api/me")).status, 401);
-  assert.equal((await v.get("/api/me")).status, 401);
-  // and they can come back with another code
-  const back = visitor();
-  await join(back, "Olive Again", "2085550188");
-  assert.equal((await overview()).people.filter((p) => p.tel === OLD_MEMBER_PHONE).length, 1);
+test("members sign in with their username and password on any device; a wrong one says the same thing", async () => {
+  const first = visitor();
+  const { username, password } = await join(first, "Pat Phone", "Pat.Store");
+  const id = (await first.get("/api/me")).data.id;
+  assert.equal((await first.post("/api/logout", {})).status, 200);
+  const other = visitor();
+  const r = await other.post("/api/login", { username: "pat.store", password });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.deepEqual(r.data, { ok: true, redirect: "/" });
+  assert.match(r.headers.get("set-cookie"), /; Max-Age=7776000$/);
+  assert.deepEqual((await other.get("/api/me")).data, { id, name: "Pat Phone", role: "member" });
+  for (const body of [{ username, password: "the wrong password" }, { username: "no.such.person", password }, { username: "", password }, { username, password: "" }]) {
+    const bad = await visitor().post("/api/login", body);
+    assert.equal(bad.status, 400, JSON.stringify(body));
+    assert.equal(bad.data.error, BAD_LOGIN);
+  }
+  // members can't use the admin-only sign-in, and the admin signs in through the same box as everyone
+  assert.equal((await visitor().post("/api/admin/login", { username, password })).data.error, BAD_LOGIN);
+  const a = await visitor().post("/api/login", { username: "handmade", password: HAND_PASSWORD });
+  assert.equal(a.status, 200);
+  assert.equal(a.data.redirect, "/admin/");
+  // a removed member can't sign in any more
+  assert.equal((await admin.del(`/api/admin/people/${id}`)).status, 200);
+  assert.equal((await other.get("/api/me")).status, 401);
+  assert.equal((await visitor().post("/api/login", { username, password })).data.error, BAD_LOGIN);
 });
 
-test("the admin's phone can't be used, the code stays unused, and a wrong code says nothing about the phone", async () => {
+test("a reset code: the admin makes it for one member; it sets a new password once and keeps their maps", async () => {
+  const m = visitor();
+  const { username } = await join(m, "Rita Reset", "rita");
+  const id = (await m.get("/api/me")).data.id;
+  const made = await admin.post(`/api/admin/people/${id}/reset-code`, {});
+  assert.equal(made.status, 200, JSON.stringify(made.data));
+  assert.match(made.data.code, CODE_RE);
+  assert.ok(made.data.expiresAt > Date.now() + 6 * DAY && made.data.expiresAt <= Date.now() + 7 * DAY + HOUR);
+  // a second one cancels the first
+  const second = (await admin.post(`/api/admin/people/${id}/reset-code`, {})).data.code;
+  const v = visitor();
+  assert.equal((await v.post("/api/access/check", { code: made.data.code })).data.error, BAD_CODE, "the first one is canceled");
+  const chk = await v.post("/api/access/check", { code: second.toLowerCase() });
+  assert.equal(chk.status, 200);
+  assert.deepEqual(chk.data, { ok: true, kind: "reset", name: "Rita Reset", username });
+  // a reset code is not an access code, and an access code is not a reset code
+  assert.equal((await v.post("/api/access/redeem", { code: second, name: "Imposter", username: "imp", password: PW })).data.error, BAD_CODE);
+  assert.equal((await v.post("/api/access/reset", { code: await takeCode(), username: "imp", password: PW })).data.error, BAD_CODE);
+  // rules are checked, and a rejected form doesn't use the code up
+  for (const [body, field] of [[{ username: "x", password: PW }, "username"], [{ username, password: "short" }, "password"], [{ username: "HANDMADE", password: PW }, "username"]]) {
+    const r = await v.post("/api/access/reset", { code: second, ...body });
+    assert.equal(r.status, 400, JSON.stringify(body));
+    assert.equal(r.data.field, field, JSON.stringify(body));
+  }
+  const r = await v.post("/api/access/reset", { code: second, username: "Rita.New", password: "my brand new password" });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.deepEqual((await v.get("/api/me")).data, { id, name: "Rita Reset", role: "member" }, "the same person");
+  assert.equal((await m.get("/api/me")).status, 401, "their other devices are signed out");
+  assert.equal((await visitor().post("/api/login", { username, password: PW })).data.error, BAD_LOGIN, "the old username and password stop working");
+  assert.equal((await visitor().post("/api/login", { username: "rita.new", password: "my brand new password" })).status, 200);
+  assert.equal((await visitor().post("/api/access/reset", { code: second, username: "rita3", password: PW })).data.error, BAD_CODE, "works once");
+  assert.equal((await overview()).people.find((p) => p.id === id).username, "Rita.New");
+  // expired codes don't work
+  const third = (await admin.post(`/api/admin/people/${id}/reset-code`, {})).data.code;
+  await dev.sql(`UPDATE login_codes SET expires_at = ${Date.now() - 1000} WHERE user_id = '${id}' AND used_at IS NULL AND revoked_at IS NULL`);
+  assert.equal((await visitor().post("/api/access/check", { code: third })).data.error, BAD_CODE);
+  // only for members who still have access; never for the admin; members can't make them
+  for (const who of ["u_legacy", "u_hand", "u_denied", "nobody"]) assert.equal((await admin.post(`/api/admin/people/${who}/reset-code`, {})).status, 404, who);
+  assert.equal((await v.post(`/api/admin/people/${id}/reset-code`, {})).status, 403);
+  // removing the person cancels their codes with them
+  const fourth = (await admin.post(`/api/admin/people/${id}/reset-code`, {})).data.code;
+  assert.equal((await admin.del(`/api/admin/people/${id}`)).status, 200);
+  assert.equal((await visitor().post("/api/access/check", { code: fourth })).data.error, BAD_CODE);
+});
+
+test("someone who joined before usernames gets a username and password with a reset code", async () => {
+  // an old member row from the phone-number days: no username, no password
+  await dev.sql(`INSERT INTO users (id, first_name, work_area, phone_hash, phone_enc, phone_last4, role, status, needs_code, created_at, updated_at)
+                 VALUES ('u_early', 'Early Bird', '', 'none:u_early', '', '', 'member', 'approved', 0, 3000, 3000)`);
+  const early = (await overview()).people.find((p) => p.id === "u_early");
+  assert.equal(early.username, null);
+  assert.equal(early.hasPassword, false);
+  const code = (await admin.post("/api/admin/people/u_early/reset-code", {})).data.code;
+  const v = visitor();
+  assert.deepEqual((await v.post("/api/access/check", { code })).data, { ok: true, kind: "reset", name: "Early Bird", username: "" });
+  assert.equal((await v.post("/api/access/reset", { code, username: "early.bird", password: PW })).status, 200);
+  assert.equal((await visitor().post("/api/login", { username: "early.bird", password: PW })).status, 200);
+  assert.equal((await overview()).people.find((p) => p.id === "u_early").hasPassword, true);
+  // rows left from the old planner (builds) don't stop removing a person, even an old denied one
+  assert.equal((await admin.del("/api/admin/people/u_denied")).status, 200);
+});
+
+test("a second admin: only the owner makes or removes admins; the owner can't be changed", async () => {
+  let o = await overview();
+  assert.deepEqual(o.me, { id: "u_legacy", owner: true }, "the first admin is the owner");
+  assert.equal(o.people.find((p) => p.id === "u_legacy").owner, true);
+  assert.equal(o.people.find((p) => p.id === "u_hand").owner, false);
+  assert.equal(o.people.find((p) => p.id === "u_hand").role, "admin");
+  const g = visitor();
+  await join(g, "Gina Grant", "gina");
+  const id = (await g.get("/api/me")).data.id;
+  assert.equal((await g.get("/api/admin/overview")).status, 403);
+  const up = await admin.post(`/api/admin/people/${id}/role`, { role: "admin" });
+  assert.equal(up.status, 200, JSON.stringify(up.data));
+  assert.deepEqual((await g.get("/api/me")).data, { id, name: "Gina Grant", role: "admin" }, "on the very next request");
+  const seen = await g.get("/api/admin/overview");
+  assert.equal(seen.status, 200);
+  assert.deepEqual(seen.data.me, { id, owner: false });
+  // a second admin can't make or remove admins, or touch the owner
+  const other = visitor();
+  await join(other, "Otto Other", "otto");
+  const ottoId = (await other.get("/api/me")).data.id;
+  for (const [who, role] of [[ottoId, "admin"], ["u_legacy", "member"], ["u_hand", "member"], [id, "member"]]) {
+    assert.equal((await g.post(`/api/admin/people/${who}/role`, { role })).status, 403, `${who} ${role}`);
+  }
+  assert.equal((await g.post("/api/admin/people/u_legacy/reset-code", {})).status, 404, "no reset codes for admins");
+  assert.equal((await g.del("/api/admin/people/u_legacy")).status, 404, "admins can't be removed");
+  // the owner always stays an admin; odd input is refused
+  assert.equal((await admin.post("/api/admin/people/u_legacy/role", { role: "member" })).status, 400);
+  assert.equal((await admin.post(`/api/admin/people/${ottoId}/role`, { role: "owner" })).status, 400);
+  assert.equal((await admin.post("/api/admin/people/nobody/role", { role: "admin" })).status, 404);
+  // someone without a username and password can't become an admin
+  await dev.sql(`INSERT INTO users (id, first_name, work_area, phone_hash, phone_enc, phone_last4, role, status, needs_code, created_at, updated_at)
+                 VALUES ('u_nopw', 'No Password', '', 'none:u_nopw', '', '', 'member', 'approved', 0, 4000, 4000)`);
+  const nopw = await admin.post("/api/admin/people/u_nopw/role", { role: "admin" });
+  assert.equal(nopw.status, 400);
+  assert.match(nopw.data.error, /username and password first/);
+  // an unused reset code dies when the person becomes an admin
+  const rc = (await admin.post(`/api/admin/people/${ottoId}/reset-code`, {})).data.code;
+  assert.equal((await admin.post(`/api/admin/people/${ottoId}/role`, { role: "admin" })).status, 200);
+  assert.equal((await visitor().post("/api/access/check", { code: rc })).data.error, BAD_CODE);
+  // someone whose account is older than the owner's becomes an admin, but never the owner
+  await dev.sql(`INSERT INTO users (id, first_name, work_area, phone_hash, phone_enc, phone_last4, role, status, needs_code, created_at, updated_at, username, password_hash, password_salt)
+                 VALUES ('u_ancient', 'Ancient', '', 'none:u_ancient', '', '', 'member', 'approved', 0, 500, 500, 'ancient', 'v2$x', 'x')`);
+  assert.equal((await admin.post("/api/admin/people/u_ancient/role", { role: "admin" })).status, 200);
+  o = await overview();
+  assert.deepEqual(o.me, { id: "u_legacy", owner: true });
+  assert.equal(o.people.find((p) => p.id === "u_ancient").owner, false);
+  assert.equal((await admin.post("/api/admin/people/u_ancient/role", { role: "member" })).status, 200, "and the owner can still take it back");
+  // the new admin signs in through the normal box and lands on the dashboard
+  const signin = await visitor().post("/api/login", { username: "gina", password: PW });
+  assert.equal(signin.data.redirect, "/admin/");
+  // taking the powers back applies at once
+  assert.equal((await admin.post(`/api/admin/people/${id}/role`, { role: "member" })).status, 200);
+  assert.equal((await g.get("/api/admin/overview")).status, 403);
+  assert.equal((await g.get("/api/me")).data.role, "member");
+  assert.equal((await admin.post(`/api/admin/people/${ottoId}/role`, { role: "member" })).status, 200);
+  o = await overview();
+  assert.equal(o.people.find((p) => p.id === id).role, "member");
+  assert.ok(!o.people.some((p) => p.id === ottoId && p.role === "admin"));
+});
+
+test("a taken username is refused before the code is used, and a wrong code says nothing about usernames", async () => {
   const code = await takeCode();
   const v = visitor();
-  const probe = await v.post("/api/access/redeem", { code: "ZZZZ-ZZZZ", name: "Imposter", phone: "+1 208 555 0100" });
-  assert.equal(probe.status, 400);
-  assert.equal(probe.data.error, BAD_CODE, "without a working code, nothing tells whose phone number it is");
-  const r = await v.post("/api/access/redeem", { code, name: "Imposter", phone: "+1 208 555 0100" });
-  assert.equal(r.status, 400);
-  assert.equal(r.data.error, "That phone number can't be used here.");
+  const probe = await v.post("/api/access/redeem", { code: "ZZZZ-ZZZZ", name: "Imposter", username: "handmade", password: PW });
+  assert.equal(probe.data.error, BAD_CODE, "without a working code, nothing tells which usernames exist");
+  const r = await v.post("/api/access/redeem", { code, name: "Imposter", username: "handmade", password: PW });
+  assert.equal(r.data.field, "username");
   assert.equal(v.cookie, null);
   assert.equal((await v.post("/api/access/check", { code })).status, 200, "the code still works");
   assert.equal((await overview()).codes.find((c) => c.code === code).status, "available");
-  assert.deepEqual((await admin.get("/api/me")).data, { id: "u_legacy", name: "AJ", role: "admin" }, "the admin row is untouched");
 });
 
 test("wrong access codes are rate limited per IP (successes don't count)", async () => {
@@ -639,11 +780,11 @@ test("wrong access codes are rate limited per IP (successes don't count)", async
   for (let i = 0; i < 12; i++) assert.equal((await good.post("/api/access/check", { code })).status, 200, "successes never count");
   const bad = visitor();
   for (let i = 0; i < 6; i++) assert.equal((await bad.post("/api/access/check", { code: "ZZZZ-ZZZZ" })).status, 400);
-  for (let i = 0; i < 4; i++) assert.equal((await bad.post("/api/access/redeem", { code: "ZZZZ-ZZZ" + i, name: "X", phone: "2085550171" })).status, 400);
+  for (let i = 0; i < 4; i++) assert.equal((await bad.post("/api/access/redeem", { code: "ZZZZ-ZZZ" + i, name: "X", username: "xx" + i, password: PW })).status, 400);
   const blocked = await bad.post("/api/access/check", { code });
   assert.equal(blocked.status, 429);
   assert.equal(blocked.data.error, TOO_MANY);
-  assert.equal((await bad.post("/api/access/redeem", { code, name: "X", phone: "2085550171" })).status, 429);
+  assert.equal((await bad.post("/api/access/redeem", { code, name: "X", username: "xx", password: PW })).status, 429);
   assert.equal((await visitor().post("/api/access/check", { code })).status, 200, "other people aren't affected");
   assert.equal((await good.post("/api/access/check", { code })).status, 200);
 });
@@ -652,7 +793,7 @@ test("a burst of wrong codes sent all at once still stops at 10", async () => {
   const ip = freshIp();
   const results = await Promise.all(
     Array.from({ length: 30 }, (_, i) =>
-      new Client(dev.base, { ip }).post(i % 3 ? "/api/access/check" : "/api/access/redeem", { code: "QQQQ-QQ" + String(20 + i), name: "Burst", phone: "2085550199" })
+      new Client(dev.base, { ip }).post(i % 3 ? "/api/access/check" : "/api/access/redeem", { code: "QQQQ-QQ" + String(20 + i), name: "Burst", username: "burst", password: PW })
     )
   );
   const statuses = results.map((r) => r.status);
@@ -731,7 +872,7 @@ test("setting up again (forgotten password) keeps the row and signs out every se
 
 test("signing out ends the session for good", async () => {
   const m = visitor();
-  await join(m, "Sam Signout", "2085550181");
+  await join(m, "Sam Signout");
   const old = m.cookie;
   const r = await m.post("/api/logout", {});
   assert.equal(r.status, 200);
@@ -780,21 +921,21 @@ test("a wrong admin password is answered without waiting on a write, the same wa
   assert.deepEqual(known.statements, unknown.statements, "the same statements run either way");
 });
 
-test("an admin's phone number is refused before the access code is touched", async () => {
+test("a taken username is refused before the access code is touched", async () => {
   const { redeem } = await import("../src/routes/access.js");
   const secrets = await mockSecrets();
   const db = mockDb((s) => {
     if (s.sql.startsWith("INSERT INTO rate_limits")) return { count: 1 };
     if (s.sql.startsWith("SELECT") && s.sql.includes("FROM rate_limits")) return null;
-    if (s.sql.startsWith("SELECT") && s.sql.includes("FROM access_codes")) return { id: "c_1", batch_id: "b_1" };
-    if (s.sql.startsWith("SELECT") && s.sql.includes("FROM users")) return { id: "u_admin", role: "admin" };
-    if (s.sql.startsWith("INSERT INTO users")) return null; // the upsert skips an admin row
+    if (s.sql.startsWith("SELECT") && s.sql.includes("FROM access_codes")) return { id: "c_1" };
+    if (s.sql.startsWith("SELECT") && s.sql.includes("FROM users")) return { id: "u_admin" };
     return { meta: { changes: 1 } };
   });
   await assert.rejects(
-    redeem(jsonRequest("/api/access/redeem", { code: "ABCD-EFGH", name: "Imposter", phone: "2085550100" }), { ...secrets, DB: db }),
-    (e) => e.status === 400 && e.message === "That phone number can't be used here."
+    redeem(jsonRequest("/api/access/redeem", { code: "ABCD-EFGH", name: "Imposter", username: "boss", password: PW }), { ...secrets, DB: db }),
+    (e) => e.status === 400 && e.extra?.field === "username"
   );
-  // using the code up and handing it back later could bring back a code that a new set canceled in between
-  assert.deepEqual(db.log.filter((s) => s.sql.startsWith("UPDATE access_codes")).map((s) => s.sql), []);
+  assert.deepEqual(db.log.filter((s) => s.sql.startsWith("UPDATE access_codes")).map((s) => s.sql), [], "the code is not used up");
+  // and it counts toward the limit (nothing gives the try back)
+  assert.equal(db.log.filter((s) => /rate_limits/.test(s.sql) && /^(UPDATE|DELETE)/.test(s.sql)).length, 0);
 });

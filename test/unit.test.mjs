@@ -2,10 +2,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { normalizeCode, normalizePhone, formatPhone, cleanName, cleanUsername } from "../src/lib/validate.js";
+import { normalizeCode, cleanName, cleanUsername } from "../src/lib/validate.js";
 import { randomCode, encryptText, decryptText, hmacHex as workerHmac } from "../src/lib/crypto.js";
 import { hashPassword, verifyPassword, checkNewPassword } from "../src/lib/password.js";
-import { accessCodeHash, phoneHash, setupTokenHash, configured, loadSession } from "../src/lib/auth.js";
+import { accessCodeHash, resetCodeHash, setupTokenHash, configured, loadSession } from "../src/lib/auth.js";
 import { ipBucket } from "../src/lib/http.js";
 import { hmacHex, sha256Hex, passwordFields } from "./helpers/devserver.mjs";
 import { mockDb } from "./helpers/mockdb.mjs";
@@ -16,26 +16,6 @@ test("normalizeCode: uppercase, only A-Z and 0-9", () => {
   assert.equal(normalizeCode(" abcd-ef23 "), "ABCDEF23");
   assert.equal(normalizeCode("AB CD.EF_23"), "ABCDEF23");
   assert.equal(normalizeCode(null), "");
-});
-
-test("normalizePhone follows the rules exactly", () => {
-  const ok = {
-    "2085550123": "+12085550123",
-    "208-555-0123": "+12085550123",
-    "(208) 555-0123": "+12085550123",
-    "208.555.0123": "+12085550123",
-    "1 208 555 0123": "+12085550123",
-    "+1 (208) 555-0123": "+12085550123",
-    "+44 20 7946 0958": "+442079460958",
-    "+12345678": "+12345678",
-    "+123456789012345": "+123456789012345",
-  };
-  for (const [input, want] of Object.entries(ok)) assert.equal(normalizePhone(input), want, input);
-  for (const bad of ["", "12345", "20855501234", "22085550123", "+1234567", "+1234567890123456", "208-555-CALL", "++12085550123", "208/555/0123", null, undefined]) {
-    assert.equal(normalizePhone(bad), null, String(bad));
-  }
-  assert.equal(formatPhone("+12085550123"), "(208) 555-0123");
-  assert.equal(formatPhone("+442079460958"), "+442079460958");
 });
 
 test("names: letters with spaces, apostrophes, periods and hyphens, up to 60", () => {
@@ -87,7 +67,7 @@ test("access codes look like XXXX-XXXX from the no-look-alike alphabet", () => {
 
 test("the Worker's hashes match the documented formulas", async () => {
   assert.equal(await accessCodeHash(env, "abcd-ef23"), hmacHex(env.PEPPER, "access:ABCDEF23"));
-  assert.equal(await phoneHash(env, "+12085550123"), hmacHex(env.PEPPER, "phone:+12085550123"));
+  assert.equal(await resetCodeHash(env, "abcd-ef23"), hmacHex(env.PEPPER, "reset:ABCDEF23"));
   assert.equal(await setupTokenHash("abcd-efgh-jkmn-pqrs"), sha256Hex("setup:ABCDEFGHJKMNPQRS"));
   assert.equal(await workerHmac("k".repeat(32), "x"), hmacHex("k".repeat(32), "x"));
 });

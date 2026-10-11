@@ -132,6 +132,8 @@ async function api(request, env, url, ctx) {
   if (path === "/api/health" && (m === "GET" || m === "HEAD")) return health(env);
   if (m === "POST" && path === "/api/access/check") return ACCESS.check(request, env);
   if (m === "POST" && path === "/api/access/redeem") return ACCESS.redeem(request, env);
+  if (m === "POST" && path === "/api/access/reset") return ACCESS.reset(request, env);
+  if (m === "POST" && path === "/api/login") return ACCOUNT.login(request, env, ctx);
   if (m === "POST" && path === "/api/admin/login") return ACCOUNT.adminLogin(request, env, ctx);
   if (m === "POST" && path === "/api/admin/setup") return ACCOUNT.adminSetup(request, env);
 
@@ -149,13 +151,17 @@ async function api(request, env, url, ctx) {
   if (path.startsWith("/api/admin/")) {
     const admin = requireAdmin(sess);
     const p = path.slice("/api/admin".length);
-    if (m === "GET" && p === "/overview") return ADMIN.overview(env);
+    if (m === "GET" && p === "/overview") return ADMIN.overview(env, admin);
     if (m === "GET" && p === "/settings") return MASTER.getAdminSettings(env);
     if (m === "PUT" && p === "/settings") return MASTER.putAdminSettings(request, env, admin);
     if (m === "POST" && p === "/codes/new-set") return ADMIN.newSet(env, admin);
     if (m === "POST" && p === "/password") return ACCOUNT.changePassword(request, env, sess);
     const pm = p.match(/^\/people\/([^/]+)$/);
     if (pm && m === "DELETE") return ADMIN.removePerson(env, admin, pm[1]);
+    const rm = p.match(/^\/people\/([^/]+)\/reset-code$/);
+    if (rm && m === "POST") return ADMIN.resetCode(env, admin, rm[1]);
+    const om = p.match(/^\/people\/([^/]+)\/role$/);
+    if (om && m === "POST") return ADMIN.setRole(request, env, admin, om[1]);
   }
   throw new HttpError(404, "Not found.");
 }

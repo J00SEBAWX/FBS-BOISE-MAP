@@ -108,7 +108,7 @@ test("every maps call answers a calm 503 (never 500), and the page's decision fu
 test("the admin dashboard and removing a person keep working before the migration", async () => {
   const o = await admin.get("/api/admin/overview");
   assert.equal(o.status, 200);
-  const names = o.data.people.map((p) => p.name).sort();
+  const names = o.data.people.filter((p) => p.role === "member").map((p) => p.name).sort();
   assert.deepEqual(names, ["Alice", "Bob"]);
   for (const p of o.data.people) assert.equal(p.mapCount, null, "no map counts without the maps table");
   const gone = await admin.del(`/api/admin/people/${PEOPLE.other.id}`);

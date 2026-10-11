@@ -1,21 +1,11 @@
-# Security Policy
+# Security
 
-## Supported Versions
+How the site protects its data (sign-in, passwords, codes, sessions, request checks, rate limits, what is stored and
+what isn't, and the known limits) is written up in plain words in the **Nerdy Documents** PDF:
+`public/guides/FBS-Store-Map-Nerdy-Documents.pdf` (signed-in people open it from the account menu on the map).
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+## Reporting a problem
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
-
-## Reporting a Vulnerability
-
-Use this section to tell people how to report a vulnerability.
-
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+If you find a security problem, don't open a public GitHub issue. Tell the site's admin directly, or use GitHub's
+private "Report a vulnerability" button on this repository if it is switched on. Please include what you did and what
+you saw. Never test against other people's accounts or data.
