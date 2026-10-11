@@ -1,5 +1,5 @@
 {
- "version": "master-2026-10-10-owner-corrections",
+ "version": "master-2026-10-11-owner-corrections-2",
  "building": {
   "length": 169,
   "width": 80
@@ -937,15 +937,16 @@
    "id": "i66",
    "type": "wallunit",
    "name": "STRAP ISLE 12'",
-   "x": 148.75,
-   "y": 46.8,
+   "x": 127.1,
+   "y": 46.2,
    "w": 5,
    "d": 1.8,
    "h": 6,
-   "rot": 0,
+   "rot": 90,
    "color": "#1c1c1c",
    "brand": "straps",
-   "toConfirm": "Owner (10 Oct): this unit is supposed to face the front sales desk, on the west side of the cubicles. Left where the photo survey had it (at the east end of the cubicle panel line, facing north) until the exact spot is confirmed. Free space west of the cubicles is only about 2 ft between the sales desk back partition and the cubicles, too tight for a 1.8 ft deep unit plus an aisle. Length: 12 ft by its name, 5 ft by the survey."
+   "toConfirm": "Owner (11 Oct, marked on the live map): the strap isle stands against the west edge of the cubicles at their north-west corner, running north-south from about y 42 to 50, with its face toward the west (toward the front sales desk). Length is still open: 5 ft by the survey, 12 ft by its name, about 7 ft as drawn.",
+   "src": "owner 11 Oct 2026: marked on the live map, and a photo from the middle of the front sales desk looking north-east shows the straps hanging on the cubicle panels facing the desk (position and facing); length still open"
   },
   {
    "id": "i67",
@@ -1963,19 +1964,6 @@
    "toConfirm": "Not seen by the scan. Moved north by the 11.3 ft recess (it was standing on what is the porch). TO CONFIRM."
   },
   {
-   "id": "grill_wh",
-   "type": "display",
-   "name": "PELLET GRILL (demo)",
-   "x": 41,
-   "y": 44,
-   "w": 3,
-   "d": 3,
-   "h": 4,
-   "rot": 0,
-   "color": "#23262a",
-   "style": "grill"
-  },
-  {
    "id": "ladder_wall",
    "type": "wallunit",
    "name": "LADDER WALL RACK 10'",
@@ -2472,14 +2460,15 @@
     "i102": "DeWalt warehouse display (does not exist)",
     "i98": "Pellet grill (not in the Milwaukee area; pellet grills stay as part of Decking & Outdoor Living)",
     "i99b": "Pellet grill 2 (same)",
-    "diablo_af": "Diablo blade A-frame (not needed as a fixture; its stock counts under Bits, Blades & Cutting Accessories)"
+    "diablo_af": "Diablo blade A-frame (not needed as a fixture; its stock counts under Bits, Blades & Cutting Accessories)",
+    "grill_wh": "Pellet grill (demo) in the warehouse (owner marked it for removal, 11 Oct)"
    },
-   "moved": {},
-   "kept": {
-    "grill_wh": "Pellet grill (demo) in the warehouse: not mentioned, kept; confirm"
+   "moved": {
+    "i66": "Strap isle: now on the west side of the cubicles at their north-west corner, facing west (11 Oct)"
    },
+   "kept": {},
    "pending": {
-    "i66": "Strap isle: owner wants it facing the front sales desk on the west side of the cubicles; exact spot to be confirmed (left at the survey position for now)"
+    "i66": "length (5, 7 or 12 ft)"
    }
   }
  }
