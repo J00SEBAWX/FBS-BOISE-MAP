@@ -93,7 +93,12 @@ nothing to install. It works on a computer, a tablet and a phone.
    offers **Show me** (highlights the spot) and **Apply** (makes the change,
    which you can undo). The numbers behind it are assumptions, and the admin
    can change them.
-8. **Submit for review.** When your map is ready, press **Submit for review**
+8. **Print, save as a PDF or email it.** **Print / share** (top right; on a phone
+   **More** → **Print, PDF or email**) makes one letter-size page of the map as
+   it is on screen, with the departments and their square feet: **Download
+   PDF**, **Print**, or **Email or share** (on a phone the share menu with the
+   PDF attached; on a computer the PDF downloads and an email opens for it).
+9. **Submit for review.** When your map is ready, press **Submit for review**
    at the top, say what you changed, and send it. The admin sees exactly what
    differs from the master, and can approve all of it or only some. The button
    then shows where it stands: **Submitted**, **Approved**, **Needs changes**
@@ -105,6 +110,11 @@ for checking what is official. For a **blank slate** (just the building's
 bones), start a new map from **a blank store**, or press **Hide** under
 "Shelves, racks and displays" in the Departments list; both are in Area
 planning, so you can start placing departments straight away.
+
+**The guides.** A step-by-step planning guide for the team (PDF, with pictures)
+downloads from the **?** controls box and from **More** → **Step-by-step guide
+(PDF)**. The admin guide is in the account menu and on the dashboard
+(**Admin guide (PDF)**); only the admin can open it.
 
 ## How people get in
 
@@ -249,7 +259,8 @@ The button with your name (or the person icon on a phone) in the top-right corne
   **Declined**, with the admin's note. You can withdraw or re-submit any time; your map stays yours throughout.
 - **The admin reviews in the Review mode** (key 5): every proposal is listed with its differences from today's
   master in plain words ("Moved “Safety isle” 4'6" north"). The admin can approve all of it, tick just the rows
-  to apply, ask for changes, or decline — always with a note back to you. Approved rows land on the master as a
+  to apply, ask for changes, or decline — always with a note back to you. A plan started from a blank store never had the master's shelves and
+  displays: those "removed" rows start unticked (a yellow note says so), so approving keeps them. Approved rows land on the master as a
   new version that records whose map it came from.
 - **The master lock**: the admin can lock the master (admin dashboard or the account menu) so nobody — the admin
   included — can change it while the team talks something over. The header shows a **Locked** badge and every

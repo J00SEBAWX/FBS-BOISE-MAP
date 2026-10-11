@@ -8,6 +8,7 @@ import {createCompare, rowGroups, rowKey, kindIcon, pickOptions, canApply, apply
 import {changesFor} from "../core/diff.js";
 import {toLayout} from "../core/session.js";
 import {TYPES} from "../core/model.js";
+import {neverHadRows, neverHadText} from "../core/review.js";
 
 /**
  * createComparePanel({el, isAdmin, getOpenMap() -> {id, name, ownerName, mine}, listMaps() -> Promise<{mine, team}>,
@@ -32,9 +33,9 @@ export function createComparePanel(o) {
   async function fetchDoc(id) {
     const live = o.liveDoc ? o.liveDoc(id) : null;
     const open = o.getOpenMap();
-    if (live) { docs.set(id, {doc: live, name: id === "master" ? "Master map" : open.name, version: open.version, ownerName: open.ownerName, updatedAt: open.updatedAt, live: true}); return; }
+    if (live) { docs.set(id, {doc: live, name: id === "master" ? "Master map" : open.name, version: open.version, ownerName: open.ownerName, updatedAt: open.updatedAt, base: open.base || null, live: true}); return; }
     const r = await o.loadMap(id);
-    docs.set(id, {doc: r.doc, name: r.name, version: r.version, ownerName: r.ownerName, updatedAt: r.updatedAt, live: false});
+    docs.set(id, {doc: r.doc, name: r.name, version: r.version, ownerName: r.ownerName, updatedAt: r.updatedAt, base: r.base || null, live: false});
   }
   /** Reloads both sides (the open map is read live from the session) and recomputes the diff. */
   async function refresh() {
@@ -184,8 +185,12 @@ export function createComparePanel(o) {
     }
     clear(foot);
     if (gate.ok) {
+      // a map started from a blank store never had the master's fixtures: Apply all leaves those "removed" rows out
+      const never = new Set(state.a === "master" && B ? neverHadRows(diff.rows, B.base) : []);
+      const allRows = diff.rows.filter(r => !never.has(r)), allCount = changesFor(allRows).length;
+      if (never.size) foot.appendChild(h("p", {class: "notice warn cmp-never", text: neverHadText(never.size)}));
       foot.appendChild(h("p", {class: "pal-hint", text: `Applying saves a new master version${A && A.version ? ` (now version ${A.version})` : ""}.`}));
-      foot.appendChild(h("button", {type: "button", class: "btn primary wide", disabled: busy || !diff.changes.length, onclick: () => applyRows(diff.rows)}, busy ? "Applying…" : `Apply all ${diff.changes.length}`));
+      foot.appendChild(h("button", {type: "button", class: "btn primary wide", disabled: busy || !allCount, onclick: () => applyRows(allRows)}, busy ? "Applying…" : `Apply all ${allCount}`));
     } else foot.appendChild(h("p", {class: "pal-hint", text: o.isAdmin ? gate.why : "Only the admin can apply changes to the master map."}));
   }
   /** Scrolls the list to a row (when a plan click picked it). */

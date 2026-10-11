@@ -1,6 +1,7 @@
 /* Proposals and the Review dashboard (OWNER RULES v3.1 rule 7): the pure pieces. No DOM, no fetch; ui/proposals.js
  * (the member's "Submit for review" chip) and ui/review.js (the admin's Review mode) own the elements, and the
  * server (docs/API.md Proposals) enforces every rule again. */
+import {isStructure} from "./model.js";
 
 /** What each proposal status looks like: the chip's words, icon and tone (the CSS class). */
 export const STATUS_INFO = Object.freeze({
@@ -102,3 +103,21 @@ export function keepChecked(checked, rows, rowKeyFn) {
   const live = new Set(rows.map(rowKeyFn));
   return new Set([...checked].filter(k => live.has(k)));
 }
+
+/**
+ * The "removed" rows that only mean "this plan never had it": a map started from a blank store has none of the
+ * master's fixtures or department blocks, so against the master each of them reads as removed. Applying those rows
+ * would empty the master's shelves, so Review leaves them unticked and Comparison's Apply all skips them (a row can
+ * still be ticked or applied on its own). Structure removals are real (a blank store keeps every structure item).
+ */
+export function neverHadRows(rows, mapBase) {
+  if (mapBase !== "blank" || !Array.isArray(rows)) return [];
+  return rows.filter(r => r.group === "removed" && r.before && !isStructure(r.before));
+}
+
+/** The sentence that explains the rows neverHadRows() left out (empty when there are none). */
+export function neverHadText(n) {
+  if (!(n > 0)) return "";
+  return `This plan started from a blank store, so ${n} shelf, rack, display or department item${n === 1 ? "" : "s"} on the master ${n === 1 ? "is" : "are"} simply not in it. ${n === 1 ? "It is" : "They are"} left out, so approving keeps ${n === 1 ? "it" : "them"} on the master. Tick a row only if you really want it removed.`;
+}
+

@@ -413,9 +413,9 @@ the right. Grid: `var(--palette-w) minmax(0,1fr) var(--inspector-w)`.
   meta (12px `--ink-muted`: "613 sq ft" or "Not placed yet"), and on the right either a `--success` `i-check`
   (with sr-only "Placed") or a "+ Place" affordance (28px, `--accent-line` border, `--accent-text`). Selected
   department row: `--accent-soft` with a 1px `--accent-line` inset.
-- Tap a not-placed department (or Place on any row): arms it. Its row turns `--accent-soft` with the meta "Drag on the
-  floor where it goes" and a Cancel affordance; a chip at the top of the plan (`--accent-soft`, swatch + name + "Drag on
-  the floor where it goes. A click drops its usual size." + Cancel) says what to do; the cursor is a crosshair; on a phone
+- Tap a not-placed department (or Place on any row): arms it. Its row turns `--accent-soft` with the meta "Tap the
+  floor where it goes" and a Cancel affordance; a chip at the top of the plan (`--accent-soft`, swatch + name + "Click the
+  floor where it goes (or drag to draw its size)." + Cancel) says what to do; the cursor is a crosshair; on a phone
   the Departments sheet closes and the plan fits the screen. The next press on the floor draws the block (finger or
   mouse): a dashed rectangle in the department's colour with a pill "20' 0" × 12' 0" · 240 sq ft" at its centre, corners
   on the 6-inch grid while Snap is on (Alt = free). Lifting creates exactly that block, kept inside the walls, and selects it

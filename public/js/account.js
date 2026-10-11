@@ -11,7 +11,7 @@ import {clearAllDrafts} from "./core/drafts.js";
 export function initAccount() {
   const box = document.getElementById("acct"), btn = document.getElementById("acctBtn"), menu = document.getElementById("acctMenu");
   const initialsEl = document.getElementById("acctInitials"), fullEl = document.getElementById("acctFull");
-  const adminItem = document.getElementById("acctAdmin"), outItem = document.getElementById("acctOut");
+  const adminItem = document.getElementById("acctAdmin"), adminGuide = document.getElementById("acctAdminGuide"), outItem = document.getElementById("acctOut");
   const dlg = document.getElementById("signout");
   if (!box || !btn || !menu) return;
   let role = "member";
@@ -104,6 +104,7 @@ export function initAccount() {
         btn.setAttribute("aria-label", `Account: ${m.name}`);
         btn.title = `Signed in as ${m.name}`;
         adminItem.hidden = role !== "admin";
+        if (adminGuide) adminGuide.hidden = role !== "admin";
         box.hidden = false;
       })
       .catch(() => { /* offline: the map works without it; try again next time */ })

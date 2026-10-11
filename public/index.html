@@ -83,6 +83,9 @@
         <a role="menuitem" href="/admin/" id="acctAdmin" tabindex="-1" hidden>
           <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-user"/></svg>Admin dashboard
         </a>
+        <a role="menuitem" href="/admin/guide/FBS-Store-Map-Admin-Guide.pdf" id="acctAdminGuide" download tabindex="-1" hidden>
+          <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-help"/></svg>Admin guide (PDF)
+        </a>
         <p class="menu-label" role="none" id="setLabel" hidden>Map settings</p>
         <div class="acct-settings" role="group" aria-labelledby="setLabel" id="acctSettings" hidden></div>
         <p class="menu-label" role="none" id="themeLabel">Theme</p>
@@ -157,6 +160,9 @@
     </button>
     <button type="button" class="tool tucked toggle hide-phone" id="toolSnap" data-views="plan 3d" aria-pressed="true" aria-label="Snap" aria-keyshortcuts="S" title="Snap to the 6-inch grid, walls, columns and other blocks (S)">
       <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-snap"/></svg><span>Snap</span>
+    </button>
+    <button type="button" class="tool hide-phone" id="btnExport" aria-label="Print or share the map" title="Print, save as PDF or email this map">
+      <svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-print"/></svg><span>Print / share</span>
     </button>
     <!-- not hide-phone: the button hides on phones (CSS), but the popover doubles as the phone Layers sheet -->
     <div class="layers-wrap">
@@ -328,6 +334,7 @@
       <h2 id="helpTitle" tabindex="-1">Controls and shortcuts</h2>
       <button type="button" class="icon-btn" id="helpX" aria-label="Close"><svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-close"/></svg></button>
     </div>
+    <p class="guide-link"><a class="btn" href="/guides/FBS-Store-Map-Planning-Guide.pdf" download><svg class="i" aria-hidden="true" focusable="false"><use href="/assets/icons.svg#i-help"/></svg>Download the step-by-step planning guide (PDF)</a></p>
     <div class="keys">
       <div class="kg">
         <h3>Editing (Area planning, Plan display)</h3>

@@ -687,6 +687,7 @@ test("proposals: submit, resubmit, withdraw, needs changes, decline, approve wit
   const s1 = ok(await A.post(`/api/maps/${mapA}/submit`, { note: "First try" })).proposal;
   assert.deepEqual([s1.status, s1.note, s1.mine, s1.ownerName, s1.mapName, s1.mapId, s1.mapVersion], ["submitted", "First try", true, "Alice", "Alice's plan", mapA, v]);
   assert.equal(s1.itemCount, data.items.length);
+  assert.equal(s1.mapBase, "master", "the proposal says what its map started from (Review leaves a blank plan's never-had rows unticked)");
   assert.equal(s1.baseMasterVersion, (await master()).version);
   const s2 = ok(await A.post(`/api/maps/${mapA}/submit`, { note: "Second try" })).proposal;
   assert.equal(s2.id, s1.id, "submitting again updates the open proposal");
