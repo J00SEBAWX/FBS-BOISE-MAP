@@ -57,11 +57,12 @@ nothing to install. It works on a computer, a tablet and a phone.
 3. **Place every department.** The **Departments** list (on the left on a
    computer, the **Departments** button on a phone) has all ten departments,
    plus any you add with **New category** (name, target size in square feet,
-   colour, and the products it holds). Tap a department and its block goes in
-   the middle of the map you can see (on a phone, the part the list isn't
-   covering), inside the store and clear of what is already there, so
-   placing several in a row never stacks them; drag it where it belongs and
-   drag its corners to resize it. The panel shows its square feet against the target and offers
+   colour, and the products it holds). Tap a department, then drag on the
+   floor where it goes: the block is exactly the rectangle you drew, and a
+   single tap (or click) on the floor drops it at its usual size there
+   instead. On a phone two fingers still move the map while a department is
+   waiting. Drag the block to move it and drag its corners to resize it. (In
+   the 3D view, click the floor to drop it.) The panel shows its square feet against the target and offers
    **Size to target**. A block that sits on a wall, a column, the stairs, a
    desk, a doorway or another block turns red and says why; the red
    **warnings** note takes you to the first one.

@@ -8,14 +8,19 @@ import {clamp} from "../core/geometry.js";
 import * as D from "../core/doc.js";
 import * as A from "../core/areas.js";
 import {readoutsFor} from "../core/readouts.js";
-import {handleAt, drawHandles, polyHandleAt, drawPolyHandles, drawReadouts, drawGuides, drawMarquee} from "./edit-draw.js";
+import {handleAt, drawHandles, polyHandleAt, drawPolyHandles, drawReadouts, drawGuides, drawMarquee, drawPlaceRect} from "./edit-draw.js";
+import {formatFtIn, formatSqft} from "../core/units.js";
 
 const GUIDE_MS = 600;
 const CURSORS = {n: "ns-resize", s: "ns-resize", e: "ew-resize", w: "ew-resize", ne: "nesw-resize", sw: "nesw-resize", nw: "nwse-resize", se: "nwse-resize", rotate: "grab"};
 
 /**
  * createPlanEditor({plan, session, snapOn(), touch(), canEdit(), multiMode(), dimensionsOn(), toast(msg), onDblClick(item),
- *                   onGesture(kind | null)})
+ *                   onGesture(kind | null),
+ *                   placing() -> {key, name, colour} | null, onPlaced(key, {x, y, w?, d?})})
+ * placing(): the department the person has picked to place (docs/DESIGN.md 5): while it is set, a press on the floor
+ * draws the block (drag = its size, both with the mouse and a finger; a plain tap = its usual size at that spot) and
+ * onPlaced gets the rectangle in store feet. Nothing is edited until the finger lifts, so there is no undo step to cancel.
  */
 export function createPlanEditor(o) {
   const {plan, session} = o;
@@ -57,7 +62,27 @@ export function createPlanEditor(o) {
     return d;
   }
 
+  /** The point a drawn corner lands on: the 6-inch grid while Snap is on (Alt = free). */
+  function drawPoint(wx, wy, e) {
+    const g = e && e.altKey ? 0 : grid();
+    return g ? {x: Math.round(wx / g) * g, y: Math.round(wy / g) * g} : {x: wx, y: wy};
+  }
+  /** The rectangle being drawn, in store feet: {x, y (centre), w, d}. */
+  function drawnRect(d) {
+    const w = Math.abs(d.x1 - d.x0), h = Math.abs(d.y1 - d.y0);
+    return {x: (d.x0 + d.x1) / 2, y: (d.y0 + d.y1) / 2, w, d: h};
+  }
+
   function down({e, wx, wy, sx, sy, touch}) {
+    // placing a department: the press starts the block, finger or mouse alike (two fingers still pinch, see cancelGesture)
+    const P = o.placing ? o.placing() : null;
+    if (P && canEdit()) {
+      const p = drawPoint(wx, wy, e);
+      drag = {kind: "draw", key: P.key, colour: P.colour, name: P.name, x0: p.x, y0: p.y, x1: p.x, y1: p.y, moved: false};
+      if (o.onGesture) o.onGesture("draw");
+      plan.draw();
+      return true;
+    }
     const single = session.single;
     // Edit shape: corners and edge midpoints of the one selected polygon block
     if (shapeEdit && single && single.type === "area" && movable(single)) {
@@ -106,6 +131,7 @@ export function createPlanEditor(o) {
     if (!drag) return;
     const alt = !!(e && e.altKey), shift = !!(e && e.shiftKey);
     if (drag.kind === "marquee") { drag.x1 = sx; drag.y1 = sy; drag.moved = true; plan.draw(); return; }
+    if (drag.kind === "draw") { const p = drawPoint(wx, wy, e); drag.x1 = p.x; drag.y1 = p.y; drag.moved = true; plan.draw(); return; }
     if (drag.kind === "move") {
       let dx = wx - drag.wx0, dy = wy - drag.wy0;
       const first = session.item(drag.ids[0]);
@@ -145,6 +171,17 @@ export function createPlanEditor(o) {
 
   function up({e, wx, wy, moved, cancelled}) {
     if (!drag) return;
+    if (drag.kind === "draw") {
+      const d = drag; drag = null;
+      if (o.onGesture) o.onGesture(null);
+      plan.draw();
+      if (cancelled) return;
+      const r = drawnRect(d);
+      // a real rectangle keeps the drawn size; a tap (or a scribble smaller than the minimum) drops the usual size at the press
+      if (d.moved && r.w >= A.MIN_DRAWN && r.d >= A.MIN_DRAWN) o.onPlaced(d.key, r);
+      else o.onPlaced(d.key, {x: d.x0, y: d.y0});
+      return;
+    }
     if (drag.kind === "marquee") {
       const d = drag; drag = null;
       if (cancelled) { plan.draw(); return; }
@@ -165,7 +202,7 @@ export function createPlanEditor(o) {
   /** Esc or a second finger: undo the gesture in progress. */
   function cancelGesture() {
     if (!drag) return;
-    if (drag.kind !== "marquee") session.cancel();
+    if (drag.kind !== "marquee" && drag.kind !== "draw") session.cancel();
     drag = null; readouts = null; showGuides([]);
     if (o.onGesture) o.onGesture(null);
     plan.draw();
@@ -211,6 +248,11 @@ export function createPlanEditor(o) {
   function draw(ctx, V, tok) {
     const t = !!(o.touch && o.touch()), single = session.single;
     if (drag && drag.kind === "marquee") drawMarquee(ctx, {x0: drag.sx, y0: drag.sy, x1: drag.x1, y1: drag.y1}, tok);
+    if (drag && drag.kind === "draw" && drag.moved) {
+      const r = drawnRect(drag);
+      const text = r.w >= A.MIN_DRAWN && r.d >= A.MIN_DRAWN ? `${formatFtIn(r.w)} × ${formatFtIn(r.d)} · ${formatSqft(r.w * r.d)}` : "Keep dragging";
+      drawPlaceRect(ctx, V, {x0: drag.x0, y0: drag.y0, x1: drag.x1, y1: drag.y1}, drag.colour, text, tok);
+    }
     if (single && movable(single)) {
       if (shapeEdit && single.type === "area" && single.shape === "poly") drawPolyHandles(ctx, V, single, tok, t, cornerSel);
       else if (!shapeEdit) drawHandles(ctx, V, single, tok, t);
@@ -222,6 +264,7 @@ export function createPlanEditor(o) {
   }
   /** The mouse cursor to show over a screen point ("" = whatever the plan decides). */
   function cursorAt(sx, sy) {
+    if (o.placing && o.placing() && canEdit()) return "crosshair";
     const single = session.single;
     if (!single || !movable(single)) return "";
     if (shapeEdit && single.type === "area") return polyHandleAt(plan.V, single, sx, sy, false) ? "pointer" : "";
@@ -235,5 +278,6 @@ export function createPlanEditor(o) {
     get shapeEdit() { return shapeEdit; },
     get cornerSel() { return cornerSel; },
     get dragging() { return !!drag && drag.kind !== "marquee"; },
+    get drawing() { return !!drag && drag.kind === "draw"; },
   };
 }

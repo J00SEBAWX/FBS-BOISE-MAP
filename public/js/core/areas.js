@@ -149,14 +149,19 @@ export function startSize(cat) {
   return Math.abs(s - 1) < 1e-9 ? [size[0], size[1]] : [r4(size[0] * s), r4(size[1] * s)];
 }
 
+/** The smallest block a person can draw on the floor (ft on each side): anything smaller is taken as a tap. */
+export const MIN_DRAWN = 2;
+
 /**
  * Drops a block for category key centred at {x, y}: catalog/target size, the category's name and colour,
- * height 8 ft, rectangle, rotation opts.rot (default 0). Returns {doc, patch, inverse, id}.
+ * height 8 ft, rectangle, rotation opts.rot (default 0). opts.size = [w, d] (ft) uses that size instead of the
+ * catalog's: what the person drew on the floor. Returns {doc, patch, inverse, id}.
  */
 export function createBlock(doc, key, at = {}, opts = {}) {
   const cat = categoryFor(doc, key);
   if (!cat) return refuseEdit(doc, "That category isn't on this map.");
-  const [w, d] = startSize(cat);
+  let [w, d] = startSize(cat);
+  if (Array.isArray(opts.size) && num(opts.size[0], 0) >= MIN_DRAWN && num(opts.size[1], 0) >= MIN_DRAWN) [w, d] = [r4(opts.size[0]), r4(opts.size[1])];
   const id = newId(doc, "a");
   const g = opts.grid > 0 ? opts.grid : 0, snap = v => (g ? Math.round(v / g) * g : v);
   const it = clampGeom({
