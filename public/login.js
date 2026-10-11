@@ -1,5 +1,6 @@
-/* Sign-in page: access code -> name and phone for visitors; username + password for the admin;
- * one-time setup code for setting or resetting the admin password. Talks only to this site's /api. */
+/* Sign-in page: username + password for everyone. A code from the admin opens either "Make your profile" (an access
+ * code: name, username, password) or "Pick a new password" (a reset code made for one person). The admin's one-time
+ * setup code sets or resets the admin password. No phone numbers. Talks only to this site's /api. */
 (function () {
 "use strict";
 
@@ -12,9 +13,13 @@ try {
 
 const $ = s => document.querySelector(s);
 const params = new URLSearchParams(location.search);
-const mode = params.has("setup") ? "setup" : params.has("admin") ? "admin" : "code";
-const PANELS = ["#step-code", "#step-details", "#admin-login", "#admin-setup"];
-let code = ""; // the access code that passed step 1
+const mode = params.has("setup") ? "setup" : params.has("admin") ? "admin" : "start";
+const PANELS = ["#sign-in", "#step-code", "#step-details", "#step-reset", "#admin-setup"];
+let code = ""; // the code that passed step 1
+/* "This browser has signed in before": the page then opens on Sign in instead of the code. Not personal. */
+const KNOWN = "fbs-has-account";
+const remember = () => { try { localStorage.setItem(KNOWN, "1"); } catch { /* private browsing */ } };
+const known = () => { try { return localStorage.getItem(KNOWN) === "1"; } catch { return false; } };
 
 /* ---------- helpers ---------- */
 function show(id) {
@@ -78,23 +83,72 @@ function busy(form, on, label) {
 
 const prettyCode = c => { const n = c.toUpperCase().replace(/[^A-Z0-9]/g, ""); return n.length === 8 ? n.slice(0, 4) + "-" + n.slice(4) : n; };
 
-/* ---------- step 1: access code ---------- */
+/* rules the server checks again; said here first so nobody waits for a round trip */
+const USERNAME_OK = /^[A-Za-z0-9._-]{3,40}$/;
+function checkNew(user, p1, p2, fail) {
+  if (!USERNAME_OK.test(user.value.trim())) return fail(user, "Pick a username of 3 to 40 letters, numbers, dots, dashes or underscores.");
+  if ([...p1.value].length < 10) return fail(p1, "Use at least 10 characters for the password.");
+  if (p1.value !== p2.value) return fail(p2, "The two passwords don't match. Type the same password twice.");
+  return true;
+}
+
+/* ---------- sign in (everyone) ---------- */
+$("#sign-in").addEventListener("submit", async e => {
+  e.preventDefault();
+  const form = e.currentTarget, box = $("#msg-signin"), user = $("#username"), pass = $("#password");
+  clearInvalid(form);
+  if (!user.value.trim()) { setMsg(box, "Enter your username."); markInvalid(user, true); user.focus(); return; }
+  if (!pass.value) { setMsg(box, "Enter your password."); markInvalid(pass, true); pass.focus(); return; }
+  setMsg(box, "");
+  busy(form, true, "Signing in…");
+  try {
+    const r = await post("/api/login", {username: user.value, password: pass.value});
+    remember();
+    location.replace(r.redirect || "/");
+  } catch (err) {
+    busy(form, false);
+    setMsg(box, err.message);
+    pass.value = "";
+    pass.focus();
+  }
+});
+
+function toCode() {
+  setMsg($("#msg-code"), "");
+  show("#step-code");
+  $("#code").select();
+}
+$("#to-code").addEventListener("click", toCode);
+$("#to-signin").addEventListener("click", () => { setMsg($("#msg-signin"), ""); show("#sign-in"); });
+$("#change-code").addEventListener("click", toCode);
+$("#change-code-2").addEventListener("click", toCode);
+
+/* ---------- step 1: a code from the admin ---------- */
 $("#step-code").addEventListener("submit", async e => {
   e.preventDefault();
   const form = e.currentTarget, input = $("#code"), box = $("#msg-code");
   const value = input.value.trim();
   clearInvalid(form);
-  if (!value) { setMsg(box, "Enter your access code."); markInvalid(input, true); input.focus(); return; }
+  if (!value) { setMsg(box, "Enter your code."); markInvalid(input, true); input.focus(); return; }
   setMsg(box, "");
   busy(form, true, "Checking…");
   try {
-    await post("/api/access/check", {code: value});
+    const r = await post("/api/access/check", {code: value});
     code = value;
-    $("#code-echo").textContent = prettyCode(value);
-    setMsg($("#msg-details"), "");
     busy(form, false);
-    show("#step-details");
-    announce(`Code ${prettyCode(value)} works. One more step: enter your name and mobile phone.`);
+    if (r.kind === "reset") {
+      $("#reset-name").textContent = r.name || "there";
+      $("#reset-username").value = r.username || "";
+      setMsg($("#msg-reset"), "");
+      show("#step-reset");
+      if (r.username) $("#reset-password").focus({preventScroll: true});
+      announce("Your reset code works. Pick a new password.");
+    } else {
+      $("#code-echo").textContent = prettyCode(value);
+      setMsg($("#msg-details"), "");
+      show("#step-details");
+      announce(`Code ${prettyCode(value)} works. Make your profile: your name, a username and a password.`);
+    }
   } catch (err) {
     busy(form, false);
     setMsg(box, err.message);
@@ -104,55 +158,57 @@ $("#step-code").addEventListener("submit", async e => {
   }
 });
 
-$("#change-code").addEventListener("click", () => {
-  setMsg($("#msg-code"), "");
+/* the code was used, canceled or expired in the meantime: back to step 1 with the reason */
+function codeGone(err) {
   show("#step-code");
-  $("#code").select();
-});
+  setMsg($("#msg-code"), err.message);
+  markInvalid($("#code"), true);
+}
 
-/* ---------- step 2: name and phone ---------- */
+/* ---------- step 2: make your profile ---------- */
 $("#step-details").addEventListener("submit", async e => {
   e.preventDefault();
-  const form = e.currentTarget, box = $("#msg-details"), name = $("#name"), phone = $("#phone");
+  const form = e.currentTarget, box = $("#msg-details"), name = $("#name");
+  const user = $("#new-username"), p1 = $("#new-password"), p2 = $("#new-password2");
   clearInvalid(form);
-  if (!name.value.trim()) { setMsg(box, "Enter your name."); markInvalid(name, true); name.focus(); return; }
-  if (!phone.value.trim()) { setMsg(box, "Enter your mobile number."); markInvalid(phone, true); phone.focus(); return; }
+  const fail = (input, text) => { setMsg(box, text); markInvalid(input, true); input.focus(); return false; };
+  if (!name.value.trim()) return fail(name, "Enter your name.");
+  if (!checkNew(user, p1, p2, fail)) return;
   setMsg(box, "");
-  busy(form, true, "Opening…");
+  busy(form, true, "Saving…");
   try {
-    const r = await post("/api/access/redeem", {code, name: name.value, phone: phone.value});
+    const r = await post("/api/access/redeem", {code, name: name.value, username: user.value.trim(), password: p1.value});
+    remember();
     location.replace(r.redirect || "/");
   } catch (err) {
     busy(form, false);
-    if (err.field === "code") { // the code was used or canceled in the meantime
-      show("#step-code");
-      setMsg($("#msg-code"), err.message);
-      markInvalid($("#code"), true);
-      return;
-    }
+    if (err.field === "code") return codeGone(err);
     setMsg(box, err.message);
-    const bad = err.field === "name" ? name : err.field === "phone" ? phone : null;
+    const bad = {name, username: user, password: p1}[err.field];
     if (bad) { markInvalid(bad, true); bad.focus(); }
   }
 });
 
-/* ---------- admin sign-in ---------- */
-$("#admin-login").addEventListener("submit", async e => {
+/* ---------- step 2: pick a new password ---------- */
+$("#step-reset").addEventListener("submit", async e => {
   e.preventDefault();
-  const form = e.currentTarget, box = $("#msg-admin"), user = $("#username"), pass = $("#password");
+  const form = e.currentTarget, box = $("#msg-reset");
+  const user = $("#reset-username"), p1 = $("#reset-password"), p2 = $("#reset-password2");
   clearInvalid(form);
-  if (!user.value.trim()) { setMsg(box, "Enter your username."); markInvalid(user, true); user.focus(); return; }
-  if (!pass.value) { setMsg(box, "Enter your password."); markInvalid(pass, true); pass.focus(); return; }
+  const fail = (input, text) => { setMsg(box, text); markInvalid(input, true); input.focus(); return false; };
+  if (!checkNew(user, p1, p2, fail)) return;
   setMsg(box, "");
-  busy(form, true, "Signing in…");
+  busy(form, true, "Saving…");
   try {
-    const r = await post("/api/admin/login", {username: user.value, password: pass.value});
-    location.replace(r.redirect || "/admin/");
+    const r = await post("/api/access/reset", {code, username: user.value.trim(), password: p1.value});
+    remember();
+    location.replace(r.redirect || "/");
   } catch (err) {
     busy(form, false);
+    if (err.field === "code") return codeGone(err);
     setMsg(box, err.message);
-    pass.value = "";
-    pass.focus();
+    const bad = {username: user, password: p1}[err.field];
+    if (bad) { markInvalid(bad, true); bad.focus(); }
   }
 });
 
@@ -171,6 +227,7 @@ $("#admin-setup").addEventListener("submit", async e => {
   busy(form, true, "Saving…");
   try {
     const r = await post("/api/admin/setup", {setupCode: sc.value, username: user.value.trim(), password: p1.value});
+    remember();
     location.replace(r.redirect || "/admin/");
   } catch (err) {
     busy(form, false);
@@ -184,10 +241,10 @@ $("#admin-setup").addEventListener("submit", async e => {
 });
 
 /* ---------- start ---------- */
-$("#to-admin").hidden = mode !== "code";
-$("#to-code").hidden = mode !== "admin";
-$("#to-login").hidden = mode !== "setup";
+$("#setup-foot").hidden = mode !== "setup";
+$(".auth-card").classList.toggle("solo", mode !== "setup");
+$("#to-setup").hidden = mode !== "admin";
 if (mode === "setup") { document.title = "Admin setup · FBS Boise Store Map"; show("#admin-setup"); }
-else if (mode === "admin") { document.title = "Admin sign-in · FBS Boise Store Map"; show("#admin-login"); }
-else show("#step-code");
+else if (mode === "admin") { document.title = "Admin sign-in · FBS Boise Store Map"; show("#sign-in"); }
+else show(known() ? "#sign-in" : "#step-code");
 })();

@@ -1,4 +1,5 @@
-/* Admin dashboard: hand out access codes, see and remove the people who have access, change the password.
+/* Admin dashboard: hand out access codes, see the people who have access (with their usernames), make a reset code
+ * for someone who forgot their password, remove people, change the admin password.
  * Every action is checked again on the server (admin-only API); this page is just the controls.
  * Names come from visitors, so all text goes in with textContent / DOM APIs, never as HTML. */
 (function () {
@@ -236,14 +237,78 @@ $("#new-set").addEventListener("click", async () => {
 /* ---------- people ---------- */
 function personItem(p) {
   const maps = p.mapCount == null ? null : p.mapCount === 1 ? "1 map" : `${p.mapCount} maps`;
+  const me = (state.data && state.data.me) || {};
+  const isAdmin = p.role === "admin";
+  const tag = isAdmin ? h("span.person-tag", null, p.owner ? "Admin · owner" : "Admin") : null;
+  let actions;
+  if (isAdmin) {
+    // only the owner makes or removes admins; nobody changes the owner or themselves here
+    actions = me.owner && !p.owner && p.id !== me.id
+      ? [h("button.btn", {type: "button", "aria-label": `Take admin powers away from ${p.name}`, onclick: e => setRole(p, "member", e.currentTarget)}, "Remove admin powers")]
+      : [];
+  } else {
+    actions = [
+      h("button.btn", {type: "button", "aria-label": `Make a reset code for ${p.name}`, onclick: e => resetFor(p, e.currentTarget)}, p.hasPassword ? "Reset password" : "Make sign-in code"),
+      me.owner && p.hasPassword ? h("button.btn", {type: "button", "aria-label": `Make ${p.name} an admin`, onclick: e => setRole(p, "admin", e.currentTarget)}, "Make admin") : null,
+      h("button.btn.danger", {type: "button", "aria-label": `Remove ${p.name}`, onclick: e => remove(p, e.currentTarget)}, "Remove"),
+    ];
+  }
   return h("li.person",
     null,
     h("div.person-main", null,
-      h("span.person-name", null, p.name),
-      p.tel ? h("a.person-phone", {href: `tel:${p.tel}`}, p.phone) : null,
+      h("span.person-name", null, p.name, tag ? " " : null, tag),
+      p.username ? h("span.person-user", null, `Username: ${p.username}`) : h("span.person-user.none", null, "No username yet (joined before usernames)"),
       h("span.person-meta", null, `Joined ${fmtDate(p.joinedAt)} · Last visit ${fmtAgo(p.lastSeenAt)}${maps ? ` · ${maps}` : ""}`)),
-    h("button.btn.danger", {type: "button", "aria-label": `Remove ${p.name}`, onclick: e => remove(p, e.currentTarget)}, "Remove"));
+    actions.some(Boolean) ? h("div.person-actions", null, actions) : null);
 }
+
+async function setRole(p, role, btn) {
+  const ok = role === "admin"
+    ? await confirmBox(`Make ${p.name} an admin?`,
+      `${p.name} gets the same powers as you: making codes, resetting passwords, removing people, approving plans and changing the master map. Only you can make or remove admins, and nobody can change your account. You can take the powers back any time.`,
+      "Make admin", true)
+    : await confirmBox(`Take admin powers away from ${p.name}?`,
+      `${p.name} becomes a regular team member right away. Their maps and their sign-in stay as they are.`, "Remove admin powers", false);
+  if (!ok) return;
+  const done = busy(btn, "Saving…");
+  try {
+    await api("POST", `/api/admin/people/${encodeURIComponent(p.id)}/role`, {role});
+    await load();
+    toast(role === "admin" ? `${p.name} is now an admin.` : `${p.name} is no longer an admin.`);
+    $("#people-title").focus();
+  } catch (e) {
+    done();
+    btn.focus();
+    toast(e.message, true);
+  }
+}
+
+/* a one-time code for one person who forgot their password; shown once (only a hash is kept) */
+const resetDlg = $("#reset-dlg");
+let resetMsg = "";
+async function resetFor(p, btn) {
+  const done = busy(btn, "Making code…");
+  let r;
+  try {
+    r = await api("POST", `/api/admin/people/${encodeURIComponent(p.id)}/reset-code`, {});
+  } catch (e) {
+    done();
+    toast(e.message, true);
+    btn.focus();
+    return;
+  }
+  done();
+  const until = fmtDate(r.expiresAt);
+  $("#reset-title").textContent = `Reset code for ${p.name}`;
+  $("#reset-code").textContent = r.code;
+  $("#reset-text").textContent = `Give this code to ${p.name}. It works once, until ${until}. They open the sign-in page, tap "I have a code from the admin", type the code and pick a new password. Their maps stay just as they were. Write it down now: it won't be shown again.`;
+  resetMsg = `Your reset code for the FBS Boise store map: ${r.code} (works once, until ${until}). Open ${location.origin}/login , tap "I have a code from the admin", type the code and pick a new password.`;
+  resetDlg.returnValue = "";
+  resetDlg.addEventListener("close", () => { $("#reset-code").textContent = ""; resetMsg = ""; btn.focus(); }, {once: true});
+  resetDlg.showModal();
+  $("#reset-copy").focus();
+}
+$("#reset-copy").addEventListener("click", () => { if (resetMsg) copyText(resetMsg, "Message copied. Paste it in a text or email."); });
 
 function renderPeople(d) {
   $("#people-list").replaceChildren(...d.people.map(personItem));
@@ -254,7 +319,7 @@ function renderPeople(d) {
 
 async function remove(p, btn) {
   const theirMaps = p.mapCount ? (p.mapCount === 1 ? "their map" : `their ${p.mapCount} maps`) : "any maps they made";
-  if (!(await confirmBox(`Remove ${p.name}?`, `They'll be signed out right away and need a new code to come back. This also deletes ${theirMaps} and their proposals.`, "Remove", true))) return;
+  if (!(await confirmBox(`Remove ${p.name}?`, `They'll be signed out right away and need a new code to come back (as a new person, with a new profile). This also deletes ${theirMaps} and their proposals.`, "Remove", true))) return;
   const done = busy(btn, "Removing…");
   try {
     await api("DELETE", `/api/admin/people/${encodeURIComponent(p.id)}`);

@@ -25,6 +25,7 @@
   </a>
   <nav class="top-nav" aria-label="Site">
     <a class="btn" href="/admin/guide/FBS-Store-Map-Admin-Guide.pdf" download>Admin guide (PDF)</a>
+    <a class="btn" href="/guides/FBS-Store-Map-Nerdy-Documents.pdf" download>Nerdy Documents (PDF)</a>
     <a class="btn" href="/">Open the store map</a>
     <button type="button" class="btn ghost" id="logout">Sign out</button>
   </nav>
@@ -37,7 +38,7 @@
   <section class="sec" aria-labelledby="codes-title">
     <div class="sec-head">
       <h1 id="codes-title">Access codes</h1>
-      <p class="muted">Give one code to each person. Each code works once.</p>
+      <p class="muted">Give one code to each person. Each code works once. With it they make their own profile: their name, a username and a password.</p>
     </div>
     <p class="count" id="codes-count" aria-live="polite"></p>
     <ul class="codes" id="codes-list" aria-label="Current codes"></ul>
@@ -118,6 +119,17 @@
     <div class="dlg-foot">
       <button type="submit" class="btn" value="cancel" id="confirm-cancel">Cancel</button>
       <button type="submit" class="btn primary" value="ok" id="confirm-ok">OK</button>
+    </div>
+  </form>
+</dialog>
+<dialog class="dlg" id="reset-dlg" aria-labelledby="reset-title" aria-describedby="reset-text">
+  <form method="dialog" class="dlg-body">
+    <h2 id="reset-title"></h2>
+    <p class="reset-code mono" id="reset-code"></p>
+    <p id="reset-text"></p>
+    <div class="dlg-foot">
+      <button type="button" class="btn" id="reset-copy">Copy message</button>
+      <button type="submit" class="btn primary" value="ok" id="reset-done">Done</button>
     </div>
   </form>
 </dialog>

@@ -36,14 +36,14 @@ export function config(env) {
 
 // ---------- keyed hashes (the operator creates production rows by hand with these exact formulas) ----------
 
-/** users.phone_hash = HMAC-SHA256(PEPPER, "phone:" + E.164 number) */
-export function phoneHash(env, e164) {
-  return hmacHex(config(env).pepper, "phone:" + e164);
-}
-
 /** access_codes.code_hash = HMAC-SHA256(PEPPER, "access:" + normalized code) */
 export function accessCodeHash(env, code) {
   return hmacHex(config(env).pepper, "access:" + normalizeCode(code));
+}
+
+/** login_codes.code_hash of a member's password reset code = HMAC-SHA256(PEPPER, "reset:" + normalized code) */
+export function resetCodeHash(env, code) {
+  return hmacHex(config(env).pepper, "reset:" + normalizeCode(code));
 }
 
 /** setup_tokens.token_hash = SHA-256("setup:" + normalized code) (no secret, so it can be made offline) */

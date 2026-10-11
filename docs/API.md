@@ -166,6 +166,30 @@ decisionNote, appliedVersion, baseMasterVersion, mapVersion, itemCount}`; `statu
 - `GET /api/admin/overview` (existing) people entries gain `mapCount` (`null` before migration 0005).
 - `DELETE /api/admin/people/:id` (existing) also deletes that person's maps and proposals (one transaction).
 
+### Sign-in (usernames and passwords; no phone numbers)
+
+- `POST /api/login {username, password}` -> `{ok, redirect}` ("/admin/" for the admin, "/" for members) and the
+  session cookie. Members and the admin. Wrong username or password: 400 "That username and password don't match."
+  (the same answer and timing whether or not the username exists). 10 tries per 15 minutes per IP and per username,
+  shared with `POST /api/admin/login` (admin only, kept for old bookmarks).
+- `POST /api/access/check {code}` -> `{ok, kind: "join"}` for an access code, or
+  `{ok, kind: "reset", name, username}` for a reset code. Doesn't use the code up.
+- `POST /api/access/redeem {code, name, username, password}` -> uses the access code once, makes the member (no phone
+  number) and signs them in. Username: 3-40 of `A-Z a-z 0-9 . _ -`, unique ignoring case. Password: 10-200 characters.
+- `POST /api/access/reset {code, username, password}` -> uses the member's reset code once, sets their username and
+  password, signs out their other sessions and signs them in. Their maps and proposals are untouched.
+- Wrong, used, expired or canceled codes all answer 400 "That code doesn't work. Check it, or ask for a new one."
+  (`field: "code"`); a taken username answers 400 (`field: "username"`). Both count toward 10 per 15 minutes per IP.
+- `POST /api/admin/people/:id/reset-code` (admin) -> `{ok, code, expiresAt}`: a one-time reset code for that member,
+  valid 7 days (`login_codes`, purpose `login`, only an HMAC of the code is kept). A new one cancels the last unused one.
+- `GET /api/admin/overview` -> `{codes, batchCreatedAt, people, me: {id, owner}}`. People (members and admins):
+  `{id, name, role, owner, username|null, hasPassword, joinedAt, lastSeenAt, mapCount}` (no phone numbers).
+- `POST /api/admin/people/:id/role {role: "admin"|"member"}` (the owner only, else 403) makes a member an admin or
+  takes it back; applies on the person's next request. The owner (the first admin, pinned in `settings.owner_id` the
+  first time it's needed) can't be changed (400); the person needs a username and password first (400). Making
+  someone an admin cancels their unused reset codes. Reset codes and `DELETE /api/admin/people/:id` are for members
+  only (404 for an admin: take the powers back first).
+
 ### Advisor settings
 - `GET /api/advisor-config` (signed in) -> `{config, isDefault, updatedAt, rules, thresholds}`.
   `config = {version, thresholds: {nearFt, anchorFt, perimeterFt, aisleMinFt, mainAisleMinFt, adaMinFt,

@@ -111,10 +111,12 @@ bones), start a new map from **a blank store**, or press **Hide** under
 "Shelves, racks and displays" in the Departments list; both are in Area
 planning, so you can start placing departments straight away.
 
-**The guides.** A step-by-step planning guide for the team (PDF, with pictures)
-downloads from the **?** controls box and from **More** → **Step-by-step guide
-(PDF)**. The admin guide is in the account menu and on the dashboard
-(**Admin guide (PDF)**); only the admin can open it.
+**The guides.** Everyone's profile menu (their initials, top right of the
+map) has the step-by-step **Planning guide (PDF)** and the **Nerdy Documents
+(PDF)**: how the site works behind the scenes and how data is protected. The
+planning guide also downloads from the **?** controls box and from **More**.
+The **Admin guide (PDF)** is in the profile menu and on the dashboard for
+admins only.
 
 ## How people get in
 
@@ -123,10 +125,19 @@ store, the photos, the floor plan) stays locked until they do.
 
 1. **Send them the link** (https://franklinmap-boise.com) **and one access
    code each.** Codes look like `ABCD-EF23`. Each code works **once**.
-2. They enter the code, then their **name** and **mobile number**. Then the
-   map opens, and they stay signed in on that phone or computer (for up to
-   90 days, as long as they come back at least once a month).
-3. Only you can see their name and number, in your admin dashboard.
+2. They enter the code, then **make their profile**: their **name**, a
+   **username** and a **password** (at least 10 characters). Then the map
+   opens, and they stay signed in on that phone or computer (for up to 90
+   days, as long as they come back at least once a month).
+3. **Next time**, or on another phone or computer, they tap **Sign in** and
+   use their username and password. No new code needed.
+4. **Forgot their password?** In the dashboard, tap **Reset password** next to
+   their name. It makes a one-time **reset code** (works once, for 7 days).
+   They tap **I have a code from the admin** on the sign-in page, type it and
+   pick a new password. Their maps stay theirs.
+
+The site never asks for phone numbers. Only you can see names and usernames,
+in your admin dashboard.
 
 In the dashboard (**https://franklinmap-boise.com/admin/**):
 
@@ -135,19 +146,28 @@ In the dashboard (**https://franklinmap-boise.com/admin/**):
   ready-to-send text with the link and the code) or *Used by* someone.
 - **Make a new set of 5**: cancels the codes nobody has used yet and makes 5
   new ones. People who are already signed in keep their access.
-- **People with access**: everyone who used a code, with their phone number,
-  when they last visited and how many maps they have made. **Remove** signs
+- **People with access**: everyone who used a code, with their username,
+  when they last visited and how many maps they have made. **Reset password**
+  makes a one-time reset code for that person (shown once: write it down or
+  tap **Copy message**). People who joined before usernames show *No username
+  yet*: give them a **Make sign-in code** code and they pick a username and
+  password with it. **Remove** signs
   that person out right away and **deletes their maps and proposals** (the
   confirmation says how many); they need a new code to come back.
+- **Make admin** (only you, the first admin, see it): gives that person the
+  same powers as you (codes, resets, removing people, reviews, the master
+  map). They need a username and password first. Only you can make or remove
+  admins, and nobody can change your account; **Remove admin powers** takes it
+  back at once. Admins are marked *Admin* in the list (you: *Admin · owner*).
 - **Map settings**: **Share everyone's maps** (when on, everyone can open
   everyone's maps, read-only) and **Lock the master map** (when on, nobody can
   change the master, you included). The same two switches are in the account
   menu on the map page.
 
-If someone gets a new phone, just give them a new code. If they use the same
-mobile number, they stay one person in your list. The same goes for anyone who
-taps **Sign out** (the map asks them first): their code is used up, so they
-need a new one to come back.
+If someone gets a new phone, or taps **Sign out**, they just sign in again
+with their username and password. Only give a new **access** code to a new
+person: an access code always makes a new profile, so for someone already in
+your list use **Reset password** instead (that keeps their maps).
 
 After you tap **Copy** or **Copy invite**, that code is marked *Copied ·
 waiting for them to sign up* (on that phone or computer), so you don't send
@@ -155,9 +175,9 @@ the same code to two people.
 
 ## Your admin sign-in
 
-Sign in at **https://franklinmap-boise.com/login?admin=1** (or tap
-**Admin sign-in** at the bottom of the sign-in page) with your **username and
-password**. Change your password any time under **Your account** in the
+Sign in at **https://franklinmap-boise.com/login** (the same **Sign in** box
+everyone uses; https://franklinmap-boise.com/login?admin=1 also works) with
+your **username and password**. It takes you to the dashboard. Change your password any time under **Your account** in the
 dashboard (that signs you out on your other devices).
 
 **First time, or forgot your password?** You need a one-time setup code:
@@ -185,12 +205,12 @@ Applications**, delete that). The site's own sign-in keeps the map private now.
 The site uses two secrets stored on the Cloudflare Worker (Cloudflare dashboard
 → **Workers & Pages → fbs-boise-map → Settings → Variables and Secrets**):
 
-- `PEPPER` scrambles codes, passwords and phone numbers before they are saved.
-- `PHONE_KEY` locks the saved phone numbers (and the unused codes) so only the
-  site can read them.
+- `PEPPER` scrambles codes and passwords before they are saved.
+- `PHONE_KEY` locks the unused codes so only the site can read them. (Its name
+  is from when the site asked for phone numbers; it no longer does.)
 
-**Never delete or change these two.** If they change, every saved phone number,
-password and code stops working. If either one is missing, the site stays
+**Never delete or change these two.** If they change, every password and code
+stops working. If either one is missing, the site stays
 locked and says "The site isn't set up yet."
 
 These old secrets are no longer used and can be deleted: `MESHY_API_KEY`,
@@ -367,6 +387,12 @@ sees the master map as it stands, read-only, under the note *"Editing isn't
 switched on yet. You're viewing the master map as it stands."* Making maps and
 editing switch on as soon as steps 1 to 3 are done (**Check again** in the
 note, or a reload). Nothing has to be published again.
+
+**Usernames and passwords for everyone** need no database change (they use
+columns and tables that are already there), so that release only needs the
+merge. It comes with `migrations/0006_forget_phones.sql`, which permanently
+forgets the phone numbers saved by the old sign-up (nothing uses them any
+more). It is safe to apply before or after the merge, and it can't be undone.
 
 (The access-code feature needs `migrations/0004_access_codes.sql`; the
 dashboard's codes don't work until it has been applied.

@@ -45,8 +45,11 @@ html{scroll-padding-top:84px;} /* keyboard focus never ends up under the sticky 
 .person{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--line);border-radius:10px;}
 .person-main{display:grid;gap:2px;min-width:0;}
 .person-name{font-weight:600;font-size:16px;}
-.person-phone{font-family:var(--font-mono);font-size:14px;color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;min-height:44px;width:fit-content;}
-.person-phone:hover{text-decoration:underline;}
+.person-tag{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.02em;padding:1px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent-soft-ink);vertical-align:middle;}
+.person-user{font-family:var(--font-mono);font-size:14px;color:var(--ink);}
+.person-user.none{font-family:inherit;color:var(--ink-muted);}
+.person-actions{display:flex;flex-wrap:wrap;gap:8px;}
+.reset-code{color:var(--ink);font-weight:600;font-size:28px;letter-spacing:.12em;text-align:center;padding:10px;border:1px dashed var(--line-strong);border-radius:var(--radius-md);user-select:all;}
 .person-meta{font-size:13px;color:var(--ink-muted);}
 
 /* ---------- your account ---------- */
@@ -82,6 +85,7 @@ html{scroll-padding-top:84px;} /* keyboard focus never ends up under the sticky 
   .code-actions{width:100%;}
   .code-actions .btn{flex:1;}
   .person .btn{width:100%;}
+  .person-actions{flex-direction:column;width:100%;}
   .form-actions .btn{flex:1;}
 }
 
