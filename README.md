@@ -46,11 +46,14 @@ setup (the **Check again** button picks it up without reloading).
 This is for the store manager. Everything is done on the map itself; there is
 nothing to install. It works on a computer, a tablet and a phone.
 
-1. **Make your own map.** Tap the map name at the top, then **New map**. Pick
-   what to start from: **the master map** (a full copy of today's layout), **a
-   blank store** (just the walls, doors, columns, floors and stairs) or **a
-   copy of another map** you can see. Give it a name. Only you can change it,
-   and it saves by itself ("Saved" at the top).
+1. **Make your own map.** Tap the map name at the top, then **New map** (or
+   **Start my own plan** on the blue note). It starts as **a blank store**:
+   the walls, doors, columns, stairs and the built-in desks, ready for you to
+   place departments, aisles and displays. You can pick **the master map** (a
+   full copy of today's layout) or **a copy of another map** you can see
+   instead. Give it a name. Only you can change it, and it saves by itself
+   ("Saved" at the top). Area planning on the master map shows the same empty
+   store, read-only, so you can see what a new plan starts from.
 2. **Switch to Area planning** (the button with that name at the top, or press **2**). New maps open there.
    This is where you change things. On a phone the buttons are along the
    bottom of the screen: **Add** and **Departments**.
@@ -194,7 +197,7 @@ Next to the switcher are two controls. The **view mode** (keys 1 to 5; on a lapt
 | Mode | What it shows |
 | --- | --- |
 | **Current layout** | The master map as confirmed today, with its departments and fixtures. Read-only. |
-| **Area planning** | Edit this map: place and shape the departments (the list on the left), move fixtures, unlock the structure (in **More**). It is also the blank slate: hide the shelves and displays, or start from a blank store. Blocks that overlap a wall, column, stairs, desk, doorway clearance or another block get a red outline, a message in the panel's Checks and a "3 warnings" chip that takes you to the first one. |
+| **Area planning** | Edit this map: place and shape the departments (the list on the left), move fixtures, unlock the structure (in **More**). It is also the blank slate: new maps start from a blank store, the master shows its empty store here (read-only) for the team, and Hide clears the shelves and displays from view on any map. Blocks that overlap a wall, column, stairs, desk, doorway clearance or another block get a red outline, a message in the panel's Checks and a "3 warnings" chip that takes you to the first one. |
 | **Comparison** | Two layouts (the master and this map by default; any two you can see) side by side with the plans locked together, or as an overlay (green = added, grey dashed = removed, blue = moved / resized / rotated), with every difference listed in plain words. The admin can **Apply** a row, or **Apply all**, to the master. |
 | **Advisor** | Retail-flow checks on this map: an overall score, each principle with its reasoning, ranked recommendations with **Show me** (highlights the spot) and **Apply** (a one-tap move or resize you can undo), overlays (heat, sight lines, traffic paths, choke points, door zones, cold spots) and the assumptions behind every number (the admin can change and save them). |
 | **Review** (admin only) | The team's proposals (filter by status), any map against the master, and the master's history. Opening a proposal shows its differences from today's master with before/after ghosts; tick the rows to apply and **Approve**, or send it back with **Needs changes** or **Decline**, each with a note. Old master versions can be previewed and **Restored** (a restore saves a new version; nothing is deleted). |

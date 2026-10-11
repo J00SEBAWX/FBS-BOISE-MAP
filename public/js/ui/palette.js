@@ -115,7 +115,7 @@ export function createDeptPalette(o) {
       o.onFixtures && o.onFixtures(n);
       focusEl(el.querySelector(`[data-fix="${n}"]`));
     });
-    if (!touch) { head.appendChild(h("p", {class: "pal-fix-label", id: "palFixLabel", text: "Shelves, racks and displays (Hide for a blank slate)"})); head.appendChild(seg); }
+    if (!touch && !(o.blank && o.blank())) { head.appendChild(h("p", {class: "pal-fix-label", id: "palFixLabel", text: "Shelves, racks and displays (Hide for a blank slate)"})); head.appendChild(seg); }
     clear(list);
     const selIds = new Set(session.selection);
     const placingKey = o.placingKey ? o.placingKey() : null;

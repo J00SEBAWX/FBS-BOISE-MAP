@@ -53,6 +53,9 @@ describe("modes: what each mode shows and allows", () => {
     assert.equal(modeLayers("current", L).categories, true);
     assert.equal(modeLayers("planning", L).categories, false);
     assert.equal(modeLayers("advisor", { ...L, fixtures: false, faint: true }).faint, true);
+    // Area planning on the master, for the team: the blank store (structure and built-in desks only)
+    assert.deepEqual(modeLayers("planning", { ...L, categories: true }, { blank: true }), { ...L, fixtures: false, faint: false, categories: false, structure: true });
+    assert.equal(modeLayers("current", L, { blank: true }).fixtures, true, "only Area planning goes blank");
   });
   test("a read-only notice for every mode but Area planning", () => {
     assert.equal(modeNotice("planning"), null);
