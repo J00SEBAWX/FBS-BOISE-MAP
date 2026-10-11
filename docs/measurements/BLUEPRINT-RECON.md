@@ -106,6 +106,12 @@ This list replaces the old one. The will-call doors question is answered. The fr
     - The drawing has columns at (100.6, 19.7) and at (89.7, 9.3), inside the pergola. The map has one at (97.5, 19.5).
     - The drawing has columns on the F and G lines (x ≈ 125 and 147) at y 20, 40 and 60.
     - The scan suggests a post at (98, 29). Is it there?
+    - **Update, 11 Oct (6 Oct LiDAR mesh, owner-supplied):** slicing the textured mesh at 5, 7, 9.5 and 12 ft
+      finds free-standing uprights on grid F at (125.8, 20.9) to 12 ft, (125.5, 40.5) and (125.2, 60.2) to 9.5 ft;
+      they are now on the map as `scan_col_F2/F3/F4` with `toConfirm` notes. The mesh also confirms the warehouse
+      post (23.5, 40.8), the posts at (72.2, 20.6) and (54.4, 22.3), and the arch-wall pier at (102.7, 40), which
+      is the plan's E/3 column. It shows no upright at (98, 29), only low geometry at (80, 20), and has no points
+      on grid G (x 147), so the G columns stay open. A 9.5 ft upright at (90.4, 10.7) is probably a pergola post.
 13. **Warehouse.**
     - Roll-up door width: the photos say 8 ft and the scan 9 ft 11 in. The original was a 16 × 16 ft overhead door at x ≈ 30–46.
     - The wide opening in the grid-C wall: the photos say 20 ft and the scan 11 ft 7 in.
