@@ -679,10 +679,9 @@ export const CATALOG = deepFreeze({
       ]
     },
     "sales_desk": {
-      "label": "Sales desks (front pods and back desk)",
+      "label": "Sales desks (front checkout desk and back desk)",
       "items": [
-        "sdf_s",
-        "sdf_n",
+        "fd_front_desk",
         "i47"
       ]
     },
@@ -1395,7 +1394,8 @@ export const PRODUCTS = deepFreeze([
   "group": null,
   "why": "Staff desk.",
   "surveyIds": [
-   "i87",
+   "sdf_s",
+   "sdf_n",
    "n10015m49"
   ],
   "confidence": "high"
@@ -1506,8 +1506,7 @@ export const PRODUCTS = deepFreeze([
   "group": null,
   "why": "Docs: snacks on the front sales desk: front-end impulse, not a building-supply department.",
   "surveyIds": [
-   "sdf_s",
-   "sdf_n"
+   "fd_front_desk"
   ],
   "confidence": "high"
  },
@@ -1538,8 +1537,7 @@ export const PRODUCTS = deepFreeze([
   "group": null,
   "why": "Docs: wayfinding sign, not merchandise.",
   "surveyIds": [
-   "sdf_s",
-   "sdf_n"
+   "fd_front_desk"
   ],
   "confidence": "high"
  },
@@ -2338,8 +2336,7 @@ export const PRODUCTS = deepFreeze([
   "surveyIds": [
    "spin_chk",
    "i47",
-   "sdf_s",
-   "sdf_n"
+   "fd_front_desk"
   ],
   "confidence": "medium"
  },

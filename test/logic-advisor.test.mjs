@@ -365,7 +365,7 @@ describe("advisor: retail-flow principles on the real master", () => {
     }
     // the anchors from the catalog resolve in the master
     assert.deepEqual(r.stats.anchors.front_door.map((a) => a.id), ["i30"]);
-    assert.deepEqual(r.stats.anchors.sales_desk.map((a) => a.id), ["sdf_s", "sdf_n", "i47"]);
+    assert.deepEqual(r.stats.anchors.sales_desk.map((a) => a.id), ["fd_front_desk", "i47"]);
     assert.deepEqual(r.stats.missingAnchors, []);
     // recommendations: ranked, each with a principle, a reason and something to show
     assert.ok(r.recommendations.length > 5);
@@ -386,7 +386,7 @@ describe("advisor: retail-flow principles on the real master", () => {
     assert.equal(heat.values.length, heat.nx * heat.ny);
     assert.ok(heat.values.some((v) => v >= 90) && heat.values.some((v) => v >= 0 && v < 10) && heat.values.includes(-1));
     assert.ok(sightlines.some((s) => s.kind === "desk") && sightlines.some((s) => s.kind === "entrance"));
-    assert.equal(paths.length, 15, "front door, 3 desks, will-call and 2 yard doors: 15 main trips");
+    assert.equal(paths.length, 11, "front door, 2 desks (front checkout, back), will-call and 2 yard doors: 11 main trips");
     for (const p of paths) assert.ok(p.points.length >= 2 && p.lengthFt > 0);
     assert.ok(chokePoints.length > 0 && chokePoints.every((c) => c.widthFt < CATALOG.thresholds.nearFt));
     assert.ok(zones.some((z) => z.kind === "decompression"));
@@ -485,7 +485,7 @@ describe("advisor: retail-flow principles on the real master", () => {
     const blank = MASTER.filter((it) => ["floor", "zone", "wall", "door", "opening", "arch", "column", "ceiling", "stairs"].includes(it.type) || it.fixed);
     const r = AD.analyse({ items: [...blank, ...SUGGESTED] }, CATALOG);
     assert.ok(r.overall !== null);
-    assert.equal(r.overlays.paths.length, 15);
+    assert.equal(r.overlays.paths.length, 11); // front door, front + back desk, will-call and 2 yard doors
     assert.ok(P(r, "aisle_widths").score >= P(AD.analyse(plan(SUGGESTED), CATALOG), "aisle_widths").score, "no fixtures, no narrow aisles");
   });
 

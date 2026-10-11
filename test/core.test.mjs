@@ -512,9 +512,12 @@ test("blueprint data: outlines, raised floors, the north-east back room, walking
   // the chamfered laser deck and 1-step floor keep their outlines
   assert.equal(outlineOf(master.byId.get("i91")).length, 6);
   assert.equal(outlineOf(master.byId.get("bp_step_plat")).length, 5);
-  // Tom's south desk return stands on the laser deck, the cedar desks on the 1-step floor
+  // Tom's south desk return stands on the laser deck, Felix's two wood counters on the 1-step floor (i87, the old
+  // "cedar desk by the square arch", was removed on 11 Oct: it was Felix's counter), the front sales desk on the floor
   close(baseOf(master, master.byId.get("i90")), 1.3);
-  close(baseOf(master, master.byId.get("i87")), 0.6);
+  close(baseOf(master, master.byId.get("sdf_s")), 0.6);
+  close(baseOf(master, master.byId.get("sdf_n")), 0.6);
+  close(baseOf(master, master.byId.get("fd_front_desk")), 0);
   close(baseOf(master, master.byId.get("n10015m49")), 0.6);
   close(baseOf(master, master.byId.get("i50")), 0);
   // the old floorless pocket (x 127-139, y 70-80) is a room now, with a ceiling
