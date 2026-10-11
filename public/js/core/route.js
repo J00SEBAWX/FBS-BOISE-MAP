@@ -37,3 +37,19 @@ export function buildHash({view, mode, map} = {}) {
 
 /** Is this a map id the app would put in the hash? */
 export const isMapId = id => typeof id === "string" && MAP_ID.test(id);
+
+/**
+ * What the app does when the URL hash changes by hand (or an in-page link): {map, view, mode}, each null when
+ * that part needs nothing. The map comes first (opening it is asynchronous), then the display and the mode from
+ * the same hash are applied on top, so a hash that names a new map AND a new mode gets both.
+ *   planHashChange("#plan&advisor&map=m_b", {view: "plan", mode: "planning", map: "m_a"})
+ *     -> {map: "m_b", view: null, mode: "advisor"}
+ */
+export function planHashChange(hash, current = {}) {
+  const h = parseHash(hash);
+  return {
+    map: h.map && h.map !== current.map ? h.map : null,
+    view: h.view && h.view !== current.view ? h.view : null,
+    mode: h.mode && h.mode !== current.mode ? h.mode : null,
+  };
+}

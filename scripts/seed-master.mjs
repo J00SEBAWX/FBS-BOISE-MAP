@@ -1,6 +1,6 @@
 // Prints the SQL that seeds the master map (version 1) from public/data/master.json, after checking the file with
 // the same validation the Worker uses (src/shared/schema.js). It changes nothing by itself (like setup-code).
-// Run: npm run -s seed-master > master-seed.sql
+// Run: npm run -s seed-master > /tmp/master-seed.sql   (a file outside the repository)
 // The SQL goes to stdout and the instructions to stderr, so the redirect above captures only the SQL.
 // The tests seed their local databases with masterSeedSql() from this file.
 import { readFileSync } from "node:fs";
@@ -38,10 +38,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 Master map seed: ${out.itemCount} items from public/data/master.json (${out.label}). It validates.
 The SQL above (stdout) adds master version 1 by "Initial survey" only if there is no master yet; nothing was changed.
 
-To seed the live site, in this folder:
+To seed the live site (docs/DEPLOY-PHASE2.md has the whole safe order), in this folder, BEFORE the pull request is merged:
   1. npx wrangler d1 migrations apply fbs-boise-map --remote          (adds the maps tables, migration 0005)
-  2. npm run -s seed-master > master-seed.sql
-  3. npx wrangler d1 execute fbs-boise-map --remote --file master-seed.sql
+  2. npm run -s seed-master > /tmp/master-seed.sql                      (this command; a file outside the repository)
+  3. npx wrangler d1 execute fbs-boise-map --remote --file /tmp/master-seed.sql
+  4. check: npx wrangler d1 execute fbs-boise-map --remote --command "SELECT version, item_count FROM master_versions ORDER BY version DESC LIMIT 1"
+     (version 1 with ${out.itemCount} items), and only then merge the pull request.
 
 (For npm run dev on your own computer use --local instead of --remote.)
 `);

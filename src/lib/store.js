@@ -134,11 +134,27 @@ export function masterInsert(env, { base, data, now, user, sourceMapId = null, s
   ).bind(...args);
 }
 
-/** True for the error D1 raises when two writers insert the same master version at once (the loser gets 409). */
-export async function isVersionRace(env, e, base) {
-  if (/UNIQUE|PRIMARY KEY|constraint/i.test(String(e && e.message || e))) return true;
-  // any other database error while the master has moved past `base` also means another writer won
-  try { return (await masterVersion(env)) !== base; } catch { return false; }
+// What D1 says when two writers insert the same master version (a constraint) or one waits on the other (busy / locked).
+const RACE_ERROR = /UNIQUE|PRIMARY KEY|constraint|SQLITE_BUSY|SQLITE_LOCKED|database is locked|database table is locked/i;
+const RACE_RECHECKS_MS = [0, 40, 120];
+
+/**
+ * True for the error D1 raises when two writers insert the same master version at once (the loser gets 409). For any
+ * other database error it asks whether the master has moved past `base`, which also means another writer won; that
+ * check is repeated a few times over ~160 ms because the winner may not have committed yet when the loser fails.
+ * `wait` is a test hook.
+ */
+export async function isVersionRace(env, e, base, wait = (ms) => new Promise((r) => setTimeout(r, ms))) {
+  if (RACE_ERROR.test(String((e && e.message) || e))) return true;
+  for (const ms of RACE_RECHECKS_MS) {
+    if (ms) await wait(ms);
+    try {
+      if ((await masterVersion(env)) !== base) return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 /** After a master INSERT changed nothing: 423 if locked, else 409 with the current version. */

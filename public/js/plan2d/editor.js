@@ -11,7 +11,6 @@ import {readoutsFor} from "../core/readouts.js";
 import {handleAt, drawHandles, polyHandleAt, drawPolyHandles, drawReadouts, drawGuides, drawMarquee} from "./edit-draw.js";
 
 const GUIDE_MS = 600;
-export const NUDGE = Object.freeze({small: 0.5, big: 5}); // ft: arrows 6", Shift+arrows 5'
 const CURSORS = {n: "ns-resize", s: "ns-resize", e: "ew-resize", w: "ew-resize", ne: "nesw-resize", sw: "nesw-resize", nw: "nwse-resize", se: "nwse-resize", rotate: "grab"};
 
 /**

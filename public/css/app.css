@@ -320,7 +320,7 @@ body{font:var(--text-md)/var(--leading-md) var(--font-body);overflow:hidden;over
 
 /* ---------- inspector (right panel / phone bottom sheet) ---------- */
 .inspector{position:relative;min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;background:var(--surface);border-left:1px solid var(--line);z-index:var(--z-panel);}
-.insp-body{display:grid;gap:0;}
+.insp-body{display:grid;gap:0;grid-template-columns:minmax(0,1fr);}
 .insp-head{position:relative;display:grid;gap:4px;padding:16px 16px 14px;border-bottom:1px solid var(--line);}
 .insp-eyebrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .insp-name{margin:0;font-family:var(--font-display);font-size:var(--display-md);line-height:1.1;font-weight:700;text-transform:uppercase;letter-spacing:var(--tracking-display);color:var(--ink-heading);overflow-wrap:anywhere;}
@@ -332,11 +332,12 @@ body{font:var(--text-md)/var(--leading-md) var(--font-body);overflow:hidden;over
 .insp-notice p{margin:0;}
 .insp-hint,.insp-check{margin:0;font-size:var(--text-xs);color:var(--ink-muted);line-height:1.45;}
 .insp-check{padding:6px 8px;border-radius:var(--radius-sm);background:var(--warning-soft);color:var(--warning-soft-ink);}
-.insp-actions{position:sticky;bottom:0;display:flex;gap:8px;padding:12px 16px;background:var(--surface);border-top:1px solid var(--line);z-index:1;}
-.insp-actions .btn{flex:1;min-height:var(--control-h);padding:0 10px;}
+.insp-actions{position:sticky;bottom:0;display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;background:var(--surface);border-top:1px solid var(--line);z-index:1;}
+.insp-actions .btn{flex:1 1 0;min-width:0;min-height:var(--control-h);padding:0 10px;}
 .insp-actions .btn.icon-only{flex:none;}
 .insp-foot{margin:0;padding:10px 16px 16px;font-size:var(--text-xs);color:var(--ink-subtle);line-height:1.45;}
-.f-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;}
+.f-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px;}
+.field .input,.field select,.field textarea{min-width:0;max-width:100%;}
 .field{display:grid;gap:4px;min-width:0;}
 .field.wide{grid-column:1/-1;}
 .f-label,.field label{font-size:var(--text-xs);font-weight:500;color:var(--ink-muted);}
@@ -578,9 +579,10 @@ dialog::backdrop{background:var(--scrim);}
   .readout{min-width:0;}
   .lbl3d{font-size:11px;}
   .map-banner{left:var(--gutter);right:var(--gutter);transform:none;width:auto;max-width:none;flex-wrap:wrap;padding:8px 10px;font-size:var(--text-sm);}
+  .map-banner p{flex:1 1 0;} /* the words sit beside the icon, and the buttons wrap to a row of their own below */
   .map-banner-actions{width:100%;justify-content:flex-end;}
   /* the banner spans the top on phones and would cover the Fit / Layers fabs: move them below it */
-  .stage-main:has(> .map-banner:not([hidden])) .fabs{top:calc(var(--space-3) + 108px);}
+  .stage-main:has(> .map-banner:not([hidden])) .fabs{top:calc(var(--space-3) * 2 + var(--banner-h, 96px));}
   /* the inspector is a bottom sheet over the canvas, above the bottom bar */
   .stage,.app[data-mode="planning"][data-view="plan"] .stage,.app[data-mode="comparison"] .stage,.app[data-mode="advisor"] .stage,.app[data-mode="review"] .stage,.app[data-mode="comparison"][data-view="walk"] .stage,.app[data-mode="advisor"][data-view="walk"] .stage,.app[data-mode="review"][data-view="walk"] .stage{grid-template-columns:minmax(0,1fr);}
   .inspector{position:absolute;left:0;right:0;top:auto;bottom:0;width:auto;height:46%;max-height:none;border-left:0;border-top:1px solid var(--line);border-radius:var(--radius-xl) var(--radius-xl) 0 0;box-shadow:var(--shadow-3);
@@ -920,7 +922,7 @@ details[open] > summary .adv-chev{transform:rotate(180deg);}
   .hdr .modes .mode-tab .i{display:block;}
 }
 /* the account menu holds the admin's settings switches: a little wider so their hints breathe */
-.acct-menu{min-width:248px;}
+.acct-menu{min-width:248px;max-height:calc(100dvh - 72px);overflow-y:auto;overscroll-behavior:contain;}
 
 /* ---------- fixes from review round 1 ---------- */
 /* dark theme: the status fills (--success, --warning, --ink-subtle) are light there, so the score chips and
@@ -957,3 +959,52 @@ details[open] > summary .adv-chev{transform:rotate(180deg);}
   .mp-foot{padding:6px 12px;}
   .mp-foot:has(.btn) .pal-hint{display:none;}
 }
+
+/* ---------- fix round 3 ---------- */
+/* touch screens: the last controls that were under 44px (tabs, the review tick boxes, the back link, the sheet
+ * grab handle, the colour input) */
+@media (pointer:coarse){
+  .tab,.modes .tab,.hdr .tabs .tab{min-width:var(--hit);}
+  .rv-check{width:var(--hit);}
+  .rv-back{min-height:var(--hit);}
+  .colour-in{flex:none;min-width:var(--hit);}
+}
+/* the sheets' grab handle is a full 44px tall (the bar sits in the middle of it); the heads below it give back
+ * the padding they had to make room for the old 20px one */
+@media (max-width:767px) and (min-height:501px),(pointer:coarse) and (max-width:1023px) and (min-height:501px){
+  .sheet-grab{min-height:var(--hit);}
+  .insp-head{padding-top:0;}
+  .palette .pal-head,.palette .mp-head{padding-top:0;}
+}
+/* a short screen (a phone on its side) has no room for the "No departments placed yet" card with its icon: a
+ * one-line version sits at the bottom instead, and it stays out of the way of the open Departments drawer */
+@media (max-height:600px){
+  #catsEmpty{bottom:var(--space-2);padding:8px 14px;gap:2px;max-width:min(300px,calc(100% - 2 * var(--gutter)));}
+  #catsEmpty .empty-ico,#catsEmpty .btn{display:none;}
+  #catsEmpty h2{font-size:var(--display-sm);}
+  #catsEmpty p{font-size:var(--text-sm);}
+  .stage:has(#palette.open) #catsEmpty{display:none;}
+}
+/* a wide phone (on its side): the banner's buttons share its row instead of taking a second one */
+@media (min-width:560px){
+  .map-banner-actions{width:auto;}
+}
+/* narrow phones: the map's name matters more than its little icon, and may take two lines, so an own map's name
+ * isn't cut to "Phone bl…"; below 360px the avatar's chevron goes too */
+@media (max-width:400px){
+  .map-chip-ico{display:none;}
+  .map-chip-text b{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-height:1.15;overflow:hidden;overflow-wrap:anywhere;}
+}
+@media (max-width:360px){
+  .acct-btn > .i-sm{display:none;}
+  .hdr .modes{flex-basis:0;} /* the modes scroll sideways in the space beside the display buttons instead of wrapping them to a third row */
+}
+/* a phone on its side: the Departments drawer has room for two departments before the first scroll (no progress
+ * bar: "2 of 10 departments placed" already says it) */
+@media (max-height:500px){
+  .palette .progress{display:none;}
+  .pal-list{padding-top:2px;}
+}
+/* the switches in the phone More sheet show their state (they are layer-row buttons with role="switch") */
+.layer-row[aria-checked="true"] .sw-track{background:var(--accent);}
+.layer-row[aria-checked="true"] .sw-knob{transform:translateX(16px);}

@@ -2,9 +2,9 @@
  * editor dialog (create custom, edit any, hide defaults, delete custom) and the "Find a product" box. Everything
  * is built with createElement; names and colours come from the catalog or the person's own categories. */
 import {h, icon, clear, modal, menuKeys} from "./dom.js";
-import {PALETTE, PALETTE_TYPES, isStructureType} from "../core/doc.js";
+import {PALETTE, isStructureType} from "../core/doc.js";
 import {summary, categoryFor} from "../core/areas.js";
-import {CATALOG, isDefaultKey} from "../shared/catalog.js";
+import {CATALOG} from "../shared/catalog.js";
 import {find} from "../core/finder.js";
 import {colourOf} from "../plan2d/blocks.js";
 import {formatSqft} from "../core/units.js";
@@ -14,8 +14,9 @@ const STRUCTURE = ["wall", "column", "door", "opening", "stairs"];
 
 /* ======================================================================= the Add popover */
 /**
- * createAddMenu({btn, pop, session, onAdd(type), onDepartment(key), isDark()}) : fixtures + structure (locked rows while
- * structure is locked) + the departments list. Opens on the button, closes on Esc / outside / focus out.
+ * createAddMenu({btn, pop, session, onAdd(type), onDepartment(key), isDark(), unlockHint() -> sentence}) : fixtures +
+ * structure (locked rows while structure is locked) + the departments list. Opens on the button, closes on Esc /
+ * outside / focus out.
  */
 export function createAddMenu(o) {
   const {btn, pop} = o;
@@ -28,8 +29,8 @@ export function createAddMenu(o) {
   function itemRow(type) {
     const def = PALETTE[type], locked = isStructureType(type) && !o.session.unlocked;
     return h("button", {type: "button", class: "add-row", role: "menuitem", tabindex: -1, aria: {disabled: locked}, data: {type},
-      title: locked ? "Unlock Structure in the toolbar to add walls, doors, columns, openings or stairs." : `Add a ${def.label.toLowerCase()}`,
-      onclick: () => { if (locked) { o.toast && o.toast("Unlock Structure in the toolbar to add walls, doors, columns, openings or stairs."); return; } close(false); o.onAdd(type); }},
+      title: locked ? o.unlockHint() : `Add a ${def.label.toLowerCase()}`,
+      onclick: () => { if (locked) { o.toast && o.toast(o.unlockHint()); return; } close(false); o.onAdd(type); }},
       preview(type), h("span", {class: "add-name", text: def.label}), locked ? icon("i-lock", "i i-sm add-lock") : null);
   }
   function deptRow(c, placed) {
@@ -53,7 +54,7 @@ export function createAddMenu(o) {
     pop.appendChild(h("div", {class: "add-list"}, FIXTURES.map(itemRow)));
     pop.appendChild(h("p", {class: "pop-label", text: "Structure"}));
     pop.appendChild(h("div", {class: "add-list"}, STRUCTURE.map(itemRow)));
-    if (!o.session.unlocked) pop.appendChild(h("p", {class: "pop-hint"}, "Unlock ", h("b", {text: "Structure"}), " in the toolbar to add walls, doors, columns, openings or stairs."));
+    if (!o.session.unlocked) pop.appendChild(h("p", {class: "pop-hint", text: o.unlockHint()}));
     pop.appendChild(h("button", {type: "button", class: "add-row dept-entry", role: "menuitem", tabindex: -1, onclick: () => { mode = "departments"; render(); focusFirst(); }}, icon("i-blocks"), h("span", {class: "add-name", text: "Department block"}), icon("i-chevron-right", "i i-sm")));
   }
   const items = () => [...pop.querySelectorAll('[role="menuitem"]')];
@@ -247,4 +248,3 @@ export function createCategoryDialog(o) {
   return {open};
 }
 
-export {PALETTE_TYPES, isDefaultKey};

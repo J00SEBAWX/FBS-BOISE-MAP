@@ -435,13 +435,32 @@ export function createPlanView(o) {
     if (drag.kind === "edit") { if (drag.moved) editor().move({e, wx, wy, sx, sy, touch: isTouch(e)}); return; }
     if (drag.moved) { V.cx = drag.cx - (sx - drag.sx) / V.s; V.cy = drag.cy + (sy - drag.sy) / V.s; draw(); }
   });
+  /** A touch tap that follows another one closely in time and place is a double tap (it also records this tap). */
+  function doubleTap(sx, sy) {
+    const now = performance.now();
+    if (now - lastTap.t < 320 && Math.hypot(sx - lastTap.x, sy - lastTap.y) < 24) { lastTap.t = 0; return true; }
+    lastTap = {t: now, x: sx, y: sy};
+    return false;
+  }
   function endPointer(e) {
     ptr.delete(e.pointerId); canvas.classList.remove("dragging");
     if (!drag) return;
     if (drag.kind === "pinch") { if (ptr.size === 0) drag = null; return; }
     const d = drag; drag = null;
     const [sx, sy] = offsetOf(e), [wx, wy] = s2w(V, sx, sy);
-    if (d.kind === "edit") { editor().up({e, wx, wy, sx, sy, moved: d.moved, cancelled: e.type === "pointercancel", touch: isTouch(e)}); return; }
+    if (d.kind === "edit") {
+      // the second tap of a double tap on an item that is already selected starts a move gesture (the editor claims
+      // the pointer), so the double tap is recognised here: that zero-length move is dropped (no undo step) and the
+      // item opens for fine-tuning
+      const tapped = isTouch(e) && !d.moved && e.type !== "pointercancel";
+      if (tapped && doubleTap(sx, sy)) {
+        editor().up({e, wx, wy, sx, sy, moved: false, cancelled: true, touch: true});
+        editor().dblclick({wx, wy, item: hitItem(wx, wy)});
+        return;
+      }
+      editor().up({e, wx, wy, sx, sy, moved: d.moved, cancelled: e.type === "pointercancel", touch: isTouch(e)});
+      return;
+    }
     if (d.moved || e.type === "pointercancel") return;
     if (o.getTool() === "measure") {
       snapState = snapFor(wx, wy);
@@ -450,15 +469,10 @@ export function createPlanView(o) {
       draw(); return;
     }
     const ed = editor();
-    if (isTouch(e)) { // touch / pen: double-tap = open / go there
-      const now = performance.now();
-      if (now - lastTap.t < 320 && Math.hypot(sx - lastTap.x, sy - lastTap.y) < 24) {
-        lastTap.t = 0;
-        const it = hitItem(wx, wy);
-        if (ed && o.getTool() === "select") ed.dblclick({wx, wy, item: it}); else o.onGo(wx, wy, it);
-        return;
-      }
-      lastTap = {t: now, x: sx, y: sy};
+    if (isTouch(e) && doubleTap(sx, sy)) { // touch / pen: double-tap = open / go there
+      const it = hitItem(wx, wy);
+      if (ed && o.getTool() === "select") ed.dblclick({wx, wy, item: it}); else o.onGo(wx, wy, it);
+      return;
     }
     if (ed && o.getTool() === "select") { ed.click({e, wx, wy, sx, sy, touch: isTouch(e), item: hitItem(wx, wy)}); return; }
     o.onSelect(hitItem(wx, wy), {toggle: e.shiftKey});

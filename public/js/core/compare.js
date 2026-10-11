@@ -4,6 +4,7 @@
 import {diffMaps} from "./diff.js";
 import {outline} from "./areas.js";
 import {corners} from "./geometry.js";
+import {MASTER_LOCKED_TEXT} from "./review.js";
 
 export const LAYOUTS = Object.freeze(["side", "overlay"]);
 export const GROUPS = Object.freeze([
@@ -80,7 +81,7 @@ export function canApply({isAdmin, a, b}) {
 /** The sentence for an apply failure: 409 reload, 423 locked, else the server's own words. */
 export function applyErrorText(status, message) {
   if (status === 409) return "The master map changed since this comparison loaded. Reload it and try again.";
-  if (status === 423) return "The master map is locked. Unlock it in the admin dashboard first.";
+  if (status === 423) return MASTER_LOCKED_TEXT;
   if (status === 404) return "That map isn't available any more.";
   if (status === 0) return "Couldn't reach the site. Check the connection and try again.";
   return message || "Couldn't apply the change.";

@@ -200,6 +200,5 @@ export function createComparePanel(o) {
     nameOf: side => shortName(state[side]),
     metaOf: side => docs.get(state[side]) || null,
     get loading() { return loading; },
-    relTime,
   };
 }

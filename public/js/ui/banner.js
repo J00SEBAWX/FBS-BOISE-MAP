@@ -1,7 +1,10 @@
-/* The banner over the plan / 3D view (docs/DESIGN.md 8): read-only, conflict, offline, not saved, locked.
- * One at a time; it never auto-dismisses. Text goes in with textContent; names come from the API. */
+/* The banner over the plan / 3D view (docs/DESIGN.md 8): read-only, conflict, offline, not saved, locked, and
+ * "editing isn't switched on yet" (the server's map tables aren't ready: core/readiness.js).
+ * One at a time; it never auto-dismisses. Text goes in with textContent; names come from the API.
+ * Its height goes to the stage as --banner-h so the floating buttons on phones sit below it, whatever it says. */
 const KINDS = {
   readonly: {cls: "info", icon: "i-eye", role: "status"},
+  legacy: {cls: "info", icon: "i-info", role: "status"},
   conflict: {cls: "error", icon: "i-error", role: "alert"},
   offline: {cls: "warn", icon: "i-cloud-off", role: "status"},
   notsaved: {cls: "warn", icon: "i-warning", role: "alert"},
@@ -12,6 +15,13 @@ const KINDS = {
 
 export function createBanner(el) {
   let kind = null;
+  const stage = el.parentElement;
+  if (stage && typeof ResizeObserver === "function") {
+    new ResizeObserver(() => {
+      if (el.hidden) stage.style.removeProperty("--banner-h");
+      else stage.style.setProperty("--banner-h", Math.ceil(el.getBoundingClientRect().height) + "px");
+    }).observe(el);
+  }
   function svg(name) {
     const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     s.setAttribute("class", "i"); s.setAttribute("aria-hidden", "true"); s.setAttribute("focusable", "false");

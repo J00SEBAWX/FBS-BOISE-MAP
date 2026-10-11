@@ -69,10 +69,13 @@ export function decisionLine(p, relTime) {
   return `${s.label}${who}${when ? ` · ${when}` : ""}${p.status === "approved" && p.appliedVersion ? ` · master version ${p.appliedVersion}` : ""}`;
 }
 
+/** The one sentence for "the master is locked", wherever a change to the master is refused (approve, apply, restore). */
+export const MASTER_LOCKED_TEXT = "The master map is locked. Open your account menu (top right) and switch off “Lock the master map” first.";
+
 /** The plain sentence for a failed submit / withdraw / decision / restore. */
 export function reviewErrorText(status, message) {
   if (status === 409) return message || "This proposal changed somewhere else. Reload and try again.";
-  if (status === 423) return "The master map is locked. Unlock it in the settings first.";
+  if (status === 423) return MASTER_LOCKED_TEXT;
   if (status === 404) return "That isn't available any more.";
   if (status === 0) return "Couldn't reach the site. Check the connection and try again.";
   return message || "Something went wrong.";

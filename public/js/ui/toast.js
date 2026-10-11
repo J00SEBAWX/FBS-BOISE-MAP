@@ -1,9 +1,9 @@
 /* One toast at a time (newest replaces older), bottom-centre, role="status" (docs/DESIGN.md 8). Hovering or
  * focusing pauses its timer. toast(msg) or toast(msg, ms) for a plain message; toast(msg, {ms, action: {label,
  * onClick}, icon}) adds an underlined action button ("Undo") and a close button. All text goes in with textContent. */
-let el = null, timer = 0, left = 0, started = 0, current = null;
+let el = null, timer = 0, left = 0, started = 0;
 
-function hide() { if (el) { el.hidden = true; current = null; } }
+function hide() { if (el) el.hidden = true; }
 function arm(ms) { clearTimeout(timer); left = ms; started = Date.now(); timer = setTimeout(hide, ms); }
 function pause() { clearTimeout(timer); left = Math.max(800, left - (Date.now() - started)); }
 function resume() { if (el && !el.hidden) arm(left); }
@@ -44,9 +44,7 @@ export function toast(msg, opts = 3200) {
     el.appendChild(x);
   }
   el.hidden = false;
-  current = o;
   arm(ms);
 }
-/** Hides the toast (e.g. the thing it offered to undo is gone). */
+/** Hides the toast (e.g. the wait it announced is over). */
 export function hideToast() { clearTimeout(timer); hide(); }
-export const toastShowing = () => !!(el && !el.hidden && current);

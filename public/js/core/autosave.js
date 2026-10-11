@@ -21,7 +21,7 @@ export function createAutosave(o) {
   const delay = o.delay ?? SAVE_DELAY, retryDelay = o.retryDelay ?? RETRY_DELAY;
   const setT = o.setTimeout || ((fn, ms) => setTimeout(fn, ms)), clearT = o.clearTimeout || (t => clearTimeout(t));
   const online = o.online || (() => true);
-  let state = "saved", timer = 0, pending = false, inflight = false, error = "", seq = 0;
+  let state = "saved", timer = 0, pending = false, inflight = false, inflightP = null, error = "", seq = 0;
   const halted = () => state === "conflict" || state === "locked";
 
   function set(s) {
@@ -29,12 +29,18 @@ export function createAutosave(o) {
   }
   function schedule(ms) { clearT(timer); timer = setT(() => { timer = 0; run(); }, ms); }
 
-  async function run() {
-    if (inflight || !pending || halted()) return;
-    if (!online()) { set("offline"); schedule(retryDelay); return; }
+  /** One save attempt, if there is something to save and nothing already in flight. Resolves when it has finished. */
+  function run() {
+    if (inflight || !pending || halted()) return Promise.resolve();
+    if (!online()) { set("offline"); schedule(retryDelay); return Promise.resolve(); }
     inflight = true; pending = false; error = "";
     const my = ++seq;
     set("saving");
+    const p = attempt(my).finally(() => { if (inflightP === p) inflightP = null; });
+    inflightP = p;
+    return p;
+  }
+  async function attempt(my) {
     let r;
     try { r = await o.save(); } catch (e) { r = {ok: false, status: 0, error: String((e && e.message) || e)}; }
     if (my !== seq) return; // reset() happened while saving: that result belongs to the old map
@@ -59,12 +65,20 @@ export function createAutosave(o) {
       if (halted()) return;
       if (!inflight) { set("dirty"); schedule(delay); }
     },
-    /** Save right now (a reload, closing the tab, the "Try now" button). Resolves when the attempt finished. */
-    flush() { clearT(timer); timer = 0; return run(); },
+    /**
+     * Save right now (opening another map, closing the tab, the "Try now" button) and resolve when everything that
+     * was changed has been tried: a save already in flight is waited for, and edits made while it flew are sent
+     * in a second save. Check `pending` afterwards: it stays true when the last attempt failed.
+     */
+    async flush() {
+      clearT(timer); timer = 0;
+      if (inflightP) { await inflightP; clearT(timer); timer = 0; } // the follow-up it scheduled is sent now instead
+      return run();
+    },
     /** The person asked to try again (also called when the browser comes back online). */
     tryNow() { if (pending && !inflight && !halted()) { clearT(timer); timer = 0; return run(); } return Promise.resolve(); },
     /** The map was reloaded after a conflict / lock: start clean (any pending edits are the caller's to re-apply). */
-    reset() { clearT(timer); timer = 0; pending = false; inflight = false; error = ""; seq++; set("saved"); },
+    reset() { clearT(timer); timer = 0; pending = false; inflight = false; inflightP = null; error = ""; seq++; set("saved"); },
     status: () => state,
     get error() { return error; },
     /** Are there edits not yet on the server (scheduled, retrying or in flight)? */

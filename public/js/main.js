@@ -19,9 +19,10 @@ import {formatFtIn, formatSqft} from "./core/units.js";
 import {createSession, toLayout} from "./core/session.js";
 import {createAutosave} from "./core/autosave.js";
 import {loadDraft, createDraftKeeper} from "./core/drafts.js";
-import {parseHash, isMapId} from "./core/route.js";
+import {parseHash, isMapId, planHashChange} from "./core/route.js";
 import {api, ApiError} from "./core/api.js";
-import {MODE_INFO, isMode, modeAllows, modeLayers, modeNotice} from "./core/modes.js";
+import {MODE_INFO, isMode, modeAllows, modeLayers, modeNotice, itemShownIn, unlockHint} from "./core/modes.js";
+import {apiNotReady, staticMasterResponse, legacyAllows, legacyMode, LEGACY_BANNER} from "./core/readiness.js";
 import {collectIssues, firstOffender} from "./core/issues.js";
 import {rowKey, rowBounds} from "./core/compare.js";
 import {fixEdits, showBounds} from "./core/advisor-ui.js";
@@ -45,7 +46,7 @@ import {drawOverlays, drawHighlight} from "./plan2d/advisor-draw.js";
 import {initTabs, initialView, initialMode} from "./ui/header.js";
 import {initToolbar} from "./ui/toolbar.js";
 import {createLayers} from "./ui/layers.js";
-import {toast} from "./ui/toast.js";
+import {toast, hideToast} from "./ui/toast.js";
 import {initHelp} from "./ui/dialog.js";
 import {onThemeChange, isDark} from "./ui/theme.js";
 import {createWalkHud} from "./ui/walk-hud.js";
@@ -113,6 +114,7 @@ async function boot() {
 
 function start(me, overlay) {
   const state = {view: initialView(), mode: initialMode(), tool: "select", has3D: false, placing: null, multi: false, loading: false,
+    legacy: false, // the server's maps aren't ready (core/readiness.js): the master map is shown from the static file, read-only
     map: {id: "master", name: "Master map", version: 0, canEdit: false, ownerName: "", updatedAt: 0, mine: false, locked: false},
     master: null, // {version, data, layout, cats, updatedAt, ownerName}: the master as Current layout / Comparison show it
     issues: collectIssues({items: []})};
@@ -253,9 +255,11 @@ function start(me, overlay) {
     plan.draw(); if (planA.active) planA.draw();
     syncMore();
     palette.render();
-    if (key === "faint" || key === "fixtures" || key === "structure" || key === "categories") { const keep = session.selected().filter(selectionVisible); if (keep.length !== session.selection.length) session.select(keep.map(it => it.id)); }
+    if (key === "faint" || key === "fixtures" || key === "structure" || key === "categories") pruneSelection();
   }
-  const selectionVisible = it => { const L = planLayers(); return it.type === "area" ? L.categories : isStructure(it) ? L.structure : (L.fixtures || !planView()); };
+  const selectionVisible = it => itemShownIn(it, planLayers(), {plan: planView()});
+  /** Drops from the selection what the current layers or mode don't draw (a hidden block must not stay selected). */
+  function pruneSelection() { const keep = session.selected().filter(selectionVisible); if (keep.length !== session.selection.length) session.select(keep.map(it => it.id)); }
   let scanToken = 0;
   async function setScan(mode) {
     const bannerEl = $("#scanBanner"), my = ++scanToken;
@@ -517,7 +521,7 @@ function start(me, overlay) {
   const inspector = createInspector({
     el: $("#inspector"), session, editor, canEdit, isTouch: () => phoneMq.matches, toast, act, canGoLook: it => canGoLook(it),
     mapInfo: () => ({name: state.map.id === "master" ? "Master map" : state.map.name, master: state.map.id === "master", ownerName: state.map.ownerName, updatedAt: state.map.updatedAt}),
-    modeNotice: () => modeNotice(state.mode, {master: state.map.id === "master", canEdit: !!state.map.canEdit}),
+    modeNotice: () => modeNotice(state.mode, {master: state.map.id === "master", canEdit: !!state.map.canEdit, legacy: state.legacy}),
     issues: () => (state.mode === "planning" ? state.issues : null),
     issuesFor: id => (state.mode === "planning" || state.mode === "advisor" ? state.issues.byId[id] || [] : null),
     onIssues: () => showFirstIssue(),
@@ -558,6 +562,7 @@ function start(me, overlay) {
     btn: $("#addBtn"), pop: $("#addPop"), session, toast, isDark,
     startMode: () => "items",
     hint3d: () => state.view === "3d",
+    unlockHint: () => unlockHint({touch: phoneMq.matches, plan: planView()}),
     onAdd: type => addItem(type),
     onDepartment: key => { if (state.view === "3d") startPlacing(key); else placeDepartment(key); },
   });
@@ -578,6 +583,11 @@ function start(me, overlay) {
   $("#catsEmptyBtn").addEventListener("click", () => $("#deptBtn").click());
 
   /* ================= Comparison and Advisor (the mode panels) ================= */
+  /** Saves what is pending, and refuses to go on when it could not be saved: the server works from the saved copy. */
+  async function saveFirst() {
+    if (autosave.pending) await autosave.flush();
+    if (autosave.pending) throw new Error("Your latest edits aren't saved yet. Wait for “Saved” in the header, then try again.");
+  }
   const openMapInfo = () => ({id: state.map.id, name: state.map.id === "master" ? "Master map" : state.map.name, ownerName: state.map.ownerName, mine: state.map.mine, version: state.map.version, updatedAt: state.map.updatedAt});
   const comparePanel = createComparePanel({
     el: $("#comparePanel"), isAdmin, toast, isTouch: () => phoneMq.matches,
@@ -589,7 +599,7 @@ function start(me, overlay) {
       return {doc: r.data, name: r.meta.name, version: r.meta.version, ownerName: r.meta.ownerName, updatedAt: r.meta.updatedAt};
     },
     liveDoc: id => (id === state.map.id ? session.doc : null),
-    flushSave: () => (autosave.pending ? autosave.flush() : Promise.resolve()),
+    flushSave: saveFirst,
     apply: (mapId, baseVersion, changes) => api.applyToMaster(mapId, baseVersion, changes),
     onChange: what => onCompareChange(what),
     onClose: () => closePanelSheet(),
@@ -714,15 +724,15 @@ function start(me, overlay) {
 
   /* ================= proposals: "Submit for review" on a map of your own (rule 7) ================= */
   const propCtl = createProposalControl({
-    chip: $("#propChip"), fab: null, dlg: $("#propDlg"), toast, announce,
-    flushSave: () => (autosave.pending ? autosave.flush() : Promise.resolve()),
+    chip: $("#propChip"), dlg: $("#propDlg"), toast, announce,
+    flushSave: saveFirst,
     submit: (mapId, note) => api.submitProposal(mapId, note),
     withdraw: id => api.withdrawProposal(id),
     refresh: () => refreshProposals(),
-    getMap: () => ({id: state.map.id, name: state.map.name, mine: state.map.mine, master: state.map.id === "master", canEdit: state.map.canEdit}),
   });
   let proposalsLoading = null;
   function refreshProposals() {
+    if (state.legacy) return Promise.resolve();
     if (proposalsLoading) return proposalsLoading;
     proposalsLoading = (async () => {
       try {
@@ -739,11 +749,11 @@ function start(me, overlay) {
   /* ================= admin settings: sharing and the master lock (in the account menu) ================= */
   let adminSettings = null;
   async function loadAdminSettings() {
-    if (!isAdmin) return;
+    if (!isAdmin || state.legacy) return;
     try { adminSettings = await api.settings(); renderAcctSettings(); } catch { /* the dashboard still has them */ }
   }
   function renderAcctSettings() {
-    if (!isAdmin || !adminSettings) return;
+    if (!isAdmin || !adminSettings || state.legacy) return;
     const box = $("#acctSettings");
     $("#setLabel").hidden = false;
     box.hidden = false;
@@ -833,6 +843,8 @@ function start(me, overlay) {
 
   /** The read-only banner belongs to Area planning; the other modes say what they are themselves. */
   function syncReadOnlyBanner() {
+    // the server's maps aren't ready: one calm sentence in every mode, and a way to check again
+    if (state.legacy) { banner.show("legacy", [{text: LEGACY_BANNER.title, bold: true}, {text: LEGACY_BANNER.text}], [{label: "Check again", onClick: () => openMap("master", {reload: true})}]); return; }
     if (banner.kind && banner.kind !== "readonly") return;
     if (state.mode !== "planning" || state.map.canEdit) { banner.hide("readonly"); return; }
     // the locked master: the admin would normally edit it here, so say why they can't (and offer the key)
@@ -848,6 +860,56 @@ function start(me, overlay) {
     banner.show("readonly", [{text: `Viewing ${who}`, bold: true}, {text: " (read-only)"}], [{label: "Make my own copy", primary: true, onClick: () => mapMenu.newMap({from: id === "master" ? "master" : "map", mapId: id === "master" ? null : id, name: id === "master" ? `My master copy` : `Copy of ${state.map.name}`.slice(0, 60)})}]);
   }
 
+  /**
+   * The master as GET /api/master gives it. When the server isn't ready for maps (migration 0005 not applied yet, or the
+   * master not seeded: core/readiness.js) it is the static /data/master.json instead, read-only (m.static is true).
+   */
+  async function fetchMaster() {
+    try { return await api.master(); }
+    catch (e) {
+      if (!(e instanceof ApiError) || !apiNotReady(e, {master: true})) throw e;
+      let raw = null;
+      try { raw = await loadJson("data/master.json"); } catch { throw e; }
+      const m = staticMasterResponse(raw);
+      if (!m) throw e;
+      return m;
+    }
+  }
+  /** What opening `id` loads: {id, m}. While the maps aren't ready on the server, any map id becomes the master. */
+  async function loadTarget(id, opts) {
+    if (opts.fresh) return {id, m: opts.fresh};
+    if (id !== "master") {
+      try { return {id, m: await api.map(id)}; }
+      catch (e) { if (!(e instanceof ApiError && apiNotReady(e))) throw e; }
+    }
+    return {id: "master", m: await fetchMaster()};
+  }
+  /**
+   * Edits made in the last 1.5 s (or still on their way to the server) are saved before another map opens. A slow
+   * connection says so after a moment and is given up on after 8 s: whatever is not saved stays on this device as a
+   * draft for that map. A conflict / lock / failed save also leaves it in the draft.
+   */
+  async function saveBeforeSwitching() {
+    if (!state.map || !state.map.canEdit || !autosave.pending) return;
+    let said = false, giveUp = 0;
+    const note = setTimeout(() => { said = true; toast("Saving your changes, then opening the other map…", {ms: 8000}); }, 600);
+    try { await Promise.race([autosave.flush(), new Promise(r => { giveUp = setTimeout(r, 8000); })]); }
+    finally { clearTimeout(note); clearTimeout(giveUp); if (said) hideToast(); }
+    if (autosave.pending) toast("Your latest changes are kept on this device. They save when you open that map again.", {ms: 5000});
+  }
+  /** The server's maps aren't ready (core/readiness.js): only the modes that read the master stay, and everything that needs the API is off. */
+  function applyLegacy(on) {
+    if (state.legacy === on) return;
+    state.legacy = on;
+    app.dataset.legacy = String(on);
+    for (const t of document.querySelectorAll(".modes [data-mode]")) t.hidden = on ? !legacyAllows(t.dataset.mode) : t.dataset.mode === "review" && !isAdmin;
+    mapMenu.setLegacy(on);
+    if (on) {
+      if (!legacyAllows(state.mode)) { state.mode = legacyMode(state.mode); app.dataset.mode = state.mode; planOpts.editor = null; tabs.setMode(state.mode); }
+      $("#setLabel").hidden = true; $("#acctSettings").hidden = true;
+    } else if (isAdmin) loadAdminSettings();
+  }
+
   /** Opens the master ("master") or a map by id. opts: reload (after a conflict), fresh ({meta, data} just created). */
   async function openMap(id, opts = {}) {
     if (state.loading) return;
@@ -855,21 +917,19 @@ function start(me, overlay) {
     editor.cancelGesture(); cancelPlacing();
     $("#mapError").hidden = true;
     try {
-      // edits made in the last 1.5 s are saved before the other map opens (a conflict / lock / failed save leaves them
-      // in the draft kept on this device instead; a reload after a conflict starts clean on purpose)
-      if (!opts.reload && state.map && state.map.canEdit && autosave.pending) await autosave.flush();
+      if (!opts.reload) await saveBeforeSwitching(); // a reload after a conflict starts clean on purpose
+      const {id: openId, m} = await loadTarget(id, opts);
       let next;
-      if (id === "master") {
-        const m = opts.fresh || await api.master();
-        next = {id: "master", name: "Master map", version: m.version, data: m.data, canEdit: isAdmin && !m.locked, ownerName: m.updatedByName || m.sourceOwnerName || "", updatedAt: m.updatedAt, mine: false, locked: !!m.locked, lockedByName: m.lockedByName};
+      if (openId === "master") {
+        next = {id: "master", name: "Master map", version: m.version, data: m.data, canEdit: isAdmin && !m.locked && !m.static, ownerName: m.updatedByName || m.sourceOwnerName || "", updatedAt: m.updatedAt, mine: false, locked: !!m.locked, lockedByName: m.lockedByName, legacy: !!m.static};
         mapMenu.setMaster({version: m.version, updatedAt: m.updatedAt, ownerName: next.ownerName});
       } else {
-        const m = opts.fresh || await api.map(id);
-        next = {id: m.meta.id, name: m.meta.name, version: m.meta.version, data: m.data, canEdit: !!(m.canEdit ?? m.meta.mine), ownerName: m.meta.ownerName, updatedAt: m.meta.updatedAt, mine: !!m.meta.mine, locked: false};
+        next = {id: m.meta.id, name: m.meta.name, version: m.meta.version, data: m.data, canEdit: !!(m.canEdit ?? m.meta.mine), ownerName: m.meta.ownerName, updatedAt: m.meta.updatedAt, mine: !!m.meta.mine, locked: false, legacy: false};
       }
       autosave.reset();
       state.map = next;
       state.master = null;
+      applyLegacy(next.legacy);
       syncLockBadge();
       propCtl.setMap({id: next.id, name: next.name, mine: next.mine, master: next.id === "master", canEdit: next.canEdit});
       refreshProposals();
@@ -884,7 +944,7 @@ function start(me, overlay) {
       tabs.writeHash();
       banner.hide();
       syncReadOnlyBanner();
-      if (next.canEdit && id === "master" && isAdmin && state.mode === "planning") toast("You're editing the master map. Every change saves a new master version.", {ms: 4000});
+      if (next.canEdit && next.id === "master" && isAdmin && state.mode === "planning") toast("You're editing the master map. Every change saves a new master version.", {ms: 4000});
       if (next.canEdit) restoreDraft();
       if (state.mode === "current" || state.mode === "comparison") await enterMode(state.mode);
       else plan.setLayout(session.layout);
@@ -896,7 +956,7 @@ function start(me, overlay) {
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) return;
       if (e instanceof ApiError && (e.status === 404 || e.status === 403)) stageError("This map isn't available", "It was deleted, or it isn't shared with you any more.", false);
-      else if (e instanceof ApiError && e.status === 503) stageError("The master map isn't set up yet", e.message, true);
+      else if (e instanceof ApiError && e.status === 503) stageError("The map isn't ready yet", "The store map is still being set up. Try again in a few minutes.", true);
       else stageError("This map didn't load", "Check the connection and try again. Nothing you saved is lost.", true);
       $("#mapErrorMaster").hidden = id === "master" && !(e instanceof ApiError && e.status === 503);
     } finally { state.loading = false; }
@@ -963,7 +1023,7 @@ function start(me, overlay) {
     if (!state.has3D && !planView()) { readout.hint(""); return; }
     const m = state.tool === "measure", edit = canEdit();
     const modeHint = {
-      blank: "Blank slate · click an item for its size · switch to Area planning to change the map",
+      blank: state.legacy ? "Blank slate · click an item for its size" : "Blank slate · click an item for its size · switch to Area planning to change the map",
       current: "Current layout: the master map as confirmed · hover an item for its name",
       comparison: "Tap a difference in the list, or click a changed item on the plan",
       advisor: "Show me highlights a recommendation · Apply makes the change on this map",
@@ -1182,6 +1242,7 @@ function start(me, overlay) {
   function setMode(m) {
     if (!isMode(m) || m === state.mode) return;
     if (m === "review" && !isAdmin) return;
+    if (state.legacy && !legacyAllows(m)) { toast(LEGACY_BANNER.title); return; }
     const was = state.mode;
     editor.cancelGesture(); cancelPlacing(); editor.setShapeEdit(false);
     layers.close(false); addMenu.close(false); closeMore(); closePanelSheet();
@@ -1191,6 +1252,7 @@ function start(me, overlay) {
     tabs.setMode(m);
     const a = allows();
     if (!a.select || was === "comparison" || was === "advisor" || was === "review") session.clearSelection();
+    else pruneSelection(); // Blank slate draws no departments or fixtures: none of them stays selected
     if (was === "advisor") { advisorPanel.clearShow(); if (overlays3d) { overlays3d.setOverlays(null, null, overlayColours()); overlays3d.setHighlight(null, overlayColours()); } }
     planOpts.editor = a.edit ? editor : null;
     app.dataset.edit = String(canEdit());
@@ -1222,7 +1284,13 @@ function start(me, overlay) {
   }
   $("#noGlPlan").addEventListener("click", () => setView("plan"));
   $("#brandLink").addEventListener("click", e => { e.preventDefault(); setView("3d"); });
-  window.addEventListener("hashchange", () => { const hs = parseHash(location.hash); if (hs.map && hs.map !== state.map.id) openMap(hs.map); });
+  // a hash changed by hand: the map first (it loads asynchronously), then the display and the mode from the same hash
+  window.addEventListener("hashchange", async () => {
+    const todo = planHashChange(location.hash, {view: state.view, mode: state.mode, map: state.map.id});
+    if (todo.map) await openMap(todo.map);
+    if (todo.view) setView(todo.view);
+    if (todo.mode) setMode(todo.mode);
+  });
 
   /* ================= phone: the More sheet ================= */
   const moreBtn = $("#moreBtn"), morePop = $("#morePop");
@@ -1372,8 +1440,8 @@ function start(me, overlay) {
     tabs.setMode(state.mode);
     planOpts.editor = allows().edit ? editor : null;
     $("#panelBtnLabel").textContent = state.mode === "comparison" ? "Changes" : state.mode === "review" ? "Review" : "Advisor";
-    if (isAdmin) loadAdminSettings();
     await openMap(isMapId(hs.map) ? hs.map : "master");
+    if (isAdmin) loadAdminSettings();
     if (webglAvailable() && session.layout.items.length) {
       try { init3D(); }
       catch (e) {
@@ -1391,7 +1459,7 @@ function start(me, overlay) {
     setView(state.view);
     if (state.mode !== "planning") enterMode(state.mode).catch(() => {});
     requestAnimationFrame(tick);
-    mapMenu.refresh();
+    if (!state.legacy) mapMenu.refresh();
     // A handle for automated browser checks only (navigator.webdriver is true under Playwright / WebDriver); real
     // visitors never get a global.
     if (navigator.webdriver === true) {

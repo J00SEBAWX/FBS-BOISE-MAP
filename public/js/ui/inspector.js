@@ -135,7 +135,7 @@ export function createInspector(o) {
     const ids = [it.id], locked = session.isLocked(it), editable = canEdit() && !locked;
     const typeLabel = (TYPES[it.type] || {}).label || it.type;
     const kids = [header(typeLabel.toUpperCase() + (isStructure(it) ? " · STRUCTURE" : ""), displayName(it), categoryOf(it) !== typeLabel ? categoryOf(it) : "", locked)];
-    if (locked && canEdit()) kids.push(h("div", {class: "notice warn insp-notice"}, h("p", {text: "Structure is locked. Unlock it in the toolbar to change walls, doors, columns, floors and stairs."}), btn("Unlock structure", "i-unlock", () => o.act.unlock(), "btn small")));
+    if (locked && canEdit()) kids.push(h("div", {class: "notice warn insp-notice"}, h("p", {text: "Structure is locked. Unlock it to change walls, doors, columns, floors and stairs."}), btn("Unlock structure", "i-unlock", () => o.act.unlock(), "btn small")));
     kids.push(positionSection(ids, it, editable));
     const brandOpts = [["", "None"], ...Object.entries(BRAND_NAMES)];
     kids.push(section("Name & colour", textField(ids, "name", "Name", it.name, {editable, max: 80}), colourField(ids, it.color, editable)));
@@ -254,7 +254,7 @@ export function createInspector(o) {
       section("What's on it", h("ul", {class: "counts"}, top.map(([k, n]) => h("li", {}, h("b", {text: String(n)}), ` ${k}`)))),
       canEdit() ? section("How to edit", h("ul", {class: "tips"},
         h("li", {text: "Tap an item to select it"}), h("li", {text: "Drag to move · corner handles resize"}), h("li", {text: "The top handle rotates (15° steps, Shift for free)"}),
-        h("li", {text: "Shift-click adds to the selection · arrows nudge 6\" (Shift 5')"}), h("li", {text: "Structure is locked until you unlock it in the toolbar"}))) :
+        h("li", {text: "Shift-click adds to the selection · arrows nudge 6\" (Shift 5')"}), h("li", {text: o.isTouch() ? "Structure is locked until you unlock it in More" : "Structure is locked until you unlock it in the toolbar"}))) :
         notice ? null : section("View only", h("p", {class: "insp-hint", text: m.master ? "Only the admin changes the master map. Make your own copy to try ideas." : "This map belongs to someone else. Make your own copy to change it."})),
     ];
   }
@@ -302,13 +302,18 @@ export function createInspector(o) {
   }
   /** Focuses the first field (Enter on the plan). */
   function focusFirst() { const f = el.querySelector("input, select, textarea, button.btn"); if (f) f.focus(); if (o.isTouch()) setSheet("expanded"); }
-  /** Scrolls to and focuses the Checks list of the selected block (the "3 warnings" chip). */
+  /**
+   * Scrolls to and focuses the Checks list of the selected block (the "3 warnings" chip). It scrolls the inspector's
+   * own box and nothing else: scrollIntoView would also scroll the (overflow:hidden) stage while a phone's sheet is
+   * still sliding up from below the screen, which pushed the plan out of view for good.
+   */
   function focusChecks() {
     render(true);
     const sec = el.querySelector(".insp-checks");
     if (!sec) return false;
     if (o.isTouch()) setSheet("expanded");
-    sec.scrollIntoView({block: "start", behavior: "auto"});
+    const grab = el.querySelector(".sheet-grab"); // the sticky grab bar (phones) would cover the heading
+    el.scrollTop = Math.max(0, sec.offsetTop - (grab ? grab.offsetHeight + 4 : 0));
     sec.focus({preventScroll: true});
     return true;
   }

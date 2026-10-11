@@ -102,7 +102,7 @@ export function drawSideGhost(ctx, v, row, side, tok) {
   ctx.save(); ctx.lineJoin = "round";
   if (it) {
     ctx.beginPath(); pathShape(ctx, v, it);
-    const c = side === "a" ? (row.group === "removed" ? col.removed : col.removed) : (row.group === "added" ? col.added : col.changed);
+    const c = side === "a" ? col.removed : (row.group === "added" ? col.added : col.changed);
     ctx.fillStyle = c; ctx.globalAlpha = 0.14; ctx.fill(); ctx.globalAlpha = 1;
     ctx.lineWidth = 3; ctx.strokeStyle = c; if (side === "a") ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
     const ys = shapeOf(it).map(p => w2s(v, p[0], p[1])[1]);

@@ -2,7 +2,7 @@
  * button that opened it. */
 export function initHelp({onOpen} = {}) {
   const help = document.getElementById("help");
-  const openers = [document.getElementById("helpBtn"), document.getElementById("helpBtn2")].filter(Boolean);
+  const openers = [document.getElementById("helpBtn")].filter(Boolean);
   let opener = null;
   function open(from) {
     if (help.open) return;

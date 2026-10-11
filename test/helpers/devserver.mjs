@@ -121,14 +121,21 @@ export const releasePort = unlockPort;
  * `port` defaults to a free one (see freePort); the devtools inspector gets its own free port too.
  * `seed(secrets)` returns SQL that is run on the fresh database before the Worker starts.
  * `secrets` ({pepper, phoneKey}) replaces the random throwaway ones (e.g. to test bad values).
+ * `omitMigrations` (["0005_maps.sql"]) leaves those migration files out, to test a database that is behind the code
+ * (the other migrations are then run in order, as files, instead of `migrations apply`).
  */
-export async function startDev({ port, seed, secrets: given } = {}) {
+export async function startDev({ port, seed, secrets: given, omitMigrations } = {}) {
   if (!port) port = await freePort();
   const inspectorPort = await freePort();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "fbs-test-"));
   const env = { ...process.env, WRANGLER_SEND_METRICS: "false", CI: "1", NO_COLOR: "1" };
   const wr = (args) => execFileSync(process.execPath, [WRANGLER, ...args], { cwd: ROOT, env, stdio: "pipe" });
-  wr(["d1", "migrations", "apply", "fbs-boise-map", "--local", "--persist-to", dir]);
+  if (omitMigrations && omitMigrations.length) {
+    const migDir = path.join(ROOT, "migrations");
+    for (const f of fs.readdirSync(migDir).filter((n) => n.endsWith(".sql") && !omitMigrations.includes(n)).sort()) {
+      wr(["d1", "execute", "fbs-boise-map", "--local", "--persist-to", dir, "--file", path.join(migDir, f)]);
+    }
+  } else wr(["d1", "migrations", "apply", "fbs-boise-map", "--local", "--persist-to", dir]);
 
   const secrets = given || { pepper: crypto.randomBytes(32).toString("hex"), phoneKey: crypto.randomBytes(32).toString("base64") };
   if (seed) {
@@ -197,6 +204,15 @@ export async function startDev({ port, seed, secrets: given } = {}) {
       );
       const parsed = JSON.parse(out.slice(out.indexOf("[")));
       return parsed[parsed.length - 1].results || [];
+    },
+    /** Runs a whole SQL file's text on the running server's local database (a migration, the master seed). */
+    async sqlFile(text) {
+      const file = path.join(dir, `run-${Date.now()}-${Math.random().toString(36).slice(2)}.sql`);
+      fs.writeFileSync(file, text);
+      await new Promise((resolve, reject) =>
+        execFile(process.execPath, [WRANGLER, "d1", "execute", "fbs-boise-map", "--local", "--persist-to", dir, "--file", file], { cwd: ROOT, env },
+          (err, _stdout, stderr) => (err ? reject(new Error(String(stderr || err.message))) : resolve()))
+      );
     },
     async stop() {
       kill();

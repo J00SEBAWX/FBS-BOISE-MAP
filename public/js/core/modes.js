@@ -6,6 +6,7 @@
  *   advisor     Advisor: the retail-flow advisor on the open map
  * The display (Plan | 3D | Walk) is independent of the mode. */
 import {MODES} from "./route.js";
+import {isStructure} from "./model.js";
 export {MODES};
 
 export const MODE_INFO = Object.freeze({
@@ -22,12 +23,6 @@ export const MODE_INFO = Object.freeze({
   review: Object.freeze({label: "Review", short: "Review", icon: "i-review", key: "6", adminOnly: true,
     hint: "The team's proposals against the master map, and the master's history."}),
 });
-export const DISPLAY_INFO = Object.freeze({
-  plan: Object.freeze({label: "Plan", icon: "i-plan", key: "P", title: "Plan: the floor from above"}),
-  "3d": Object.freeze({label: "3D", icon: "i-rotate", key: "O", title: "3D: orbit around the store"}),
-  walk: Object.freeze({label: "Walk", icon: "i-walk", key: "W", title: "Walk: the store at a customer's eye height"}),
-});
-
 export const isMode = m => MODES.includes(m);
 
 /**
@@ -60,14 +55,32 @@ export function modeLayers(mode, L) {
   return out;
 }
 
-/** The read-only sentence the inspector shows when nothing is selected in a mode (null in Area Planning). */
-export function modeNotice(mode, {master = false, canEdit = false} = {}) {
+/** Is this item drawn (and so selectable) with these layers? `plan`: the floor plan, where hidden fixtures can't be picked. */
+export function itemShownIn(it, L, {plan = true} = {}) {
+  return !!(it.type === "area" ? L.categories : isStructure(it) ? L.structure : (L.fixtures || !plan));
+}
+
+/**
+ * The read-only sentence the inspector shows when nothing is selected in a mode (null in Area Planning).
+ * legacy: the server isn't ready for maps (core/readiness.js), so there is no Area planning to switch to.
+ */
+export function modeNotice(mode, {master = false, canEdit = false, legacy = false} = {}) {
   switch (mode) {
-    case "blank": return "Blank slate: the building's structure only. Switch to Area planning to place departments and move fixtures.";
+    case "blank": return legacy ? "Blank slate: the building's structure only. Switch to Current layout to see the departments and fixtures." : "Blank slate: the building's structure only. Switch to Area planning to place departments and move fixtures.";
     case "current": return "Current layout: the master map as confirmed today. It can't be changed here" + (master || !canEdit ? "." : "; your own map stays as it is.");
     case "comparison": return "Comparison: pick two layouts in the panel on the left; tap a difference to see it on the plan.";
     case "advisor": return "Advisor: the scores and recommendations are in the panel on the left. Show me highlights a spot; Apply makes the change on this map.";
     case "review": return "Review: the team's proposals are in the panel on the left. Open one to see its differences from the master map.";
     default: return null;
   }
+}
+
+/**
+ * Where to unlock the Structure (walls, doors, columns, floors, stairs) so the Add sheet and the inspector can say
+ * it in words that fit the screen: the toolbar's lock on a computer, More on a phone; only the Plan has the lock,
+ * so the 3D view points there.
+ */
+export function unlockHint({touch = false, plan = true} = {}) {
+  if (!plan) return "Open the Plan and unlock Structure to add walls, doors, columns, openings or stairs.";
+  return `Unlock Structure ${touch ? "in More" : "in the toolbar"} to add walls, doors, columns, openings or stairs.`;
 }

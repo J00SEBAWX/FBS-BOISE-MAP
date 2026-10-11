@@ -13,9 +13,9 @@ const KEY = "fbs-advisor-overlays-v1";
 const SEV_ICON = {high: "i-error", medium: "i-warning", low: "i-warning", info: "i-info"};
 
 /**
- * createAdvisorPanel({el, isAdmin, getDoc(), getCategories(), loadConfig() -> Promise<{config, isDefault, updatedAt}>,
- *   saveConfig(config) -> Promise, resetConfig() -> Promise, onOverlays(toggles), onShow(rec | null),
- *   applyFix(rec) -> error | null, toast, isTouch(), onClose()})
+ * createAdvisorPanel({el, isAdmin, getDoc(), getCategories(), canEdit() (may Apply change this map), loadConfig() ->
+ *   Promise<{config, isDefault, updatedAt}>, saveConfig(config) -> Promise, resetConfig() -> Promise,
+ *   onOverlays(toggles), onShow(rec | null), applyFix(rec) -> error | null, toast, isTouch(), onClose()})
  */
 export function createAdvisorPanel(o) {
   const {el} = o;
@@ -176,7 +176,7 @@ export function createAdvisorPanel(o) {
       // read-only (members): .readonly keeps the rule names readable (it's content, not a disabled action)
       row.appendChild(h("button", {type: "button", class: "switch-row" + (editable ? "" : " readonly"), role: "switch", aria: {checked: r.enabled, readonly: editable ? undefined : "true"}, disabled: !editable, title: r.why, onclick: () => edit(v => { v.rules[r.key] = {...(v.rules[r.key] || {weight: r.weight}), enabled: !r.enabled}; })},
         h("span", {class: "sw-label"}, h("b", {text: r.label})), h("span", {class: "sw-track", aria: {hidden: true}}, h("span", {class: "sw-knob"}))));
-      row.appendChild(numberField("adv-w-" + r.key, "Weight", r.weight, {min: 0, max: 5, step: 0.5, unit: "× ", editable, onChange: v => edit(d => { d.rules[r.key] = {...(d.rules[r.key] || {enabled: r.enabled}), weight: v}; })}));
+      row.appendChild(numberField("adv-w-" + r.key, "Weight", r.weight, {min: 0, max: 5, step: 0.5, unit: "×", editable, onChange: v => edit(d => { d.rules[r.key] = {...(d.rules[r.key] || {enabled: r.enabled}), weight: v}; })}));
       wrap.appendChild(row);
     }
     // the engine's own assumptions

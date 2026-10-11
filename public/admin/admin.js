@@ -335,9 +335,14 @@ $("#pw-form").addEventListener("submit", async e => {
   }
 });
 
+/** The map page keeps unsaved edits on the device per map ("fbs-draft-v1:<id>", core/drafts.js); the next person on a shared device must not find them. */
+function forgetDrafts() {
+  try { for (const k of Object.keys(localStorage)) if (k.startsWith("fbs-draft-v1:")) localStorage.removeItem(k); } catch { /* no storage */ }
+}
 async function signOut(e) {
   busy(e.currentTarget, "Signing out…");
   try { await api("POST", "/api/logout", {}); } catch { /* signed out anyway */ }
+  forgetDrafts();
   location.replace("/login?admin=1");
 }
 $("#logout").addEventListener("click", signOut);

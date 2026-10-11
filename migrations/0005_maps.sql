@@ -1,8 +1,9 @@
 -- Store maps v3: everyone's own maps, the master map (versioned), site settings and proposals.
--- Additive and safe to run more than once. Applied to production by hand, in this order:
+-- Additive and safe to run more than once. Applied to production by hand, BEFORE the release that uses it is merged
+-- (docs/DEPLOY-PHASE2.md has the full safe order and the read-only check):
 --   1. npx wrangler d1 migrations apply fbs-boise-map --remote
---   2. npm run -s seed-master > master-seed.sql   (prints the SQL for master version 1; see scripts/seed-master.mjs)
---      npx wrangler d1 execute fbs-boise-map --remote --file master-seed.sql
+--   2. npm run -s seed-master > /tmp/master-seed.sql   (prints the SQL for master version 1; see scripts/seed-master.mjs)
+--      npx wrangler d1 execute fbs-boise-map --remote --file /tmp/master-seed.sql
 -- owner_id columns are plain TEXT (no foreign keys): removing a person deletes their maps and proposals explicitly.
 
 -- A person's own store layout. data = {"items": [...], "categories": [...]} (validated by src/shared/schema.js).

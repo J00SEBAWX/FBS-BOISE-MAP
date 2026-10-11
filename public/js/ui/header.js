@@ -21,13 +21,16 @@ export function initialMode() {
   return DEFAULT_MODE;
 }
 
-function tablist(tabs, attr, onSelect) {
-  for (const t of tabs) {
+function tablist(all, attr, onSelect) {
+  // the keys move between the tabs that show right now: some are hidden for a while (Review for members, the modes
+  // that need the server while it isn't ready), so the list is read at key time
+  const shown = () => all.filter(t => !t.hidden);
+  for (const t of all) {
     t.addEventListener("click", () => onSelect(t.dataset[attr]));
     t.addEventListener("keydown", e => {
-      const i = tabs.indexOf(t), d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+      const tabs = shown(), i = tabs.indexOf(t), d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
       let n = null;
-      if (d) n = tabs[(i + d + tabs.length) % tabs.length];
+      if (d && i >= 0) n = tabs[(i + d + tabs.length) % tabs.length];
       else if (e.key === "Home") n = tabs[0];
       else if (e.key === "End") n = tabs[tabs.length - 1];
       if (!n) return;
@@ -35,17 +38,18 @@ function tablist(tabs, attr, onSelect) {
       n.focus(); onSelect(n.dataset[attr]);
     });
   }
-  return v => { for (const t of tabs) { const on = t.dataset[attr] === v; t.setAttribute("aria-selected", String(on)); t.tabIndex = on ? 0 : -1; } };
+  return v => { for (const t of all) { const on = t.dataset[attr] === v; t.setAttribute("aria-selected", String(on)); t.tabIndex = on ? 0 : -1; } };
 }
 
 /**
  * initTabs({onSelect(view), onMode(mode), getMap()}) -> {set(view), setMode(mode), writeHash()} : marks the tabs
  * selected (no callback) and keeps the hash in step; getMap() returns "master" | map id | null for the hash.
+ * A hash typed by hand is handled by the app (main.js, core/route.js planHashChange): the map first, then the
+ * display and the mode.
  */
 export function initTabs({onSelect, onMode, getMap}) {
-  // hidden tabs (the admin-only Review mode for members) never get wired, so arrow keys skip them
-  const views = [...document.querySelectorAll('.tabs [role="tab"][data-view]')].filter(t => !t.hidden);
-  const modes = [...document.querySelectorAll('.modes [role="tab"][data-mode]')].filter(t => !t.hidden);
+  const views = [...document.querySelectorAll('.tabs [role="tab"][data-view]')];
+  const modes = [...document.querySelectorAll('.modes [role="tab"][data-mode]')];
   let view = null, mode = DEFAULT_MODE;
   function writeHash() {
     const h = buildHash({view, mode, map: getMap ? getMap() : null});
@@ -63,10 +67,5 @@ export function initTabs({onSelect, onMode, getMap}) {
     const t = modes.find(x => x.dataset.mode === m);
     if (t && t.scrollIntoView) { try { t.scrollIntoView({block: "nearest", inline: "nearest"}); } catch { /* old browser */ } }
   }
-  window.addEventListener("hashchange", () => {
-    const h = parseHash(location.hash);
-    if (h.view && h.view !== view) onSelect(h.view);
-    if (h.mode && h.mode !== mode) onMode(h.mode);
-  });
   return {set, setMode, writeHash};
 }

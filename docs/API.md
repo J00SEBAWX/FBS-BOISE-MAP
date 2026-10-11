@@ -185,12 +185,23 @@ MAX(version); the newest 200 are kept by the housekeeping in `prune()`), `settin
 `master_locked`, `master_locked_by_name`, `master_locked_at`, `advisor_config`) and `proposals` (one open
 proposal per map, enforced by a partial unique index).
 
-Production, once, before or with the deploy that ships this API:
+Production, once, **before** the pull request that ships this API is merged (merging to `main` publishes the
+Worker automatically; the database is never changed by a deploy). The full safe order is in
+`docs/DEPLOY-PHASE2.md`:
 
-1. `npx wrangler d1 migrations apply fbs-boise-map --remote`
-2. `npm run -s seed-master > master-seed.sql` (checks `public/data/master.json` with the same validation and
-   prints one INSERT of master version 1 by "Initial survey"; it does nothing if a master already exists)
-3. `npx wrangler d1 execute fbs-boise-map --remote --file master-seed.sql`
+1. `npx wrangler d1 migrations apply fbs-boise-map --remote` (additive: the site that is live now ignores the new
+   tables)
+2. `npm run -s seed-master > /tmp/master-seed.sql` (checks `public/data/master.json` with the same validation and
+   prints one INSERT of master version 1 by "Initial survey"; it does nothing if a master already exists), then
+   `npx wrangler d1 execute fbs-boise-map --remote --file /tmp/master-seed.sql`
+3. A read-only check: `SELECT version, item_count FROM master_versions ORDER BY version DESC LIMIT 1` shows version 1.
+4. Merge the pull request, then look at the live site.
 
-Until step 1, the new endpoints answer `503 "The site isn't set up yet."` and the existing sign-in, dashboard
-and map keep working; until step 3, `GET /api/master` answers `503 "The master map isn't set up yet."`.
+While the tables are missing the new endpoints answer `503 {"error": "The site isn't set up yet."}`, and until the
+master is seeded `GET /api/master` answers `503 {"error": "The master map isn't set up yet."}`; sign-in and the
+dashboard work throughout. The map page treats exactly these answers (a 503 on any maps call, or a 404 on
+`GET /api/master`) as "not ready yet": it shows the static `public/data/master.json` read-only under the note
+"Editing isn't switched on yet. You're viewing the master map as it stands.", with New map, editing, proposals,
+Comparison, Advisor, Review and the admin's map settings switched off, and it starts using the API as soon as the
+answers change (the note's **Check again** button, or a reload). A merge that happens before steps 1 to 3 is
+therefore harmless.

@@ -1,14 +1,14 @@
-/* "Submit for review" on a map of your own (OWNER RULES v3.1 rule 7): the status chip in the header (and the
- * floating chip on phones) and the proposal dialog (submit with a note, the admin's answer, withdraw, submit
+/* "Submit for review" on a map of your own (OWNER RULES v3.1 rule 7): the status chip in the header (an icon on
+ * phones) and the proposal dialog (submit with a note, the admin's answer, withdraw, submit
  * again). Notes and names come from people, so everything is set with textContent. The server checks every rule
  * again (docs/API.md Proposals). */
 import {h, icon, setIcon, clear, relTime, modal} from "./dom.js";
 import {statusInfo, chipFor, proposalFor, decisionLine, reviewErrorText} from "../core/review.js";
 
 /**
- * createProposalControl({chip, fab, dlg, toast, announce, flushSave() -> Promise,
- *   submit(mapId, note) -> Promise<{proposal}>, withdraw(id) -> Promise<{proposal}>, refresh() -> Promise (re-fetch
- *   the person's proposals), getMap() -> {id, name, mine, master, canEdit}, onChanged(proposal | null)})
+ * createProposalControl({chip, dlg, toast, announce, flushSave() -> Promise (rejects when the map's latest edits
+ *   could not be saved: nothing is submitted then), submit(mapId, note) -> Promise<{proposal}>, withdraw(id) ->
+ *   Promise<{proposal}>, refresh() -> Promise (re-fetch the person's proposals)})
  */
 export function createProposalControl(o) {
   const dlgBox = modal(o.dlg);
@@ -20,16 +20,14 @@ export function createProposalControl(o) {
   /* ---------- the chips ---------- */
   function renderChip() {
     const c = chipFor({mine: !!map.mine, master: map.id === "master"}, current());
-    for (const el of [o.chip, o.fab]) {
-      if (!el) continue;
-      el.hidden = !c;
-      if (!c) continue;
-      el.className = (el === o.fab ? "prop-chip float-chip prop-fab " : "prop-chip ") + c.cls;
-      setIcon(el.querySelector("svg"), c.icon);
-      el.querySelector("span").textContent = c.label;
-      el.title = c.cls === "none" ? "Ask the admin to put this map's changes on the master map" : `Review status: ${c.label}`;
-      el.setAttribute("aria-label", c.cls === "none" ? "Submit this map for review" : `Review status: ${c.label}. Open the details`);
-    }
+    const el = o.chip;
+    el.hidden = !c;
+    if (!c) return;
+    el.className = "prop-chip " + c.cls;
+    setIcon(el.querySelector("svg"), c.icon);
+    el.querySelector("span").textContent = c.label;
+    el.title = c.cls === "none" ? "Ask the admin to put this map's changes on the master map" : `Review status: ${c.label}`;
+    el.setAttribute("aria-label", c.cls === "none" ? "Submit this map for review" : `Review status: ${c.label}. Open the details`);
   }
 
   /* ---------- the dialog ---------- */
@@ -96,13 +94,12 @@ export function createProposalControl(o) {
     render();
     const f = body.querySelector("h2"); if (f) f.focus();
   }
-  if (o.chip) o.chip.addEventListener("click", open);
-  if (o.fab) o.fab.addEventListener("click", open);
+  o.chip.addEventListener("click", open);
 
   return {
     open,
     /** The person's own proposals (GET /api/proposals, mine only). */
-    setProposals(list) { proposals = (list || []).filter(p => p.mine !== false); render(); if (o.onChanged) o.onChanged(current()); },
+    setProposals(list) { proposals = (list || []).filter(p => p.mine !== false); render(); },
     setMap(m) { map = m || map; render(); },
     get current() { return current(); },
     get proposals() { return proposals; },

@@ -14,7 +14,7 @@ export function createMapMenu(o) {
   const btn = document.getElementById("mapBtn"), menu = document.getElementById("mapMenu");
   const nameEl = document.getElementById("mapName"), metaEl = document.getElementById("mapMeta"), icoEl = document.getElementById("mapBtnIcon");
   const status = document.getElementById("saveStatus"), statusIcon = document.getElementById("saveIcon"), statusText = document.getElementById("saveText");
-  let maps = {mine: [], team: []}, current = {id: "master"}, loaded = false, sharing = false, proposals = [];
+  let maps = {mine: [], team: []}, current = {id: "master"}, loaded = false, sharing = false, proposals = [], legacy = false;
 
   /* ---------- the button ---------- */
   function setCurrent(c) {
@@ -62,7 +62,7 @@ export function createMapMenu(o) {
       mine ? propBadge(m.id) : null);
     if (!mine) return h("div", {class: "mm-item"}, b);
     // own maps: a More menu (Rename, Make a copy, Delete)
-    const more = h("button", {type: "button", class: "mm-more", role: "menuitem", tabindex: -1, aria: {label: `More actions for ${m.name}`, haspopup: "menu"},
+    const more = h("button", {type: "button", class: "mm-more", role: "menuitem", tabindex: -1, aria: {label: `More actions for ${m.name}`, haspopup: "menu", expanded: false},
       onclick: e => { e.stopPropagation(); openRowMenu(m, more); }}, icon("i-more"));
     return h("div", {class: "mm-item"}, b, more);
   }
@@ -98,6 +98,13 @@ export function createMapMenu(o) {
     const me = o.me();
     menu.appendChild(h("p", {class: "mm-label", role: "none", text: "Master"}));
     menu.appendChild(row(maps.master || {}, "master"));
+    if (legacy) {
+      // the server's maps aren't ready yet (core/readiness.js): the master is all there is, and New map waits
+      menu.appendChild(h("p", {class: "mm-empty", role: "none", text: "Your own maps and the team's maps show up here once editing is switched on."}));
+      menu.appendChild(h("button", {type: "button", class: "mm-new", role: "menuitem", tabindex: -1, disabled: true, aria: {disabled: true},
+        title: "Editing isn't switched on yet."}, icon("i-add"), "New map"));
+      return;
+    }
     const mine = [...maps.mine].sort((a, b) => b.updatedAt - a.updatedAt);
     menu.appendChild(h("p", {class: "mm-label", role: "none", text: `My maps · ${mine.length} of ${MAX_MAPS}`}));
     if (!loaded) menu.appendChild(h("p", {class: "mm-empty", role: "none", text: "Loading your maps…"}));
@@ -144,7 +151,7 @@ export function createMapMenu(o) {
 
   let refreshing = null;
   async function refresh() {
-    if (refreshing) return refreshing;
+    if (legacy || refreshing) return refreshing;
     refreshing = (async () => {
       try {
         const r = await o.list();
@@ -239,6 +246,8 @@ export function createMapMenu(o) {
     get maps() { return maps; },
     setMaster(meta) { maps = {...maps, master: meta}; if (current.id === "master") setCurrent({...current, ...meta, id: "master"}); },
     setSharing(on) { sharing = !!on; },
+    /** The server's maps aren't ready: the menu shows the master only, and New map is off. */
+    setLegacy(on) { legacy = !!on; if (isOpen()) render(); },
     /** The person's own proposals, so their map rows show "Submitted" / "Approved" / … */
     setProposals(list) { proposals = list || []; if (isOpen()) render(); },
     /** The meta of a map in the lists (mine or team), or null. */
