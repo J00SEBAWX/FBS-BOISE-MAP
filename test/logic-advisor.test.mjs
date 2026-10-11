@@ -390,9 +390,11 @@ describe("advisor: retail-flow principles on the real master", () => {
     for (const p of paths) assert.ok(p.points.length >= 2 && p.lengthFt > 0);
     assert.ok(chokePoints.length > 0 && chokePoints.every((c) => c.widthFt < CATALOG.thresholds.nearFt));
     assert.ok(zones.some((z) => z.kind === "decompression"));
-    // the cabinet in the Milwaukee doorway (survey data) is the worst choke point
-    assert.equal(chokePoints[0].doorway, "i36");
+    // the "Milwaukee doorway" (i36) is a solid wall now (owner, 11 Oct: a drink storage closet), so nothing chokes there any more;
+    // the narrowest spot is still reported first and flagged high
+    assert.ok(chokePoints.every((c) => c.doorway !== "i36"), "no choke point at the removed doorway");
     assert.equal(chokePoints[0].severity, "high");
+    assert.ok(chokePoints.every((c) => c.widthFt >= chokePoints[0].widthFt), "the narrowest choke point comes first");
     // the result is plain JSON and the input map was not touched (it is frozen)
     assert.doesNotThrow(() => JSON.stringify(r));
   });

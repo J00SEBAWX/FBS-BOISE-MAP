@@ -1,5 +1,5 @@
 {
- "version": "master-2026-10-11-owner-corrections-2",
+ "version": "master-2026-10-11-owner-corrections-3",
  "building": {
   "length": 169,
   "width": 80
@@ -532,16 +532,18 @@
   },
   {
    "id": "i36",
-   "type": "opening",
-   "name": "Milwaukee doorway",
+   "type": "wall",
+   "name": "Warehouse wall (grid C), drink storage closet behind it",
    "x": 50,
    "y": 74.25,
    "w": 6.5,
    "d": 0.7,
-   "h": 8.5,
+   "h": 18,
    "rot": 90,
-   "color": "#3b2616",
-   "fixed": true
+   "color": "#efe9dc",
+   "fixed": true,
+   "src": "owner 11 Oct 2026 + scan",
+   "toConfirm": "Was drawn as a 6.5 ft 'Milwaukee doorway' (photo-survey estimate). The owner says there is no other door near the Milwaukee section: it is a drink storage closet, and the photos from the Milwaukee side show a solid wall of Milwaukee panels here. The scan also saw no opening at y 71-77.5. Now a solid wall; the closet itself is not drawn separately."
   },
   {
    "id": "i37",
@@ -945,8 +947,8 @@
    "rot": 90,
    "color": "#1c1c1c",
    "brand": "straps",
-   "toConfirm": "Owner (11 Oct, marked on the live map): the strap isle stands against the west edge of the cubicles at their north-west corner, running north-south from about y 42 to 50, with its face toward the west (toward the front sales desk). Length is still open: 5 ft by the survey, 12 ft by its name, about 7 ft as drawn.",
-   "src": "owner 11 Oct 2026: marked on the live map, and a photo from the middle of the front sales desk looking north-east shows the straps hanging on the cubicle panels facing the desk (position and facing); length still open"
+   "toConfirm": "Owner (11 Oct, marked on the live map): the strap isle stands against the west edge of the cubicles at their north-west corner, running north-south from about y 42 to 50, with its face toward the west (toward the front sales desk). Length is still open: 5 ft by the survey, 12 ft by its name, about 7 ft as drawn (the owner's photos from the front sales desk show the strap rack hanging on the cubicle panels facing the desk, which fits the position and facing; the rack looks longer than 5 ft in them, perhaps 12 ft).",
+   "src": "owner 11 Oct 2026 (map mark + photos)"
   },
   {
    "id": "i67",
@@ -2465,6 +2467,9 @@
    },
    "moved": {
     "i66": "Strap isle: now on the west side of the cubicles at their north-west corner, facing west (11 Oct)"
+   },
+   "changed": {
+    "i36": "Milwaukee doorway removed: there is no door here, it is a drink storage closet (owner, 11 Oct); now a solid wall"
    },
    "kept": {},
    "pending": {
