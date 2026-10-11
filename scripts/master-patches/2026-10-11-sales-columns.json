@@ -1,0 +1,100 @@
+{
+ "name": "2026-10-11-sales-columns",
+ "note": "Sales-floor columns from the owner's scan and photos: 6 columns in two straight rows of 3 (A-F); removed i44 and the steel pipe column, which the scan doesn't show.",
+ "set": [
+  {
+   "id": "c_s2",
+   "type": "column",
+   "name": "Column (south row)",
+   "x": 54.5,
+   "y": 10.8,
+   "w": 1.2,
+   "d": 1.2,
+   "h": 9.4,
+   "rot": 0,
+   "color": "#f1f1ee",
+   "fixed": true,
+   "src": "owner scan + photos 11 Oct, lined up",
+   "toConfirm": "Owner, 11 Oct: the sales floor has 6 columns in two straight rows of 3, two of them on the garden/Simpson side of the Occidental row (owner photos). Placed from the owner's 6 Oct LiDAR mesh (my_scene.glb) with the scan-overlay glbToStore transform, re-checked against the sales-floor walls only (median 0.23 ft): floor-to-ceiling uprights at A 53.9/11.9, B 72.9/10.8, C 91.5/9.8, D 55.1/22.4, E 72.5/20.8, F 89.8/21.3, then put on shared straight lines (x 54.5, 72.6, 90.7; y 10.8 and 21.5) as the owner asked, so each is within about 1 ft of the scan. TO CONFIRM with a tape: one bay (about 18 ft east-west, 10.7 ft north-south)."
+  },
+  {
+   "id": "c_s1",
+   "type": "column",
+   "name": "Column (police-car sign)",
+   "x": 72.6,
+   "y": 10.8,
+   "w": 1.2,
+   "d": 1.2,
+   "h": 9.4,
+   "rot": 0,
+   "color": "#f1f1ee",
+   "fixed": true,
+   "src": "owner scan + photos 11 Oct, lined up",
+   "toConfirm": "Owner, 11 Oct: the sales floor has 6 columns in two straight rows of 3, two of them on the garden/Simpson side of the Occidental row (owner photos). Placed from the owner's 6 Oct LiDAR mesh (my_scene.glb) with the scan-overlay glbToStore transform, re-checked against the sales-floor walls only (median 0.23 ft): floor-to-ceiling uprights at A 53.9/11.9, B 72.9/10.8, C 91.5/9.8, D 55.1/22.4, E 72.5/20.8, F 89.8/21.3, then put on shared straight lines (x 54.5, 72.6, 90.7; y 10.8 and 21.5) as the owner asked, so each is within about 1 ft of the scan. TO CONFIRM with a tape: one bay (about 18 ft east-west, 10.7 ft north-south)."
+  },
+  {
+   "id": "c_perg",
+   "type": "column",
+   "name": "Column (in Simpson pergola)",
+   "x": 90.7,
+   "y": 10.8,
+   "w": 1.2,
+   "d": 1.2,
+   "h": 9.4,
+   "rot": 0,
+   "color": "#f1f1ee",
+   "fixed": true,
+   "src": "owner scan + photos 11 Oct, lined up",
+   "toConfirm": "Owner, 11 Oct: the sales floor has 6 columns in two straight rows of 3, two of them on the garden/Simpson side of the Occidental row (owner photos). Placed from the owner's 6 Oct LiDAR mesh (my_scene.glb) with the scan-overlay glbToStore transform, re-checked against the sales-floor walls only (median 0.23 ft): floor-to-ceiling uprights at A 53.9/11.9, B 72.9/10.8, C 91.5/9.8, D 55.1/22.4, E 72.5/20.8, F 89.8/21.3, then put on shared straight lines (x 54.5, 72.6, 90.7; y 10.8 and 21.5) as the owner asked, so each is within about 1 ft of the scan. TO CONFIRM with a tape: one bay (about 18 ft east-west, 10.7 ft north-south)."
+  },
+  {
+   "id": "i42",
+   "type": "column",
+   "name": "Column",
+   "x": 54.5,
+   "y": 21.5,
+   "w": 1.2,
+   "d": 1.2,
+   "h": 10.5,
+   "rot": 0,
+   "color": "#f1f1ee",
+   "fixed": true,
+   "src": "owner scan + photos 11 Oct, lined up",
+   "toConfirm": "Owner, 11 Oct: the sales floor has 6 columns in two straight rows of 3, two of them on the garden/Simpson side of the Occidental row (owner photos). Placed from the owner's 6 Oct LiDAR mesh (my_scene.glb) with the scan-overlay glbToStore transform, re-checked against the sales-floor walls only (median 0.23 ft): floor-to-ceiling uprights at A 53.9/11.9, B 72.9/10.8, C 91.5/9.8, D 55.1/22.4, E 72.5/20.8, F 89.8/21.3, then put on shared straight lines (x 54.5, 72.6, 90.7; y 10.8 and 21.5) as the owner asked, so each is within about 1 ft of the scan. TO CONFIRM with a tape: one bay (about 18 ft east-west, 10.7 ft north-south)."
+  },
+  {
+   "id": "i43",
+   "type": "column",
+   "name": "Column (3A screws row)",
+   "x": 72.6,
+   "y": 21.5,
+   "w": 1.2,
+   "d": 1.2,
+   "h": 10.5,
+   "rot": 0,
+   "color": "#f1f1ee",
+   "fixed": true,
+   "src": "owner scan + photos 11 Oct, lined up",
+   "toConfirm": "Owner, 11 Oct: the sales floor has 6 columns in two straight rows of 3, two of them on the garden/Simpson side of the Occidental row (owner photos). Placed from the owner's 6 Oct LiDAR mesh (my_scene.glb) with the scan-overlay glbToStore transform, re-checked against the sales-floor walls only (median 0.23 ft): floor-to-ceiling uprights at A 53.9/11.9, B 72.9/10.8, C 91.5/9.8, D 55.1/22.4, E 72.5/20.8, F 89.8/21.3, then put on shared straight lines (x 54.5, 72.6, 90.7; y 10.8 and 21.5) as the owner asked, so each is within about 1 ft of the scan. TO CONFIRM with a tape: one bay (about 18 ft east-west, 10.7 ft north-south)."
+  },
+  {
+   "id": "col_garden",
+   "type": "column",
+   "name": "Column (garden row, Simpson side)",
+   "x": 90.7,
+   "y": 21.5,
+   "w": 1.2,
+   "d": 1.2,
+   "h": 10.5,
+   "rot": 0,
+   "color": "#f1f1ee",
+   "fixed": true,
+   "src": "owner scan + photos 11 Oct, lined up",
+   "toConfirm": "Owner, 11 Oct: the sales floor has 6 columns in two straight rows of 3, two of them on the garden/Simpson side of the Occidental row (owner photos). Placed from the owner's 6 Oct LiDAR mesh (my_scene.glb) with the scan-overlay glbToStore transform, re-checked against the sales-floor walls only (median 0.23 ft): floor-to-ceiling uprights at A 53.9/11.9, B 72.9/10.8, C 91.5/9.8, D 55.1/22.4, E 72.5/20.8, F 89.8/21.3, then put on shared straight lines (x 54.5, 72.6, 90.7; y 10.8 and 21.5) as the owner asked, so each is within about 1 ft of the scan. TO CONFIRM with a tape: one bay (about 18 ft east-west, 10.7 ft north-south)."
+  }
+ ],
+ "remove": [
+  "i44",
+  "c_pipe"
+ ]
+}

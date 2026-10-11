@@ -195,6 +195,7 @@ export async function startDev({ port, seed, secrets: given, omitMigrations } = 
   return {
     base,
     secrets,
+    dir, // the local database folder (wrangler --persist-to)
     log: () => log,
     /** Runs SQL on the running server's local database (to age sessions and the like) and returns the rows. */
     async sql(query) {
