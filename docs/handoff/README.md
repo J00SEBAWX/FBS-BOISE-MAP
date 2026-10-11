@@ -11,3 +11,5 @@ older/claude_fbs-blender-pipeline.md — v8/v9 pipeline, history only. v10 super
 Not included: reference photos, video, textures, source files. Docs mention them by path only.
 
 Jerry (the walk-around character) was dropped in October 2026; the site is now a customer-view store map.
+
+**Newest (11 Oct 2026):** `2026-10-11-state-of-the-planner/HANDOFF.md` is the current state of the planner, what is left, and a paste-ready prompt for handing the work to another assistant (no secrets, no photos). Its `evidence/` folder keeps the front-desk and north-east reconstruction notes so they are not lost.

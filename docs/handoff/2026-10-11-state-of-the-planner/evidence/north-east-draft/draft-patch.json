@@ -1,0 +1,405 @@
+{
+ "remove": [
+  "v_n",
+  "v_e",
+  "v_s",
+  "v_w",
+  "w_mens",
+  "d_mens",
+  "d_closet",
+  "i87",
+  "n10015m49",
+  "sdf_nwall"
+ ],
+ "move": [
+  {
+   "id": "sdf_s",
+   "x": 106.4,
+   "y": 56.0,
+   "w": 6.0,
+   "d": 6.8,
+   "name": "FELIX'S DESK - WEST POD (was 'sales desk south pod')",
+   "src": "photos 2,3,4 + scan cedar-desk boxes + owner 1-STEP outline",
+   "toConfirm": "Owner (11 Oct): this wood-panelled pair of desk pods with the one-step walkway is FELIX'S DESK AREA, beside the carpeted stair, not at the front. Earlier survey had it at x 116-125, y 21-38, which is where the customer checkout counter really stands. West pod: against the arch wall (x 103.4), south face at y 52.6 (scan wood counter south face 52.5; photo 4 and 3). Position good to about 1.5 ft. TO CONFIRM: from the step into the walkway, count steps west to the arch wall (about 3)."
+  },
+  {
+   "id": "sdf_n",
+   "x": 114.6,
+   "y": 56.0,
+   "w": 5.5,
+   "d": 6.8,
+   "name": "FELIX'S DESK - EAST POD (glass-topped end, by the stair)",
+   "src": "photos 2,3,4,7 + scan cabinet box + owner 1-STEP outline",
+   "toConfirm": "East pod: east end about 117.3, next to the carpeted stair mouth (photos 7 and 1 show its glass-divider counter beside the stair). Width 5.4-5.7 ft from the scan box (4.9) and photos; east end is the least certain edge (+/-1.5 ft). TO CONFIRM with a tape: pod widths and the gap between them."
+  },
+  {
+   "id": "sdf_w",
+   "x": 110.625,
+   "y": 56.0,
+   "w": 2.45,
+   "d": 6.8,
+   "name": "Felix's walkway (raised one step, rubber mat)",
+   "src": "photos 2,3,4 + gap between the two scan counters",
+   "toConfirm": "Walkway now runs north-south between the two pods (it ran east-west in the old survey). Width 2.45 ft between the pod bodies (scan counter-top gap 2.05 ft; walkway floor about 3 ft by the fridge-width comparison in photos 2 and 3). Step height assumed 7 in. TO CONFIRM: walkway width at the floor."
+  },
+  {
+   "id": "sdf_step",
+   "x": 110.625,
+   "y": 52.1,
+   "w": 1.0,
+   "d": 2.45,
+   "rot": 90,
+   "name": "Felix's walkway step (south end, rises north)",
+   "src": "photos 2,3",
+   "toConfirm": "One wooden step board at the south end of the walkway (photos 2 and 3), 2.4 ft wide. Depth of the board about 1 ft (assumed)."
+  },
+  {
+   "id": "sdf_wall",
+   "x": 110.12,
+   "y": 59.65,
+   "w": 12.75,
+   "d": 0.3,
+   "rot": 0,
+   "name": "Felix's back wall: TV, mirror, 'Ladies Room Upstairs' sign (faces south)",
+   "src": "photos 2,3,4,8,10 + scan stair-core south wall y 60.0",
+   "toConfirm": "This is the SOUTH FACE of the stair-core wall (the scan wall at y 60.0, item bp_stair_s), drawn as a thin overlay so the TV wall is visible. The TV, the long mirror (it reflects the arch wall, START HERE sign and coffee area, so it faces south), the printer shelf and the Ladies Room Upstairs sign are on it. Photos 8 and 10 put it 47-57 ft north of the front door by eye; the scan wall puts it at 60.0. TO CONFIRM: steps from the front doorway straight north to the TV wall (about 21-23)."
+  },
+  {
+   "id": "sdf_fridge",
+   "x": 110.6,
+   "y": 58.3,
+   "w": 1.7,
+   "d": 1.7,
+   "h": 2.8,
+   "name": "FBS MINI FRIDGE (north end of Felix's walkway)",
+   "src": "photos 2,3,8",
+   "toConfirm": "Blue FBS mini fridge under the printer shelf at the north end of the walkway (photos 2, 3; photo 8 sees it at the left edge). Width 1.55-1.9 ft (assumed)."
+  },
+  {
+   "id": "bp_step_plat",
+   "name": "Raised floor, 1 step up (Felix's desk area)",
+   "toConfirm": "Owner outlined this area with '1 STEP' and an up-arrow (north): x 103.4-117.7, y 49.0-59.8 (+/-1.3 ft), chamfered south-east corner (rectangle here, outline in 'poly'). It is FELIX'S DESK AREA (owner, 11 Oct): the two pods and the walkway stand in it. Photos 2 and 3 show only one step, at the south end of the walkway; the pods' faces meet the sales-floor concrete. TO CONFIRM: step height (assumed 7 in) and whether the strip in front of the pods (y 49-52.6) is raised."
+  },
+  {
+   "id": "bp_stair_door",
+   "name": "SUPPLY CLOSET door (stair-core east wall)",
+   "toConfirm": "Scan door 2 ft 7 in at y 66.9-69.4 in the east wall (x 116.03) of the stair core. Photos 7 and 5 show the 'SUPPLY CLOSET - PLEASE KEEP DOOR CLOSED' sign on it, right beside the carpeted stair. The survey's separate SUPPLY CLOSET door at x 150.3 (d_closet) was this same door and is removed. 1990s plan door swing at y ~66.3-68.8."
+  },
+  {
+   "id": "w_plaque",
+   "x": 120.9,
+   "y": 70.12,
+   "w": 9.0,
+   "d": 0.3,
+   "rot": 0,
+   "name": "Franklin Boise Owners board (north wall, faces south)",
+   "src": "photos 5,6,8,10 + scan wall y 70.47 + owner marks",
+   "toConfirm": "Moved from x 150.3 (survey) to the north wall line y 70.47 between the stair-core corner and the wide back-room doorway (scan wall solid x 116.0-125.3). Photo 5 puts the board face-on 15 ft ahead; photo 10 sees the 'Proudly 100% employee owned' sign at 11 deg east of north from the door (predicted 11.5). Width 8-9 ft by eye. TO CONFIRM: board width and that its east end touches the doorway post."
+  },
+  {
+   "id": "bp_men_e_door",
+   "name": "MEN'S ROOM door (west wall of the LVP back room)",
+   "toConfirm": "Scan door y 71.2-73.9 in the room's west wall (x 120.69). Photo 1 shows the grey MEN door with the restroom sign beside the white sink counter. The survey's separate MEN'S ROOM door at x 164.5 (d_mens) and its wall (w_mens) had no support in any photo and are removed. 1990s plan door y ~72.3-74.9."
+  },
+  {
+   "id": "fa_station",
+   "x": 125.45,
+   "y": 72.0,
+   "w": 2.4,
+   "d": 0.3,
+   "h": 6,
+   "rot": 270,
+   "name": "FIRST AID / AED BOARD (on the wooden column, faces east)",
+   "src": "photos 1,5,6 + scan wall stub x 125.28",
+   "toConfirm": "First-aid kit, AED and trauma kit hang on the wood-clad column at the west jamb of the wide doorway (photo 1 shows them from inside the room, photos 5 and 6 the doorway). Was at x 155.5 in the survey. Face looks east, into the room. TO CONFIRM: which face of the column carries the board."
+  },
+  {
+   "id": "v_floor",
+   "x": 129.8,
+   "y": 75.25,
+   "w": 18.2,
+   "d": 9.5,
+   "name": "LVP floor (north-east back room: sink, men's door, first aid)",
+   "src": "photos 1,5,6,8 + scan room x 120.7-138.9, y 70.5-80",
+   "toConfirm": "The dark vinyl-plank floor belongs to the north-east back room (scan room x 120.7-138.9, y 70.5-80, ceiling 10.9 ft), reached through the 12 ft wooden doorway beside the Owners board. The survey's 'vault' at x 152-164 does not exist in the photos (photo 6: the hall runs open to RECEIVING). Walls inside are partly steel-clad (photo 6) and partly painted (photo 1): finish not drawn."
+  },
+  {
+   "id": "bp_oldN_w",
+   "x": 139.15,
+   "w": 3.16,
+   "toConfirm": "Shortened: the survey wall ran x 127-140.7 and closed the 12 ft wooden doorway into the back room (scan opening x 125.57-137.57; photos 1, 5, 6, 8 show it open). Now only the solid piece x 137.57-140.73 is left, east of the doorway."
+  },
+  {
+   "id": "i14",
+   "x": 106.035,
+   "w": 38.33,
+   "toConfirm": "North wall split at the grey steel door into the lunch-room side (scan door x 125.2-128.7; photo 1 right edge). Wall west of the door x 86.87-125.2. Original note: North wall runs to x ~139 before stepping in (scan L14/L21). TO CONFIRM with a tape (open question 3)."
+  },
+  {
+   "id": "c_dark",
+   "x": 126.3,
+   "y": 60.4,
+   "w": 1.0,
+   "d": 1.0,
+   "name": "Timber post (grid F, NW corner of the cubicles / hall mouth)",
+   "src": "photos 5,8,10 + scan corner (125.93, 60.4) + building drawing grid F",
+   "toConfirm": "Moved from (145, 46.5). The big square timber post at the north-west corner of the cubicle panels, at the end of the mezzanine beam, beside the Owners-board corner (photo 5 puts its base 5.5 ft ahead and 2.4 ft right of the camera: (126.4, 60.9); the scan wall corner is (125.93, 60.4); the building drawing has a column on grid F at y~60). Three views agree to 1 ft. A second timber post along the beam (photo 10, x about 138-147; drawing grid G at x 147) is NOT drawn yet. TO CONFIRM: is there a second big post east of this one on the same beam?"
+  },
+  {
+   "id": "i86",
+   "x": 136.425,
+   "y": 43.2,
+   "w": 19.15,
+   "d": 32.8,
+   "src": "scan walls x 125.93 / y 26.78 / y 60.41 + photos 5,8,9,11",
+   "toConfirm": "Cubicle block drawn to the scan's closed outline: west panels x 125.93, south edge y 26.8, north edge y 60.4 (was y 26.5-45.5, x 128-146). East edge kept at the survey's x 146: the scan's north wall stops at 143.76 (a wall end the scanner may simply not have reached), and photo 11 puts the far end of the block's south panels at x 149-155 (floor projection, +/-3 ft). West panel face about x 126.9 here (photo 5: strap rack front at x 125.2, rack about 1.5 ft deep). Inside layout not seen in any photo. TO CONFIRM: the block's four corners with a tape."
+  },
+  {
+   "id": "cub_line",
+   "x": 135.28,
+   "y": 59.9,
+   "w": 16.96,
+   "d": 0.6,
+   "name": "CUBICLE PANELS (north line, under the mezzanine beam)",
+   "src": "scan wall y 60.41 + photos 8,10",
+   "toConfirm": "Was a 15 ft panel line at y 46.5. Photos 8 and 10 show the tan panels with the knife and tool pegboards standing against them, directly under the mezzanine beam; the scan has a wall at y 60.41 from x 125.93 to 143.76. Above the panels the photos also show wood wall with a band of windows (not drawn separately). TO CONFIRM: east end of the panel line (143.8 by the scan)."
+  },
+  {
+   "id": "i66",
+   "x": 125.5,
+   "y": 53.9,
+   "w": 12,
+   "d": 1.5,
+   "rot": 90,
+   "src": "owner 11 Oct mark + photos 5,8,10 (north end at the timber post)",
+   "toConfirm": "Owner (11 Oct): the strap isle stands against the cubicles' north-west corner, facing west toward Felix's desk and the front sales desk; his mark on the live map is x 128, y 42-50. The photos put its NORTH END at the big timber post (photo 5: pegboard starts right at the post; photo 8: black pegboard y 53-60 with the Maverick knife case at its south end, y about 51). Drawn 12 ft long (owner-approved length, name says 12 ft) from the post south: y 47.9-59.9. The pegboard itself looks about 7 ft; the rest is probably knife case / other hooks. Front x about 124.8 (photo 5 gives 125.2). TO CONFIRM: does the strap pegboard start at the post and run south about 3 steps to the Maverick knife case?"
+  },
+  {
+   "id": "i6",
+   "x": 142.875,
+   "y": 65.4,
+   "w": 52.95,
+   "d": 10.0,
+   "h": 10,
+   "name": "Mezzanine NORTH (offices above the hall, edge y 60.4)",
+   "src": "scan ceilings 9.5-10.9 ft + wall y 60.41 + photos 6,7,8,10",
+   "toConfirm": "Was x 128-169, y 47-70. The north deck's south edge (fascia beam, rail with the 250 YEARS banner, lights under it: photos 8 and 10) is at y 60.4 (scan wall). West end x 116.4 is where the upper flight of the carpeted stair arrives (photo 7 shows it turning north at the top); east end not scanned (the hall runs to the east wall, photo 6). Not drawn: the second, SOUTH balcony (see ne_mezz_s). TO CONFIRM: does the carpeted stair come out upstairs over the hall behind the Owners board?"
+  },
+  {
+   "id": "i73",
+   "x": 158.0,
+   "y": 21.4,
+   "name": "Open wooden stair to the south balcony (rises east)",
+   "src": "photo 11 (+ photo 9 view of the balcony); no scan east of x 153",
+   "toConfirm": "Moved from (156.5, 59.5). The OPEN WOODEN stair with balusters in photo 11 is in the south-east, north of the coffee run, rising east to a landing on the south balcony; it is not the carpeted stair (ne_stair_a). Foot of the stair: the camera (placed from the scan cabinet run end at x 139.9) is tilted up about 8 deg (the far wall is 38 ft away), which puts the foot about 20 ft ahead, x about 152.5 +/-3, and the stair 3.9 ft wide (matches the 4 ft survey width), y 19.5-23.5 +/-2. TO CONFIRM: from the bottom step, steps east to the east wall (about 6)."
+  },
+  {
+   "id": "stair_land",
+   "x": 165.0,
+   "y": 21.4,
+   "name": "Balcony landing (top of the open wooden stair)",
+   "src": "photo 11",
+   "toConfirm": "Landing at the top of the open wooden stair, 10-11 ft up (photo 11, railing across the view). Moved with the stair; same +/-3 ft."
+  },
+  {
+   "id": "pop_desk",
+   "x": 138.6,
+   "y": 12.8,
+   "w": 2.4,
+   "d": 2.2,
+   "h": 5.5,
+   "name": "POPCORN MACHINE (on the white cabinets, east end of the coffee run)",
+   "src": "photo 11 + owner arrow on 443fa012 + scan cabinet run x 131.5-139.9",
+   "toConfirm": "Was 'Popcorn desk' at (147.5, 65). Photo 11: the glass popcorn machine stands on the white cabinets at the east end of the coffee run, in the right edge of the picture; the owner's orange arrow (443fa012) ends at about x 133, y 16. The machine stands ON the cabinet run (ne_refr_run2), so the two overlap on purpose. Position +/-3 ft in x. The wood DISPATCH counter that the old survey merged into this item is ne_dispatch."
+  },
+  {
+   "id": "rec_desk",
+   "toConfirm": "Photo 6 shows the RECEIVING counter at the far end of the hall, on its right-hand (south) side; the line of sight from camera 6 puts it nearer y 62 +/-2.5 than the y 66 drawn (x about 166-168). Left as drawn (weak evidence). TO CONFIRM: is the receiving counter against the hall's south edge, about 9-10 steps wide of the north wall?"
+  },
+  {
+   "id": "i30",
+   "toConfirm": "NOT MOVED (outside this rebuild), but the new photo fits lean toward the scan: camera 10 (taken standing in the front doorway) comes out at x 109.2 from the three arch-wall landmarks, which is inside the scan door span x 107.0-112.6 and 2.8 ft west of the survey span x 112-118; camera 9 fits the door at x 109.8 with 6 px error against 11 px at x 112 and 20 px at x 115. Earlier note: x from the photo survey and the layout notes (door x 112-118); y = recessed front wall; height 7.2 ft measured by the scan; the 1990s drawing shows a pair of doors at about x 108-115. TO CONFIRM with a tape: arch-wall corner to the door's west edge (about 6 ft if the scan is right)."
+  },
+  {
+   "id": "c_boxed",
+   "toConfirm": "Not in any of the 11 photos and not scanned. Left where it is. TO CONFIRM that the boxed 50-year flag column still stands at (152, 46.5)."
+  }
+ ],
+ "add": [
+  {
+   "id": "ne_checkout",
+   "type": "ring",
+   "name": "FRONT SALES DESK (customer checkout counter, SDF)",
+   "x": 114.5,
+   "y": 34.4,
+   "w": 14.4,
+   "d": 10.0,
+   "h": 3.4,
+   "rot": 0,
+   "color": "#a7aaac",
+   "top": "#c7bba9",
+   "locked": true,
+   "shape": "oct",
+   "cham": 1.75,
+   "open": {
+    "sides": [
+     "E",
+     "W"
+    ],
+    "w": 3.5
+   },
+   "fixed": true,
+   "src": "photos 10,8 + owner purple box on 0cf62efb + earlier SDF survey",
+   "toConfirm": "The real customer checkout counter (angled front corners, snack pegboard and candy racks outside, 'Checkout specials' sign, START HERE LED sign over it) was missing from the map; the old 'sales desk' pods stood in its place. Octagon with staff openings east and west like the back desk (owner confirmed both sales desks are octagons). Position: photo 10 from the door puts its front face 18-20 ft north of the doorway (y about 30.5) and its width about 14.5 ft; the owner's purple box is x 107.8-121.9, y 28.1-37.8; photo 8 was taken inside it. +/-2 ft each way; depth 10 ft assumed. TO CONFIRM: steps from the front doorway straight north to the front edge (about 7), and the counter's width (about 5-6 steps)."
+  },
+  {
+   "id": "ne_stair_a",
+   "type": "stairs",
+   "name": "Carpeted stair to offices, lower flight (mouth faces east)",
+   "x": 112.0,
+   "y": 62.8,
+   "w": 7.8,
+   "d": 5.2,
+   "h": 5.4,
+   "rot": 180,
+   "color": "#6b5d52",
+   "fixed": true,
+   "src": "photo 7 + scan stairs7_0 (112.2, 62.7) + stair-core walls",
+   "toConfirm": "Carpeted stair head-on in photo 7 (about 9 treads, wooden handrails both sides, the supply-closet door at the right of the foot). Scan stair guess 7.9 x 5.4 ft, rising west about 5.4 ft; walls y 60.0 and 65.6 and x 116.03 (open mouth facing east at the east wall line). At the top it turns right (north): an UPPER FLIGHT above the supply closet (x 107-116, y 65.6-70.5) is not drawn because nothing shows its size. Answers blueprint question 7 (a stair is inside the walled area)."
+  },
+  {
+   "id": "ne_back_open",
+   "type": "opening",
+   "name": "Wide wooden doorway into the LVP back room (12 ft)",
+   "x": 131.57,
+   "y": 70.47,
+   "w": 12.0,
+   "d": 0.7,
+   "h": 9.84,
+   "rot": 0,
+   "color": "#8a5a34",
+   "fixed": true,
+   "src": "scan Open_L36 + photos 1,5,6,8",
+   "toConfirm": "Scan opening 12.0 ft wide x 9.84 ft high at x 125.57-137.57 in the room's south wall; wood header and posts (photos 1, 5, 6, 8). The survey wall bp_oldN_w that closed it is shortened. Answers blueprint question 9 (the 12 ft opening exists)."
+  },
+  {
+   "id": "ne_back_door_n",
+   "type": "door",
+   "name": "Grey steel door (north wall of the LVP back room)",
+   "x": 126.95,
+   "y": 80.35,
+   "w": 3.5,
+   "d": 0.7,
+   "h": 7.0,
+   "rot": 0,
+   "color": "#7c8084",
+   "solid": true,
+   "fixed": true,
+   "src": "scan Door_3 + photo 1 (right edge)",
+   "toConfirm": "Scan door x 125.2-128.7 in the north wall; photo 1 shows a grey steel door with a small window at the right edge. Leads north to the old lunch-room side. Answers blueprint question 9 (door through the north wall at x 125-131)."
+  },
+  {
+   "id": "ne_wall_n_east",
+   "type": "wall",
+   "name": "North wall (east of the back-room door)",
+   "x": 134.15,
+   "y": 80.35,
+   "w": 10.9,
+   "d": 0.7,
+   "h": 18.0,
+   "rot": 0,
+   "color": "#e9e3d6",
+   "fixed": true,
+   "src": "scan (north wall, split for the steel door)",
+   "toConfirm": "The other half of the north wall that item i14 used to cover in one piece (x 128.7-139.6), split so the steel door shows as a gap."
+  },
+  {
+   "id": "ne_firstaid_col",
+   "type": "column",
+   "name": "Wooden column at the west jamb of the doorway (first-aid board)",
+   "x": 124.3,
+   "y": 72.035,
+   "w": 2.0,
+   "d": 2.73,
+   "h": 10.0,
+   "color": "#c9a36f",
+   "fixed": true,
+   "src": "scan wall stub x 125.28 (y 70.5-73.4) + photos 1,6",
+   "toConfirm": "Square pier on the north wall line at the west jamb of the 12 ft doorway, clad in wood on its east face (photo 1: the First Aid, AED and trauma boards hang on it). Scan stub: x 125.28, y 70.5-73.4. Depth into the room (x) is a guess, 1.5-3 ft."
+  },
+  {
+   "id": "ne_cub_west",
+   "type": "display",
+   "name": "CUBICLE PANELS (west line, behind the strap rack)",
+   "x": 126.55,
+   "y": 49.575,
+   "w": 20.65,
+   "d": 0.6,
+   "h": 6.0,
+   "rot": 90,
+   "color": "#8a8d90",
+   "style": "cubicles",
+   "src": "scan wall x 125.93 (gap y 34.55-39.25) + photos 5,8,10",
+   "toConfirm": "Grey fabric panels on the west side of the cubicle block, from the timber post south (photos 5, 8, 10, and later photos ce86a14c, 700cac09). The scan has a wall plane at x 125.93, y 26.8-60.4 with a 4 ft 8 in gap at y 34.55-39.25; the strap rack stands in front of the northern part, so the panel face is drawn about 1 ft behind the scan plane. South part (y 26.8-34.5) not drawn separately. TO CONFIRM: do the panels run unbroken from the post south to the front sales desk's north end, except one gap about 2 steps wide?"
+  },
+  {
+   "id": "ne_mezz_s",
+   "type": "zone",
+   "name": "Balcony SOUTH (offices above the coffee run and dispatch)",
+   "x": 150.875,
+   "y": 13.4,
+   "w": 36.95,
+   "d": 4.2,
+   "h": 10.4,
+   "color": "#8a5a34",
+   "fixed": true,
+   "src": "photos 9,11 + scan ceiling step 9.96 -> 10.91 ft at x 132.4",
+   "toConfirm": "A second balcony runs along the SOUTH wall above the coffee run and the dispatch counter (photo 9: railing and fascia beam above the white cabinets; photo 11: long railing on the right, landing at the top of the open wooden stair). Scan: the ceiling steps up from 9.96 to 10.91 ft at x 132.4. Drawn only as the strip both reconstructions agree on: x 132.4-169.35, y 11.3-15.5. NOT SETTLED: the north railing is y 14-15.5 by photos 9 and 11 and 17 by one reading, the scan ceiling slab reaches y 26.8; the west end may reach x ~127 (photo 9: beam and rail line up with the front-room ceiling's east fascia, item c3). TO CONFIRM: standing at the front edge of the coffee counter, how many steps north before you are out from under the balcony?"
+  },
+  {
+   "id": "ne_mezz_s2",
+   "type": "zone",
+   "name": "Balcony SOUTH-EAST end (deck at the top of the open stair)",
+   "x": 166.175,
+   "y": 19.5,
+   "w": 6.35,
+   "d": 8.5,
+   "h": 10.4,
+   "color": "#8a5a34",
+   "fixed": true,
+   "src": "photo 11 (landing and railing); not scanned",
+   "toConfirm": "The deck at the east end where the open wooden stair lands (photo 11: the landing's west railing runs about 9-10 ft north-south from the stair to the south wall, then the long balcony railing runs west). Drawn as a block x 163-169.35, y 15.5-24, joined to the south strip. Low confidence: about +/-5 ft. TO CONFIRM: does the balcony get deeper (further north) at the east end where the stair arrives?"
+  },
+  {
+   "id": "ne_dispatch",
+   "type": "counter",
+   "name": "DISPATCH COUNTER (wood, angled corner, under the balcony)",
+   "x": 144.5,
+   "y": 15.0,
+   "w": 6.0,
+   "d": 4.0,
+   "h": 3.6,
+   "rot": 0,
+   "color": "#a46a3c",
+   "top": "#c9c4b8",
+   "fixed": true,
+   "src": "photo 11 (no scan east of x 153)",
+   "toConfirm": "Wood-panelled counter with an angled corner, glass guard and monitors, on the south side east of the coffee run (photo 11; staff sit behind it under the balcony). Its west face is about 8-9 ft ahead of camera 11, at x 141-142, y 13-17; the length is unknown (6 ft drawn). +/-3 ft. TO CONFIRM: from the popcorn machine, steps east to the near end of the dispatch counter."
+  },
+  {
+   "id": "ne_refr_run2",
+   "type": "counter",
+   "name": "REFRESHMENT COUNTER, east run (white cabinets, dark top)",
+   "x": 135.7,
+   "y": 12.6,
+   "w": 8.4,
+   "d": 2.3,
+   "h": 3.0,
+   "rot": 0,
+   "color": "#f1f1ee",
+   "top": "#4a4a4c",
+   "src": "scan storage_cabinet_mid5_2 (135.7, 12.6) + photos 9,11",
+   "toConfirm": "Second cabinet run east of the ice machine, measured by the scan (x 131.5-139.9, y 11.5-13.9, 8.4 ft long); white doors with a dark top in photos 9 and 11. It was missing from the map (the coffee counter i84 stops at x 131). The first run (i84) is left as drawn although the scan has it about 4 ft further west (open blueprint question 3)."
+  }
+ ]
+}
