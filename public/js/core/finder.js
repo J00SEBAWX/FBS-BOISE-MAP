@@ -11,10 +11,19 @@
  *   Air tools        pneumatic nailers, staplers and compressors of every brand -> Pneumatic & Air Systems
  *                    (cordless nailers stay with their battery brand).
  *   Brand hand tools Milwaukee tapes, knives and pliers -> Hand Tools & Measuring (the intact Milwaukee panel).
- * Pure: no DOM. Uses the verified catalog (subcategories) and product map (shared/catalog.js). */
+ * Two rules keep the answers honest (a wrong department is worse than none):
+ *   Head word   when the query has two or more words besides platform names, a line must contain the LAST one ("light bulbs" is
+ *               about bulbs, not about the "boot lightboxes"; "plumbing pipe" is not "Plumb bobs"; "concrete mix" is not "Concrete
+ *               screws and wedge anchors").
+ *   Weak hits   a text match scoring under 40% of the best text match is left out unless it is in a department that has a strong
+ *               answer ("safety glasses" is not "pint glasses", but "Ladders (ladder wall rack)" stays beside "Step ladders").
+ * Nothing in the catalog for a product (lumber, plywood, a fire extinguisher)? Then there is no answer: the box says so and tells
+ * the person how to add it under a department's Subcategories, never a guess. WD-40 is the one everyday name routed to
+ * the catalog's lubricants line. Pure: no DOM. Uses the verified catalog (subcategories) and product map (shared/catalog.js). */
 import {CATALOG, PRODUCTS, mergeCategories} from "../shared/catalog.js";
 
 export const MAX_QUERY = 100;
+export const WEAK_RATIO = 0.4; // a text match under this share of the best text match is dropped
 export const PLATFORM_BRANDS = Object.freeze(["Milwaukee", "DeWalt", "Makita"]);
 
 // run-together and split spellings -> one token (applied to the lower-case, punctuation-free text)
@@ -28,6 +37,8 @@ const PHRASES = [
   [/\bhole ?saws?\b/g, "holesaw"], [/\bshop ?vacs?\b/g, "shopvac"], [/\bhard ?hats?\b/g, "hardhat"], [/\bhi(gh)? ?vis(ibility)?\b/g, "hivis"],
   [/\bfall (arrest|protection)\b/g, "harness fall"], [/\bpellet ?grills?\b/g, "pellet grill"], [/\btape ?measures?\b/g, "tape measure"],
   [/\bhardie ?blades?\b/g, "hardieblade blade"], [/\bpocket ?hole\b/g, "pockethole"], [/\bwood ?glue\b/g, "wood glue"],
+  // WD-40 is typed with its hyphen or a space; screw driver is two words; ear plugs / muffs are hearing protection
+  [/\bwd ?40\b/g, "wd40"], [/\bscrew ?drivers?\b/g, "screwdriver"], [/\bear ?(plugs?|muffs?|defenders?)\b/g, "earplug"], [/\bear protection\b/g, "earplug"],
 ];
 const IRREGULAR = {knives: "knife", shelves: "shelf", leaves: "leaf", wolves: "wolf", disks: "disc", disk: "disc", grille: "grill", grilles: "grill"};
 // one token -> extra tokens it implies (platform names imply their brand; storage lines imply storage)
@@ -36,7 +47,7 @@ const IMPLIES = {
   flexvolt: ["dewalt"], toughsystem: ["dewalt", "storage"], tstak: ["dewalt", "storage"], atomic: ["dewalt"],
   lxt: ["makita"], xgt: ["makita"], makpac: ["makita", "storage", "case"], cxt: ["makita"],
   freud: ["diablo"], nailgun: ["nailer"], sandpaper: ["abrasive"], charger: ["battery"],
-  strongtie: ["simpson"], hivis: ["hivis"], shopvac: ["vac"], vacuum: ["vac"], wd40: ["lubricant"],
+  strongtie: ["simpson"], hivis: ["hivis"], shopvac: ["vac"], vacuum: ["vac"], wd40: ["lubricant"], earplug: ["hearing", "protection"],
   // everyday names for product lines the catalog lists under another word
   smoker: ["grill"], bbq: ["grill"], barbecue: ["grill"], primer: ["paint"], sawzall: ["saw", "reciprocating"], skilsaw: ["saw", "circular"],
 };
@@ -54,6 +65,9 @@ const AIR = new Set(["air", "pneumatic", "compressor", "hose", "coupler", "fitti
 // cordless tool nouns: without a brand they still live in Power Tools (one of the three brand groups)
 const TOOL_NOUNS = new Set(["drill", "driver", "impact", "saw", "grinder", "sander", "multitool", "rotary", "blower", "trimmer", "cordless", "brushless", "combo"]);
 // platform names: they pick the brand, but the product word decides the subcategory
+const ENDING = /^(s|es|er|ers|or|ors|ing|ings|ed|y|ies)$/; // what a word may add and still be the same word
+// a last word too general to carry a match alone ("socket SET" must not answer with Nail sets): another typed word has to match too
+const GENERIC_HEAD = new Set(["set", "sets", "kit", "kits", "pack", "packs", "pcs", "piece", "pieces", "assortment", "combo", "bundle"]);
 const SOFT = new Set(["milwaukee", "dewalt", "makita", "diablo", "m18", "m12", "flexvolt", "lxt", "xgt", "cxt", "fuel", "20v", "18v", "12v", "40v", "60v", "max", "xr"]);
 const STOP = new Set(["the", "and", "for", "with", "a", "an", "of", "in", "on", "to", "where", "is", "are", "do", "we", "you", "sell", "find", "my", "i"]);
 // typo-tolerant names (edit distance 1 from 5 letters, 2 from 8)
@@ -152,14 +166,16 @@ function indexFor(catalog, categories) {
 /** How well a document's tokens match the query tokens (weighted by rarity; brand tokens count less). */
 function match(doc, qt, idf, soft = SOFT) {
   let s = 0, hits = 0, hard = 0;
+  const got = new Set(); // which query words this line matched (the head-word rule reads it)
   for (const t of qt) {
     const w = idf(t) * (soft.has(t) ? 0.5 : 1);
-    if (doc.toks.includes(t)) { s += doc.head === t ? 1.25 * w : w; hits++; if (!soft.has(t)) hard++; continue; }
+    if (doc.toks.includes(t)) { s += doc.head === t ? 1.25 * w : w; hits++; got.add(t); if (!soft.has(t)) hard++; continue; }
     // a word that begins another ("nail" / "nailer", "compress" / "compressor") counts a little; a long word that merely
     // starts with a short one ("wheelbarrow" / "wheel") does not
-    if (t.length >= 4 && doc.toks.some(d => d.length >= 4 && Math.abs(d.length - t.length) <= 3 && (d.startsWith(t) || t.startsWith(d)))) { s += 0.6 * w; hits++; if (!soft.has(t)) hard++; }
+    // ... and only when what is left over is an ordinary ending (nail / nailer, deck / decking): "bucket" is not "Buck" knives
+    if (t.length >= 4 && doc.toks.some(d => d.length >= 4 && Math.abs(d.length - t.length) <= 3 && (d.startsWith(t) ? ENDING.test(d.slice(t.length)) : t.startsWith(d) && ENDING.test(t.slice(d.length))))) { s += 0.6 * w; hits++; got.add(t); if (!soft.has(t)) hard++; }
   }
-  return {score: s * (0.5 + 0.5 * (hits / Math.max(1, qt.length))), hits, hard};
+  return {score: s * (0.5 + 0.5 * (hits / Math.max(1, qt.length))), hits, hard, got};
 }
 /** The best subcategory of a department (optionally of one brand group) for these tokens. */
 function bestSubcat(ix, key, qt, group = null, prefer = null) {
@@ -196,6 +212,9 @@ export function find(query, catalog = CATALOG, categories = null, {limit = 8} = 
   const nailer = has("nailer") || has("stapler") || has("nail") && has("gun");
   const platform = qt.some(t => PLATFORM.has(t));
   const handTool = qt.some(t => HAND.has(t)) && !platform;
+  // the words the person typed, without platform / brand names: with two or more, a line has to contain the last (the thing asked for)
+  const typed = tokens(q, {expand: false, fuzzy: true}).filter(t => !SOFT.has(t) && (t.length >= 3 || /\d/.test(t))); // (a word cut short by typing or by the length limit is not a head word)
+  const headWords = typed.length >= 2 ? [typed[typed.length - 1], ...(IMPLIES[typed[typed.length - 1]] || [])] : null;
   const results = [];
   const add = (key, fields) => {
     if (!ix.byKey.has(key)) return;
@@ -238,6 +257,8 @@ export function find(query, catalog = CATALOG, categories = null, {limit = 8} = 
   for (const d of ix.docs) {
     const m = match(d, qt, ix.idf);
     if (!m.hits) continue;
+    if (headWords && !headWords.some(t => m.got.has(t))) continue;
+    if (headWords && GENERIC_HEAD.has(typed[typed.length - 1]) && !typed.slice(0, -1).some(t => m.got.has(t))) continue;
     // a product line that only shares the brand name with the query says nothing about the product asked for
     if (d.kind !== "subcat" && !m.hard && qt.some(t => !SOFT.has(t))) continue;
     // the rules decide where brand-platform and consumable products go
@@ -260,7 +281,13 @@ export function find(query, catalog = CATALOG, categories = null, {limit = 8} = 
     if (r.score > cur.score) { r.product = r.product || cur.product; r.why = r.why || cur.why; r.rule = r.rule || cur.rule; r.fixtures = r.fixtures.length ? r.fixtures : cur.fixtures; merged.set(id, r); }
     else { cur.product = cur.product || r.product; cur.why = cur.why || r.why; if (!cur.fixtures.length) cur.fixtures = r.fixtures; }
   }
-  const out = [...merged.values()].sort((a, b) => b.score - a.score).slice(0, Math.max(1, Math.min(limit, 30)));
+  let ranked = [...merged.values()].sort((a, b) => b.score - a.score);
+  // a text match far weaker than the best text match is noise (a word they happen to share), not an answer; the merchandising rules always stay
+  // (a weak line in a department that has a strong answer stays: "Ladders (ladder wall rack)" next to "Step ladders" is the same place)
+  const bestText = Math.max(0, ...ranked.filter(r => !r.rule).map(r => r.score));
+  const strongIn = new Set(ranked.filter(r => r.rule || r.score >= bestText * WEAK_RATIO).map(r => r.key));
+  ranked = ranked.filter(r => r.rule || r.score >= bestText * WEAK_RATIO || strongIn.has(r.key));
+  const out = ranked.slice(0, Math.max(1, Math.min(limit, 30)));
   return out.map(r => {
     const c = ix.byKey.get(r.key);
     return {

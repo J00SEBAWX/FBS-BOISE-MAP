@@ -737,9 +737,11 @@ describe("collisions", () => {
     assert.equal(C.gridRef(60, 50), "near grid C3");
   });
 
-  test("checkAll on the 165-item master with 10 blocks is fast (< 20 ms) and finds real problems", () => {
+  test("checkAll on the whole master (every item of public/data/master.json) with 10 blocks is fast (< 20 ms) and finds real problems", () => {
     let doc = { ...MASTER, categories: [] };
-    assert.equal(doc.items.length, 165);
+    // the count comes from the file, so a corrected master (the owner edits it) never breaks this test
+    assert.equal(doc.items.length, masterFile.items.length);
+    assert.ok(doc.items.length > 100, "the real master, not a stub");
     const spots = { hand_tools: [70, 50], safety_workwear: [90, 60], access_jobsite: [25, 60], hardware_fasteners: [80, 70], pneumatic_air: [65, 15], power_tools: [120, 50], paint_finishing: [140, 30], decking_outdoor: [30, 40], woodworking: [150, 20], bits_blades: [115, 15] };
     for (const [k, [x, y]] of Object.entries(spots)) doc = A.createBlock(doc, k, { x, y }).doc;
     const fresh = { ...doc, items: doc.items.map((it) => ({ ...it })) }; // nothing cached

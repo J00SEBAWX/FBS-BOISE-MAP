@@ -41,6 +41,7 @@ async function api(method, path, body) {
   let data = {};
   try { data = await res.json(); } catch { /* empty body */ }
   if (res.status === 401) {
+    forgetDrafts(); // the session ended: this person's unsaved map edits must not stay on a shared device
     location.replace("/login?admin=1");
     throw new Error("You were signed out. Sign in again.");
   }
@@ -337,7 +338,7 @@ $("#pw-form").addEventListener("submit", async e => {
 
 /** The map page keeps unsaved edits on the device per map ("fbs-draft-v1:<id>", core/drafts.js); the next person on a shared device must not find them. */
 function forgetDrafts() {
-  try { for (const k of Object.keys(localStorage)) if (k.startsWith("fbs-draft-v1:")) localStorage.removeItem(k); } catch { /* no storage */ }
+  try { for (const k of Object.keys(localStorage)) if (k.startsWith("fbs-draft-v1:") || k === COPIED_KEY) localStorage.removeItem(k); } catch { /* no storage */ }
 }
 async function signOut(e) {
   busy(e.currentTarget, "Signing out…");

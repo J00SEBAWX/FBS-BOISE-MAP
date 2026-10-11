@@ -65,6 +65,9 @@ body{font:var(--text-md)/var(--leading-md) var(--font-body);overflow:hidden;over
 .mm-new{display:flex;align-items:center;gap:10px;width:100%;min-height:40px;padding:6px 12px;border:0;border-radius:var(--radius-md);background:transparent;color:var(--accent-text);font-weight:600;text-align:left;}
 .mm-new .i{width:18px;height:18px;}
 .mm-new:disabled{color:var(--ink-disabled);cursor:default;}
+/* more specific than ".menu [role=menuitem]" (which sets the normal ink): a disabled New map row has to LOOK disabled */
+.menu .mm-new:disabled,.menu .mm-new[aria-disabled="true"]{color:var(--ink-disabled);opacity:.6;cursor:not-allowed;background:transparent;}
+.menu .mm-new:disabled .i,.menu .mm-new[aria-disabled="true"] .i{color:inherit;}
 .mm-new:focus-visible{outline:2px solid var(--focus);outline-offset:-2px;}
 
 /* view tabs: segmented control */
@@ -201,13 +204,16 @@ body{font:var(--text-md)/var(--leading-md) var(--font-body);overflow:hidden;over
 .swatch-sm{display:inline-block;width:18px;height:18px;flex:none;border-radius:4px;border:2px solid var(--c,#677a8b);background:color-mix(in srgb,var(--c,#677a8b) 32%,transparent);}
 
 /* ---------- stage: palette | plan / 3D | inspector ---------- */
-.stage{grid-area:stage;position:relative;min-height:0;min-width:0;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) var(--inspector-w);background:var(--plan-bg);}
+/* overflow:clip, not hidden: a hidden box can still be scrolled by script and by the browser (a focus() or scrollIntoView() inside a
+ * sheet that is still sliding in), and nothing in the app is meant to scroll the stage: clip makes that impossible (ui/stage-guard.js
+ * resets it for browsers that predate clip) */
+.stage{grid-area:stage;position:relative;min-height:0;min-width:0;overflow:hidden;overflow:clip;display:grid;grid-template-columns:minmax(0,1fr) var(--inspector-w);background:var(--plan-bg);}
 .app[data-mode="planning"][data-view="plan"] .stage{grid-template-columns:var(--palette-w) minmax(0,1fr) var(--inspector-w);}
 .app[data-mode="comparison"] .stage,.app[data-mode="advisor"] .stage,.app[data-mode="review"] .stage{grid-template-columns:var(--panel-w) minmax(0,1fr);}
 .app[data-view="walk"] .stage{grid-template-columns:minmax(0,1fr);}
 .app[data-mode="comparison"][data-view="walk"] .stage,.app[data-mode="advisor"][data-view="walk"] .stage,.app[data-mode="review"][data-view="walk"] .stage{grid-template-columns:var(--panel-w) minmax(0,1fr);}
-.stage-main{position:relative;min-width:0;min-height:0;overflow:hidden;}
-.view{position:absolute;inset:0;overflow:hidden;}
+.stage-main{position:relative;min-width:0;min-height:0;overflow:hidden;overflow:clip;}
+.view{position:absolute;inset:0;overflow:hidden;overflow:clip;}
 .three{position:absolute;inset:0;touch-action:none;cursor:grab;background:#d9dee0;}
 .three:focus-visible{outline-offset:-3px;}
 .three.dragging{cursor:grabbing;}
@@ -239,7 +245,7 @@ body{font:var(--text-md)/var(--leading-md) var(--font-body);overflow:hidden;over
 .fab{display:grid;place-items:center;width:var(--hit);height:var(--hit);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--surface);color:var(--ink);box-shadow:var(--shadow-1);}
 
 /* 3D room labels and department signs */
-.labels3d{position:absolute;inset:0;pointer-events:none;z-index:1;overflow:hidden;}
+.labels3d{position:absolute;inset:0;pointer-events:none;z-index:1;overflow:hidden;overflow:clip;}
 .lbl3d{position:absolute;left:0;top:0;transform:translate(calc(var(--x, 0) * 1px - 50%),calc(var(--y, 0) * 1px - 50%));padding:2px 8px;border-radius:var(--radius-full);
   background:color-mix(in srgb,var(--surface) 86%,transparent);color:var(--ink-heading);box-shadow:var(--shadow-1);
   font-family:var(--font-display);font-size:12px;font-weight:600;letter-spacing:.12em;white-space:nowrap;}
@@ -325,7 +331,11 @@ body{font:var(--text-md)/var(--leading-md) var(--font-body);overflow:hidden;over
 .insp-eyebrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .insp-name{margin:0;font-family:var(--font-display);font-size:var(--display-md);line-height:1.1;font-weight:700;text-transform:uppercase;letter-spacing:var(--tracking-display);color:var(--ink-heading);overflow-wrap:anywhere;}
 .insp-meta{margin:0;font-size:var(--text-xs);color:var(--ink-muted);}
+.insp-meta[hidden]{display:none;}
+.insp-name:focus{outline:none;}
+.area-live{display:contents;}
 .insp-close{position:absolute;right:6px;top:6px;}
+.insp-head.has-close .insp-name{padding-right:44px;} /* a long name wraps before the Close button, not under it */
 .insp-sec{display:grid;gap:10px;padding:12px 16px 14px;border-bottom:1px solid var(--line);}
 .insp-sec > .eyebrow{margin:0 0 -2px;}
 .insp-notice{margin:12px 16px 0;display:grid;gap:8px;justify-items:start;}
@@ -390,7 +400,11 @@ select.f-in{appearance:auto;}
 .progress{height:6px;border-radius:var(--radius-full);background:var(--surface-sunken);box-shadow:inset 0 0 0 1px var(--line);overflow:hidden;}
 .progress-fill{display:block;height:100%;width:calc(var(--p, 0) * 100%);background:var(--accent);border-radius:var(--radius-full);transition:width var(--dur-base) var(--ease-standard);}
 .pal-total{margin:0;font-size:var(--text-xs);color:var(--ink-muted);line-height:1.4;}
-.pal-list{overflow:auto;overscroll-behavior:contain;padding:6px 8px;display:grid;gap:2px;align-content:start;}
+.pal-list{overflow:auto;overscroll-behavior:contain;padding:6px 8px;display:grid;grid-template-columns:minmax(0,1fr);gap:2px;align-content:start;}
+/* a name with no spaces (30+ letters, or a pasted link) breaks anywhere instead of pushing every row's buttons off the panel */
+.palette,.inspector,.toast,dialog,.map-banner,.finder-results,.pop{overflow-wrap:anywhere;}
+.keys{overflow-wrap:normal;} /* the shortcuts table sizes its columns by their words: keep them whole */
+.pal-text,.finder-text,.cmp-pick,.mp-body,.mp-head,.insp-sec,.insp-head{min-width:0;}
 .pal-row{display:flex;align-items:stretch;gap:2px;border-radius:var(--radius-md);}
 .pal-row.selected{background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent-line);}
 .pal-row.muted{opacity:.7;}
@@ -478,13 +492,13 @@ dialog::backdrop{background:var(--scrim);}
 .keys > .kg > span:nth-of-type(odd){color:var(--ink);}
 .keys > .kg > span:nth-of-type(even){color:var(--ink-muted);}
 .kg{display:contents;}
-.toast{position:fixed;left:50%;bottom:calc(var(--statusbar-h) + 16px + var(--safe-b));transform:translateX(-50%);z-index:var(--z-toast);max-width:min(420px,calc(100% - 32px));
+.toast{position:fixed;left:50%;bottom:calc(var(--statusbar-h) + 16px + var(--safe-b));transform:translateX(-50%);z-index:var(--z-toast);width:max-content;max-width:min(420px,calc(100% - 32px));
   display:flex;align-items:center;gap:10px;background:var(--surface-inverse);color:var(--ink-inverse);padding:10px 14px;border-radius:var(--radius-md);box-shadow:var(--shadow-3);font-size:var(--text-md);text-align:center;}
 .toast.has-action{text-align:left;padding-right:6px;}
 .toast-ico{color:var(--success);width:18px;height:18px;}
-.toast-text{min-width:0;}
+.toast-text{min-width:0;overflow-wrap:anywhere;}
 .toast-act{min-height:32px;padding:0 8px;border:0;background:transparent;color:var(--ink-inverse);font-weight:600;text-decoration:underline;text-underline-offset:3px;white-space:nowrap;}
-.toast-x{display:grid;place-items:center;width:32px;height:32px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--ink-inverse);opacity:.8;}
+.toast-x{flex:none;display:grid;place-items:center;width:32px;height:32px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--ink-inverse);opacity:.8;}
 .toast-x .i{width:16px;height:16px;}
 
 /* ---------- the 3D view's backdrop before the first frame, in the dark theme ---------- */
@@ -519,6 +533,8 @@ dialog::backdrop{background:var(--scrim);}
   .only-touch{display:inline;} .only-mouse{display:none;}
   .layer-row,.tab,.seg button,.menu [role="menuitem"],.menu-group button,.add-row,.mm-row,.finder-row{min-height:var(--hit);}
   .icon-btn.small{width:var(--hit);height:var(--hit);}
+  .toast-act{min-height:var(--hit);min-width:var(--hit);}
+  .toast-x{width:var(--hit);height:var(--hit);}
   .pal-main{min-height:56px;}
   .mm-more,.pal-edit{opacity:1;width:var(--hit);}
   .menu .mm-more[role="menuitem"]{width:var(--hit);}
@@ -576,6 +592,9 @@ dialog::backdrop{background:var(--scrim);}
   .scalebar{bottom:auto;top:var(--space-3);}
   .north{top:var(--space-3);bottom:auto;}
   .toast{bottom:calc(var(--bottombar-h) + 16px + var(--safe-b));}
+  .toast-act{min-height:44px;min-width:44px;padding:0 12px;}
+  .finder-results{max-height:min(46vh,290px);} /* 3 to 4 rows: the list never runs under the bottom bar */
+  .toast-x{width:44px;height:44px;}
   .readout{min-width:0;}
   .lbl3d{font-size:11px;}
   .map-banner{left:var(--gutter);right:var(--gutter);transform:none;width:auto;max-width:none;flex-wrap:wrap;padding:8px 10px;font-size:var(--text-sm);}
@@ -653,8 +672,19 @@ dialog::backdrop{background:var(--scrim);}
 
   .hdr .modes,.hdr .tabs{border-top:0;margin-top:6px;}
   .mode-panel{height:auto;width:min(360px,50vw);}
+  /* an open side drawer covers the left (Departments, Comparison, Advisor) or the right (the inspector) of the stage: the banner
+   * (the "unsaved edits from an older copy" question, read-only, offline...) keeps clear of it so its words stay readable */
+  .stage:has(#palette.open) .map-banner{left:calc(min(340px,46vw) + var(--gutter));}
+  .stage:has(.mode-panel.open) .map-banner{left:calc(min(360px,50vw) + var(--gutter));}
+  .app[data-sheet="peek"] .map-banner,.app[data-sheet="expanded"] .map-banner{right:calc(min(320px,48vw) + var(--gutter));}
   /* the side drawer covers the middle of the plan: shift the empty-state card into the space that's left */
   .app[data-sheet="peek"] #catsEmpty,.app[data-sheet="expanded"] #catsEmpty{left:calc(50% - min(160px,24vw));}
+}
+
+/* portrait phone: the "No departments placed yet" card sits behind the inspector sheet while it is open; leave it out then (the
+ * Departments sheet already hides it above) instead of letting its top edge peek out over the sheet */
+@media (max-width:767px) and (orientation:portrait),(pointer:coarse) and (max-width:1023px) and (orientation:portrait){
+  .app[data-sheet="peek"] #catsEmpty,.app[data-sheet="expanded"] #catsEmpty{display:none;}
 }
 
 /* ---------- motion ---------- */
@@ -893,7 +923,7 @@ details[open] > summary .adv-chev{transform:rotate(180deg);}
 .acct-set .as-text span{font-size:var(--text-xs);color:var(--ink-muted);}
 .acct-set[aria-checked="true"] .sw-track{background:var(--accent);}
 .acct-set[aria-checked="true"] .sw-knob{transform:translateX(16px);}
-.acct-set:disabled{opacity:.6;}
+.acct-set:disabled,.acct-set[aria-busy="true"]{opacity:.6;}
 .acct-set:focus-visible{outline:2px solid var(--focus);outline-offset:-2px;}
 @media (max-width:767px),(pointer:coarse) and (max-width:1023px){
   /* the chip collapses to its icon, like the save status */
@@ -909,17 +939,22 @@ details[open] > summary .adv-chev{transform:rotate(180deg);}
 }
 
 /* the header holds 6 mode tabs for the admin: below 1650px their labels fold into the icons (title + aria-label
- * keep the names); for everyone the same happens below 1250px, where even 5 labelled tabs would squeeze the
- * map switcher out. Phones (<768px) keep their own labelled, scrollable row. */
+ * keep the names); for everyone the same happens below 1450px, where even 5 labelled tabs would squeeze the
+ * map switcher out. The OPEN mode keeps its name beside its icon, so a laptop still says which mode it is in.
+ * Phones (<768px) keep their own labelled, scrollable row. */
 @media (min-width:768px) and (max-width:1649px){
   .app[data-admin="true"] .modes .mode-tab span{display:none;}
   .app[data-admin="true"] .modes .mode-tab{padding:0 11px;}
   .app[data-admin="true"] .hdr .modes .mode-tab .i{display:block;}
+  .app[data-admin="true"] .modes .mode-tab[aria-selected="true"] span{display:inline;}
+  .app[data-admin="true"] .modes .mode-tab[aria-selected="true"]{padding:0 11px 0 9px;}
 }
 @media (min-width:768px) and (max-width:1449px){
   .modes .mode-tab span{display:none;}
   .modes .mode-tab{padding:0 11px;}
   .hdr .modes .mode-tab .i{display:block;}
+  .modes .mode-tab[aria-selected="true"] span{display:inline;}
+  .modes .mode-tab[aria-selected="true"]{padding:0 11px 0 9px;}
 }
 /* the account menu holds the admin's settings switches: a little wider so their hints breathe */
 .acct-menu{min-width:248px;max-height:calc(100dvh - 72px);overflow-y:auto;overscroll-behavior:contain;}

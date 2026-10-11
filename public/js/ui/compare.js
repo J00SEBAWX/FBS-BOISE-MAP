@@ -3,7 +3,7 @@
  * Added / Removed / Changed / Categories, a tap on a row highlights it on the plan, and for the admin "Apply to
  * master" per row and "Apply all" (POST /api/master/apply). Every name comes from the API and is set with
  * textContent. The app fetches the maps and draws the plans; this panel only holds the state and the list. */
-import {h, icon, clear, relTime} from "./dom.js";
+import {h, icon, clear, relTime, focusEl} from "./dom.js";
 import {createCompare, rowGroups, rowKey, kindIcon, pickOptions, canApply, applyErrorText, countText, compareDocs, LAYOUTS} from "../core/compare.js";
 import {changesFor} from "../core/diff.js";
 import {toLayout} from "../core/session.js";
@@ -135,7 +135,7 @@ export function createComparePanel(o) {
       e.preventDefault(); e.stopPropagation();
       state.layout = LAYOUTS[(LAYOUTS.indexOf(state.layout) + d + LAYOUTS.length) % LAYOUTS.length];
       render(); o.onChange("layout");
-      const b = seg.querySelector(`[data-layout="${state.layout}"]`); if (b) b.focus();
+      const b = seg.querySelector(`[data-layout="${state.layout}"]`); focusEl(b);
     });
     return seg;
   }

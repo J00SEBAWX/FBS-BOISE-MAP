@@ -1,7 +1,7 @@
 /* The map switcher in the header (docs/DESIGN.md 7): the current map's name and maker on the button, a popover
  * with the Master map, My maps (+ New map, Rename, Make a copy, Delete) and Team maps grouped by person, the save
  * status, and the New map / Rename / Delete dialogs. Names come from the API and are set with textContent. */
-import {h, icon, setIcon, clear, relTime, menuKeys, modal} from "./dom.js";
+import {h, icon, setIcon, clear, relTime, menuKeys, modal, focusEl} from "./dom.js";
 import {statusInfo, proposalFor} from "../core/review.js";
 
 const MAX_MAPS = 30;
@@ -82,8 +82,8 @@ export function createMapMenu(o) {
       h("button", {type: "button", role: "menuitem", class: "danger", onclick: () => { close(false); closeRowMenu(); confirmDelete(m); }}, icon("i-delete"), "Delete…"));
     anchor.parentElement.appendChild(rowMenu);
     anchor.setAttribute("aria-expanded", "true");
-    const first = rowMenu.querySelector("button"); if (first) first.focus();
-    menuKeys(rowMenu, () => [...rowMenu.querySelectorAll("button")], () => { closeRowMenu(); anchor.focus(); });
+    focusEl(rowMenu.querySelector("button"));
+    menuKeys(rowMenu, () => [...rowMenu.querySelectorAll("button")], () => { closeRowMenu(); focusEl(anchor, {reveal: false}); });
     rowMenu.addEventListener("focusout", e => { if (rowMenu && !rowMenu.contains(e.relatedTarget)) closeRowMenu(); });
   }
   function closeRowMenu() {
@@ -131,10 +131,10 @@ export function createMapMenu(o) {
     render();
     menu.hidden = false; btn.setAttribute("aria-expanded", "true");
     const cur = menu.querySelector(".mm-row.current") || items()[0];
-    if (cur) cur.focus();
+    focusEl(cur);
     refresh();
   }
-  function close(refocus) { if (!isOpen()) return; closeRowMenu(); menu.hidden = true; btn.setAttribute("aria-expanded", "false"); if (refocus) btn.focus(); }
+  function close(refocus) { if (!isOpen()) return; closeRowMenu(); menu.hidden = true; btn.setAttribute("aria-expanded", "false"); if (refocus) focusEl(btn, {reveal: false}); }
   btn.addEventListener("click", () => (isOpen() ? close(false) : open()));
   btn.addEventListener("keydown", e => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); e.stopPropagation(); open(); } });
   menuKeys(menu, items, () => close(true));
@@ -142,7 +142,7 @@ export function createMapMenu(o) {
     // type-ahead: a letter jumps to the next map starting with it
     if (e.key.length === 1 && /\S/.test(e.key) && !e.ctrlKey && !e.metaKey) {
       const list = items(), i = list.indexOf(document.activeElement), k = e.key.toLowerCase();
-      for (let n = 1; n <= list.length; n++) { const el = list[(i + n) % list.length], t = (el.querySelector("b") || el).textContent.trim().toLowerCase(); if (t.startsWith(k)) { el.focus(); break; } }
+      for (let n = 1; n <= list.length; n++) { const el = list[(i + n) % list.length], t = (el.querySelector("b") || el).textContent.trim().toLowerCase(); if (t.startsWith(k)) { focusEl(el); break; } }
     }
   });
   document.addEventListener("pointerdown", e => { if (isOpen() && !menu.contains(e.target) && !btn.contains(e.target)) close(false); }, true);
@@ -157,7 +157,7 @@ export function createMapMenu(o) {
         const r = await o.list();
         maps = {...maps, mine: r.mine || [], team: r.team || []};
         loaded = true;
-        if (isOpen()) { const f = document.activeElement; const id = f && f.dataset && f.dataset.id; render(); const again = id && menu.querySelector(`[data-id="${CSS.escape(id)}"]`); if (again) again.focus(); }
+        if (isOpen()) { const f = document.activeElement; const id = f && f.dataset && f.dataset.id; render(); const again = id && menu.querySelector(`[data-id="${CSS.escape(id)}"]`); focusEl(again); }
       } catch { /* offline: the menu shows what it has */ }
       refreshing = null;
     })();
@@ -204,7 +204,7 @@ export function createMapMenu(o) {
   form.addEventListener("submit", async e => {
     e.preventDefault();
     const name = nameIn.value.replace(/\s+/g, " ").trim();
-    if (!name || name.length > 60) { err.textContent = "Give the map a name of 1 to 60 characters."; err.hidden = false; nameIn.focus(); return; }
+    if (!name || name.length > 60) { err.textContent = "Give the map a name of 1 to 60 characters."; err.hidden = false; focusEl(nameIn); return; }
     submit.disabled = true; submit.textContent = mode === "new" ? "Creating…" : "Renaming…"; err.hidden = true;
     try {
       if (mode === "new") { const from = form.elements.from.value; await o.onCreate({name, from, mapId: from === "map" ? copySel.value : undefined}); }

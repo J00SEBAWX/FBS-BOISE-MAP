@@ -131,7 +131,7 @@ test("the master layout validates losslessly; schema types match the core model"
   const r = validateMapData(MASTER_RAW);
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.deepStrictEqual(r.data.items, MASTER_RAW.items, "every item, field and value survives validation unchanged");
-  assert.equal(r.data.items.length, 165);
+  assert.equal(r.data.items.length, MASTER_RAW.items.length);
   assert.deepEqual(r.data.building, MASTER_RAW.building);
   assert.deepEqual(r.data.categories, []);
   assert.deepEqual([...STRUCTURE_TYPES], [...CORE_MODEL.STRUCTURE_TYPES]);
@@ -251,7 +251,7 @@ test("the master is the seeded survey; everyone signed in can read it", async ()
     assert.equal(m.version, 1);
     assert.deepStrictEqual(m.data.items, MASTER_RAW.items);
     assert.equal(m.updatedByName, "Initial survey");
-    assert.equal(m.itemCount, 165);
+    assert.equal(m.itemCount, MASTER_RAW.items.length);
     assert.equal(m.locked, false);
     assert.equal(m.lockedByName, null);
   }
@@ -264,7 +264,7 @@ test("maps: start from the master, a blank store or a copy; list, rename, save, 
   mapA = r.meta.id;
   assert.match(mapA, /^m_[A-Za-z0-9_-]{16}$/);
   assert.deepEqual({ ...r.meta, id: 0, createdAt: 0, updatedAt: 0 }, {
-    id: 0, name: "Alice's plan", base: "master", ownerName: "Alice", mine: true, itemCount: 165, version: 1, createdAt: 0, updatedAt: 0,
+    id: 0, name: "Alice's plan", base: "master", ownerName: "Alice", mine: true, itemCount: MASTER_RAW.items.length, version: 1, createdAt: 0, updatedAt: 0,
   });
   assert.deepStrictEqual(r.data.items, MASTER.items);
 

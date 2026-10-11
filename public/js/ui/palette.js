@@ -1,7 +1,7 @@
 /* The Add palette (docs/DESIGN.md 4.6), the Departments palette of the Categories tab (section 5), the category
  * editor dialog (create custom, edit any, hide defaults, delete custom) and the "Find a product" box. Everything
  * is built with createElement; names and colours come from the catalog or the person's own categories. */
-import {h, icon, clear, modal, menuKeys} from "./dom.js";
+import {h, icon, clear, modal, menuKeys, focusEl} from "./dom.js";
 import {PALETTE, isStructureType} from "../core/doc.js";
 import {summary, categoryFor} from "../core/areas.js";
 import {CATALOG} from "../shared/catalog.js";
@@ -46,7 +46,7 @@ export function createAddMenu(o) {
       const list = h("div", {class: "add-list one"});
       for (const c of o.session.categories.filter(c => !c.hidden)) list.appendChild(deptRow(c, placed.has(c.key)));
       pop.appendChild(list);
-      pop.appendChild(h("p", {class: "pop-hint", text: o.hint3d && o.hint3d() ? "Pick a department, then click the floor to place it." : "The block drops in the middle of the view; drag it into place."}));
+      pop.appendChild(h("p", {class: "pop-hint", text: o.hint3d && o.hint3d() ? "Pick a department, then click the floor to place it." : "The block goes in the middle of the map you can see; drag it where it belongs."}));
       return;
     }
     pop.appendChild(h("p", {class: "pop-title", text: "Add"}));
@@ -58,12 +58,12 @@ export function createAddMenu(o) {
     pop.appendChild(h("button", {type: "button", class: "add-row dept-entry", role: "menuitem", tabindex: -1, onclick: () => { mode = "departments"; render(); focusFirst(); }}, icon("i-blocks"), h("span", {class: "add-name", text: "Department block"}), icon("i-chevron-right", "i i-sm")));
   }
   const items = () => [...pop.querySelectorAll('[role="menuitem"]')];
-  function focusFirst() { const f = items()[0]; if (f) f.focus(); }
+  function focusFirst() { focusEl(items()[0]); }
   function open(m = "items") { mode = m; render(); pop.hidden = false; btn.setAttribute("aria-expanded", "true"); focusFirst(); }
-  function close(refocus) { if (!isOpen()) return; pop.hidden = true; btn.setAttribute("aria-expanded", "false"); if (refocus) btn.focus(); }
+  function close(refocus) { if (!isOpen()) return; pop.hidden = true; btn.setAttribute("aria-expanded", "false"); if (refocus) focusEl(btn, {reveal: false}); }
   btn.addEventListener("click", () => (isOpen() ? close(false) : open(o.startMode ? o.startMode() : "items")));
   menuKeys(pop, items, () => close(true));
-  pop.addEventListener("keydown", e => { if (e.key === "ArrowRight" || e.key === "ArrowLeft") { e.preventDefault(); const l = items(), i = l.indexOf(document.activeElement); (l[(i + (e.key === "ArrowRight" ? 1 : -1) + l.length) % l.length] || l[0]).focus(); } e.stopPropagation(); });
+  pop.addEventListener("keydown", e => { if (e.key === "ArrowRight" || e.key === "ArrowLeft") { e.preventDefault(); const l = items(), i = l.indexOf(document.activeElement); focusEl(l[(i + (e.key === "ArrowRight" ? 1 : -1) + l.length) % l.length] || l[0]); } e.stopPropagation(); });
   document.addEventListener("pointerdown", e => { if (isOpen() && !pop.contains(e.target) && !btn.contains(e.target)) close(false); }, true);
   pop.addEventListener("focusout", e => { if (isOpen() && e.relatedTarget && !pop.contains(e.relatedTarget) && !btn.contains(e.relatedTarget)) close(false); });
   return {open, close, get isOpen() { return isOpen(); }};
@@ -80,7 +80,7 @@ export function createDeptPalette(o) {
   const list = h("div", {class: "pal-list", role: "list"});
   const foot = h("div", {class: "pal-foot"});
   el.append(head, list, foot);
-  const finder = createFinder({session, onPick: r => o.onFind(r)});
+  const finder = createFinder({session, canEdit: () => o.canEdit(), onPick: r => o.onFind(r)});
 
   function render() {
     const S = summary(session.doc, {merged: session.categories});
@@ -111,7 +111,7 @@ export function createDeptPalette(o) {
       e.preventDefault(); e.stopPropagation();
       const list = ["on", "faint", "off"], n = list[(list.indexOf(fm) + d + 3) % 3];
       o.onFixtures && o.onFixtures(n);
-      const b = el.querySelector(`[data-fix="${n}"]`); if (b) b.focus();
+      focusEl(el.querySelector(`[data-fix="${n}"]`));
     });
     if (!touch) head.appendChild(seg);
     clear(list);
@@ -142,13 +142,16 @@ export function createDeptPalette(o) {
     clear(foot);
     if (touch) { foot.appendChild(totals); foot.appendChild(seg); }
     else if (o.canEdit()) foot.appendChild(h("button", {type: "button", class: "btn small wide", onclick: () => o.onNew()}, icon("i-add"), "New category"));
-    foot.appendChild(h("p", {class: "pal-hint", text: o.canEdit() ? "Tap a department to drop it in the middle of the view, then drag it into place." : "View only: tap a placed department to see it."}));
+    foot.appendChild(h("p", {class: "pal-hint", text: o.canEdit() ? "Tap a department to place it in the middle of the map you can see, then drag it where it belongs." : "View only: tap a placed department to see it."}));
   }
-  return {render, focusFinder: () => finder.focus()};
+  return {render};
 }
 
 /* ======================================================================= the product finder */
-/** createFinder({session, onPick(result)}) -> {el, focus()} : type a product or brand -> ranked zones with the reason. */
+/** createFinder({session, canEdit(), onPick(result)}) -> {el, focus()} : type a product or brand -> ranked zones with the reason. */
+export const NO_MATCH = "Nothing matched. Try the brand or the product type.";
+/** Said when the product simply isn't in the catalog (lumber, plywood...): how to teach the map about it. */
+export const NO_MATCH_EDIT = " Not in the list? Open a department (the pencil), add it under Subcategories, and it will be found here.";
 export function createFinder(o) {
   const input = h("input", {class: "input finder-in", type: "search", placeholder: "Find a product (M18 battery, Diablo blade…)", aria: {label: "Find a product", controls: "finderResults", expanded: "false"}, autocomplete: "off", spellcheck: "false", maxlength: 100});
   const results = h("div", {class: "finder-results", id: "finderResults", role: "listbox", aria: {label: "Where it lives"}, hidden: true});
@@ -160,7 +163,7 @@ export function createFinder(o) {
     if (!q) { results.hidden = true; input.setAttribute("aria-expanded", "false"); return; }
     const list = find(q, CATALOG, o.session.categories, {limit: 5});
     const placed = new Set(o.session.doc.items.filter(it => it.type === "area").map(it => it.cat));
-    if (!list.length) results.appendChild(h("p", {class: "finder-none", text: "Nothing matched. Try the brand or the product type."}));
+    if (!list.length) results.appendChild(h("p", {class: "finder-none", text: NO_MATCH + (o.canEdit && o.canEdit() ? NO_MATCH_EDIT : "")}));
     for (const r of list) {
       const cat = categoryFor(o.session.doc, r.key, o.session.categories);
       results.appendChild(h("button", {type: "button", class: "finder-row", role: "option", onclick: () => o.onPick({...r, placed: placed.has(r.key)})},
@@ -177,17 +180,17 @@ export function createFinder(o) {
   input.addEventListener("keydown", e => {
     e.stopPropagation();
     if (e.key === "Escape") { input.value = ""; run(); }
-    if (e.key === "ArrowDown") { const f = results.querySelector("button"); if (f) { e.preventDefault(); f.focus(); } }
+    if (e.key === "ArrowDown") { const f = results.querySelector("button"); if (f) { e.preventDefault(); focusEl(f); } }
     if (e.key === "Enter") { e.preventDefault(); run(); const f = results.querySelector("button"); if (f) f.click(); }
   });
   results.addEventListener("keydown", e => {
     e.stopPropagation();
     const l = [...results.querySelectorAll("button")], i = l.indexOf(document.activeElement);
-    if (e.key === "ArrowDown") { e.preventDefault(); (l[i + 1] || l[0]).focus(); }
-    else if (e.key === "ArrowUp") { e.preventDefault(); if (i <= 0) input.focus(); else l[i - 1].focus(); }
-    else if (e.key === "Escape") { input.focus(); }
+    if (e.key === "ArrowDown") { e.preventDefault(); focusEl(l[i + 1] || l[0]); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); if (i <= 0) focusEl(input); else focusEl(l[i - 1]); }
+    else if (e.key === "Escape") { focusEl(input); }
   });
-  return {el, focus: () => input.focus(), clear: () => { input.value = ""; run(); }};
+  return {el, focus: () => focusEl(input), clear: () => { input.value = ""; run(); }};
 }
 
 /* ======================================================================= the category editor dialog */

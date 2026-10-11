@@ -79,9 +79,13 @@ export function createPlanEditor(o) {
       if (h === "rotate") { startGesture("rotate", "Rotate", {id: single.id, ids: [single.id]}); setReadouts(single, {rotating: true}); plan.draw(); return true; }
       if (h) { startGesture("resize", "Resize", {id: single.id, h, ids: [single.id]}); setReadouts(single); plan.draw(); return true; }
     }
-    const it = plan.hitItem(wx, wy);
+    const top = plan.hitItem(wx, wy);
     const multi = (e && e.shiftKey) || (o.multiMode && o.multiMode());
-    if (it && multi) { session.select(it.id, {toggle: true}); return true; } // a click, never a drag
+    if (top && multi) { session.select(top.id, {toggle: true}); return true; } // a click, never a drag
+    // Something that is already selected and can move wins the press over what lies on top of it: a department block under a
+    // fixture is grabbed by pressing it, not the fixture above. A plain click (no drag) still picks the topmost item (see up()).
+    const grabbed = canEdit() ? session.selected().find(x => !session.isLocked(x) && plan.contains(x, wx, wy)) || null : null;
+    const it = grabbed || top;
     if (it) {
       if (touch && !session.isSelected(it.id)) return false; // touch: a tap selects, a drag on something unselected pans
       if (!session.isSelected(it.id)) session.select(it.id);
@@ -90,7 +94,7 @@ export function createPlanEditor(o) {
       if (!ids.length) return false; // locked: selected, but a drag pans
       if (shapeEdit && !(single && it.id === single.id)) setShapeEdit(false);
       const starts = new Map(ids.map(id => { const s = session.item(id); return [id, {x: s.x, y: s.y}]; }));
-      startGesture("move", ids.length > 1 ? "Move items" : "Move", {ids, wx0: wx, wy0: wy, starts, clicked: it.id});
+      startGesture("move", ids.length > 1 ? "Move items" : "Move", {ids, wx0: wx, wy0: wy, starts, clicked: (top || it).id});
       return true;
     }
     if (touch) return false; // empty floor on touch: pan (a tap clears the selection in click())
@@ -153,7 +157,8 @@ export function createPlanEditor(o) {
     }
     if (cancelled) { cancelGesture(); return; }
     const d = endGesture();
-    if (d.kind === "move" && !moved && e && !e.shiftKey && session.selection.length > 1) session.select(d.clicked); // a plain click inside a group picks that one
+    // a plain click (no drag) picks the topmost item under it: one inside a group, or the fixture on top of a selected block
+    if (d.kind === "move" && !moved && e && !e.shiftKey && !(session.selection.length === 1 && session.selection[0] === d.clicked)) session.select(d.clicked);
     showGuides([]);
   }
 

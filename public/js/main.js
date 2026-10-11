@@ -18,13 +18,15 @@ import {clamp, deg} from "./core/geometry.js";
 import {formatFtIn, formatSqft} from "./core/units.js";
 import {createSession, toLayout} from "./core/session.js";
 import {createAutosave} from "./core/autosave.js";
-import {loadDraft, createDraftKeeper} from "./core/drafts.js";
+import {loadDraft, createDraftKeeper, clearAllDrafts} from "./core/drafts.js";
 import {parseHash, isMapId, planHashChange} from "./core/route.js";
 import {api, ApiError} from "./core/api.js";
-import {MODE_INFO, isMode, modeAllows, modeLayers, modeNotice, itemShownIn, unlockHint} from "./core/modes.js";
+import {MODE_INFO, isMode, modeAllows, modeLayers, modeNotice, itemShownIn, unlockHint, lockedDeleteHint} from "./core/modes.js";
 import {apiNotReady, staticMasterResponse, legacyAllows, legacyMode, LEGACY_BANNER} from "./core/readiness.js";
 import {collectIssues, firstOffender} from "./core/issues.js";
 import {rowKey, rowBounds} from "./core/compare.js";
+import {ignoreShortcut, deleteAllowed, isSurface} from "./core/keys.js";
+import {visibleBox, dropSpot} from "./core/placement.js";
 import {fixEdits, showBounds} from "./core/advisor-ui.js";
 import * as D from "./core/doc.js";
 import * as A from "./core/areas.js";
@@ -59,8 +61,9 @@ import {createComparePanel} from "./ui/compare.js";
 import {createAdvisorPanel} from "./ui/advisor.js";
 import {createReviewPanel} from "./ui/review.js";
 import {attachSheetGrab} from "./ui/sheet.js";
+import {initStageGuard} from "./ui/stage-guard.js";
 import {createProposalControl} from "./ui/proposals.js";
-import {h, icon} from "./ui/dom.js";
+import {h, icon, focusEl} from "./ui/dom.js";
 import {initAccount} from "./account.js";
 
 // (the saved theme is already applied by /assets/theme-boot.js in <head>, before the page is drawn)
@@ -77,7 +80,7 @@ const cssToken = name => getComputedStyle(document.documentElement).getPropertyV
 /* ================= loading the data ================= */
 async function loadJson(url) {
   const r = await fetch(url, {credentials: "same-origin", cache: "no-cache"});
-  if (r.status === 401) { location.replace("/login"); throw new Error("signed out"); }
+  if (r.status === 401) { try { clearAllDrafts(window.localStorage); } catch { /* no storage */ } location.replace("/login"); throw new Error("signed out"); }
   if (!r.ok) throw new Error(`${url}: ${r.status}`);
   return r.json();
 }
@@ -98,6 +101,7 @@ boot().catch(e => {
 });
 
 async function boot() {
+  initStageGuard();
   initAccount();
   let me, overlay = null;
   try {
@@ -376,9 +380,10 @@ function start(me, overlay) {
   $("#issueFab").addEventListener("click", showFirstIssue);
 
   /* ================= what the session tells the app ================= */
-  let suppressSave = false, advisorTimer = 0;
+  let suppressSave = false, advisorTimer = 0, fieldCommitAt = -Infinity, undoGuard = null; // undoGuard: the document an Undo toast was offered for
   function onSessionChange(kind, info = {}) {
     if (kind === "load" || kind === "doc") {
+      if (undoGuard && session.doc !== undoGuard) { undoGuard = null; hideToast(); } // anything else changed the map: the offered Undo is stale
       const layout = session.layout;
       recheck();
       if (state.mode !== "current" && state.mode !== "comparison") plan.setLayout(layout);
@@ -412,7 +417,7 @@ function start(me, overlay) {
       if (phoneMq.matches && planView() && session.single && allows().inspector) plan.revealAbove(session.single, plan.V.H * 0.46);
     }
     if (kind === "history") syncToolbar();
-    if (kind === "lock") { syncLock(); inspector.render(); plan.draw(); }
+    if (kind === "lock") { syncLock(); syncToolbar(); inspector.render(); plan.draw(); }
   }
   function syncStatus() {
     const items = allows().select ? session.selected() : [];
@@ -469,13 +474,21 @@ function start(me, overlay) {
     },
     rotate(by) { if (canEdit()) editor.rotateBy(by); },
     remove() {
+      if (!canEdit()) return;
       const items = session.selected().filter(it => !session.isLocked(it));
-      if (!items.length || !canEdit()) return;
+      if (!items.length) {
+        // everything selected is locked structure: say why nothing happened (and how to go on)
+        if (session.selection.length) toast(lockedDeleteHint({touch: phoneMq.matches, plan: planView()}));
+        return;
+      }
       const r = applyOrToast(D.deleteItems(session.doc, items.map(it => it.id), session.editOpts), {label: "Delete"});
       if (!r) return;
       const label = items.length === 1 ? `Deleted “${displayName(items[0])}”.` : `Deleted ${items.length} items.`;
-      const inverse = r.inverse, ids = r.ids;
-      toast(label, {action: {label: "Undo", onClick: () => { session.applyPatch(inverse, "Undo delete"); session.select(ids); }}});
+      const inverse = r.inverse, ids = r.ids, map = state.map, after = session.doc;
+      // the Undo belongs to the map it was made on, and to the moment it was offered: after another map opens, or ANY other edit
+      // (the toolbar Undo, a typed value), it hides and does nothing, so it can never re-apply an old patch over newer work
+      undoGuard = after;
+      toast(label, {action: {label: "Undo", onClick: () => { if (state.map !== map || !canEdit() || session.doc !== after) return; session.applyPatch(inverse, "Undo delete"); session.select(ids); }}});
     },
     sizeToTarget(id) { applyOrToast(A.sizeToTarget(session.doc, id), {label: "Size to target"}); },
     lockArea(id, on) { applyOrToast(A.setLockArea(session.doc, id, on), {label: on ? "Lock area" : "Unlock area"}); inspector.render(true); },
@@ -497,10 +510,35 @@ function start(me, overlay) {
       return null;
     },
   };
-  /** Drops a department block in the middle of the plan (Departments palette / Add menu). */
+  /**
+   * The middle of the part of the map the person can actually see, in store feet. On a phone the Departments sheet (or the
+   * inspector) covers most of the screen and opening it moves the canvas centre far from the store, so the canvas centre is
+   * wrong there; the middle of what no sheet or drawer covers is right. In 3D it is the floor point under that middle.
+   */
+  const COVERS = ["palette", "comparePanel", "advisorPanel", "reviewPanel", "inspector"];
+  function dropCentre() {
+    const b = session.building, fallback = {x: b.L / 2, y: b.W / 2};
+    const surface = planView() ? $("#planCanvas") : $("#three");
+    const r = surface.getBoundingClientRect();
+    if (r.width < 40 || r.height < 40) return fallback;
+    const covers = COVERS.map(id => $("#" + id).getBoundingClientRect()).filter(c => c.width > 0 && c.height > 0).map(c => ({x0: c.left, y0: c.top, x1: c.right, y1: c.bottom}));
+    const box = visibleBox({x0: r.left, y0: r.top, x1: r.right, y1: r.bottom}, covers);
+    const cx = (box.x0 + box.x1) / 2, cy = (box.y0 + box.y1) / 2;
+    if (planView()) { const [wx, wy] = plan.toWorld(cx - r.left, cy - r.top); return {x: wx, y: wy}; }
+    const fl = picker && orbit ? picker.floorAt(cx, cy, orbit.camera) : null;
+    return fl ? {x: fl.x, y: fl.y} : fallback;
+  }
+  /** Where a new item goes: the visible middle, inside the building, beside (never on) what is already there. */
+  function dropWhere(probe) {
+    return dropSpot(session.doc, probe, dropCentre(), {building: session.building, grid: layers.get().snap ? GRID : 0});
+  }
+  /** Places a department block: where the person clicked in 3D (at), else the middle of the visible map (Departments list / Add menu / finder). */
   function placeDepartment(key, at) {
     if (!canEdit()) { toast("This map is view only. Make your own copy to place departments."); return; }
-    const p = at || plan.center();
+    const cat = A.categoryFor(session.doc, key);
+    if (!cat) { toast("That department isn't on this map."); return; }
+    let p = at;
+    if (!p) { const [w, d] = A.startSize(cat); p = dropWhere({type: "area", cat: key, shape: "rect", name: "", w, d, h: A.BLOCK_HEIGHT, rot: 0}); }
     const r = applyOrToast(A.createBlock(session.doc, key, p, {grid: layers.get().snap ? GRID : 0}), {label: "Place department"});
     if (!r) return;
     session.select(r.id);
@@ -510,11 +548,14 @@ function start(me, overlay) {
   function addItem(type) {
     if (!canEdit()) return;
     if (type === "area") { addMenu.open("departments"); return; }
-    const r = applyOrToast(D.addItem(session.doc, type, plan.center(), {...session.editOpts, grid: layers.get().snap ? GRID : 0}), {label: `Add ${D.PALETTE[type].label.toLowerCase()}`});
+    const def = D.PALETTE[type];
+    const p = dropWhere({type, w: def.w, d: def.d, h: def.h ?? 0, rot: 0});
+    const r = applyOrToast(D.addItem(session.doc, type, p, {...session.editOpts, grid: layers.get().snap ? GRID : 0}), {label: `Add ${def.label.toLowerCase()}`});
     if (!r) return;
     session.select(r.id);
     if (state.view === "3d") { dirty3D = true; scheduleRebuild(); }
-    inspector.focusFirst();
+    inspector.focusFirst({expand: false}); // a computer: into its first field; a phone: the sheet just peeks, no keyboard
+    announce(`${def.label} added. Drag it into place, or change it in the panel.`); // (a phone keeps focus on the page, so say it)
   }
 
   /* ================= panels ================= */
@@ -526,6 +567,7 @@ function start(me, overlay) {
     issuesFor: id => (state.mode === "planning" || state.mode === "advisor" ? state.issues.byId[id] || [] : null),
     onIssues: () => showFirstIssue(),
     onSheet: s => { app.dataset.sheet = s; },
+    onCommit: () => { fieldCommitAt = performance.now(); },
   });
   const palette = createDeptPalette({
     el: $("#palette"), session, canEdit, toast, isDark, isTouch: () => phoneMq.matches,
@@ -552,8 +594,9 @@ function start(me, overlay) {
       const cat = A.categoryFor(session.doc, key, session.categories);
       const r = session.apply(A.deleteCategory(session.doc, key), {label: "Delete category"});
       if (r && r.error) return r.error;
-      const inverse = r.inverse;
-      toast(`Deleted “${cat ? cat.name : "category"}”${r.removedBlocks && r.removedBlocks.length ? ` and its ${r.removedBlocks.length} block${r.removedBlocks.length > 1 ? "s" : ""}` : ""}.`, {action: {label: "Undo", onClick: () => session.applyPatch(inverse, "Undo delete")}});
+      const inverse = r.inverse, map = state.map, after = session.doc;
+      undoGuard = after;
+      toast(`Deleted “${cat ? cat.name : "category"}”${r.removedBlocks && r.removedBlocks.length ? ` and its ${r.removedBlocks.length} block${r.removedBlocks.length > 1 ? "s" : ""}` : ""}.`, {action: {label: "Undo", onClick: () => { if (state.map !== map || !canEdit() || session.doc !== after) return; session.applyPatch(inverse, "Undo delete"); }}});
       return null;
     },
     onReset(key) { const r = session.apply(A.resetCategory(session.doc, key), {label: "Reset category"}); return r && r.error ? r.error : null; },
@@ -666,7 +709,7 @@ function start(me, overlay) {
     onClose: () => closePanelSheet(),
   });
   let advisorLoaded = false;
-  function openPanelSheet() { const p = $(state.mode === "comparison" ? "#comparePanel" : state.mode === "review" ? "#reviewPanel" : "#advisorPanel"); p.classList.add("open"); $("#panelBtn").setAttribute("aria-expanded", "true"); const f = p.querySelector("button:not(.sheet-grab), select, input"); if (f) f.focus(); }
+  function openPanelSheet() { const p = $(state.mode === "comparison" ? "#comparePanel" : state.mode === "review" ? "#reviewPanel" : "#advisorPanel"); p.classList.add("open"); $("#panelBtn").setAttribute("aria-expanded", "true"); focusEl(p.querySelector("button:not(.sheet-grab), select, input")); }
   function closePanelSheet() { for (const p of [$("#comparePanel"), $("#advisorPanel"), $("#reviewPanel")]) p.classList.remove("open"); $("#panelBtn").setAttribute("aria-expanded", "false"); }
   $("#panelBtn").addEventListener("click", () => { const open = $("#panelBtn").getAttribute("aria-expanded") === "true"; if (open) closePanelSheet(); else openPanelSheet(); });
 
@@ -752,31 +795,49 @@ function start(me, overlay) {
     if (!isAdmin || state.legacy) return;
     try { adminSettings = await api.settings(); renderAcctSettings(); } catch { /* the dashboard still has them */ }
   }
+  /**
+   * The two switches in the account menu are built once and updated in place: replacing them dropped keyboard focus to the page
+   * (so Esc no longer closed the menu), and disabling the one being used while it saved did the same.
+   */
+  let acctRows = null;
+  function acctRow(onToggle) {
+    const label = h("b"), hint = h("span");
+    const b = h("button", {type: "button", class: "acct-set", role: "menuitemcheckbox", aria: {checked: false}, tabindex: -1,
+      onclick: async () => {
+        if (b.getAttribute("aria-busy") === "true") return; // one change at a time; the button stays enabled so it keeps focus
+        b.setAttribute("aria-busy", "true");
+        try { await onToggle(b.getAttribute("aria-checked") !== "true"); } catch (e) { toast(e instanceof ApiError && e.message ? e.message : "Couldn't change that setting."); }
+        b.removeAttribute("aria-busy");
+      }},
+      h("span", {class: "as-text"}, label, hint),
+      h("span", {class: "sw-track", aria: {hidden: true}}, h("span", {class: "sw-knob"})));
+    return {b, set(text, note, on) { if (label.textContent !== text) label.textContent = text; if (hint.textContent !== note) hint.textContent = note; b.setAttribute("aria-checked", String(!!on)); }};
+  }
   function renderAcctSettings() {
     if (!isAdmin || !adminSettings || state.legacy) return;
     const box = $("#acctSettings");
     $("#setLabel").hidden = false;
     box.hidden = false;
-    box.textContent = "";
-    const row = (label, hint, on, onToggle) => {
-      const b = h("button", {type: "button", class: "acct-set", role: "menuitemcheckbox", aria: {checked: on}, tabindex: -1,
-        onclick: async () => { b.disabled = true; try { await onToggle(!on); } catch (e) { toast(e instanceof ApiError && e.message ? e.message : "Couldn't change that setting."); } b.disabled = false; }},
-        h("span", {class: "as-text"}, h("b", {text: label}), h("span", {text: hint})),
-        h("span", {class: "sw-track", aria: {hidden: true}}, h("span", {class: "sw-knob"})));
-      return b;
-    };
-    box.appendChild(row("Share everyone's maps", adminSettings.shareMaps ? "The team sees each other's maps, read-only" : "Only you see the team's maps", !!adminSettings.shareMaps, async v => {
-      adminSettings = await api.putSettings({shareMaps: v});
-      renderAcctSettings(); mapMenu.refresh();
-      toast(v ? "Sharing is on: everyone sees everyone's maps, read-only." : "Sharing is off: people see only their own maps and the master.", {icon: "i-check"});
-    }));
-    box.appendChild(row("Lock the master map", adminSettings.masterLocked ? "Nobody can change it, you included" : "Changes to the master save new versions", !!adminSettings.masterLocked, async v => {
-      adminSettings = await api.putSettings({masterLocked: v});
-      renderAcctSettings();
-      toast(v ? "The master map is locked. Nobody can change it until you unlock it." : "The master map is unlocked.", {icon: v ? "i-lock" : "i-unlock"});
-      if (state.map.id === "master") openMap("master", {reload: true});
-      else syncLockBadge();
-    }));
+    if (!acctRows) {
+      acctRows = {
+        share: acctRow(async v => {
+          adminSettings = await api.putSettings({shareMaps: v});
+          renderAcctSettings(); mapMenu.refresh();
+          toast(v ? "Sharing is on: everyone sees everyone's maps, read-only." : "Sharing is off: people see only their own maps and the master.", {icon: "i-check"});
+        }),
+        lock: acctRow(async v => {
+          adminSettings = await api.putSettings({masterLocked: v});
+          renderAcctSettings();
+          toast(v ? "The master map is locked. Nobody can change it until you unlock it." : "The master map is unlocked.", {icon: v ? "i-lock" : "i-unlock"});
+          if (state.map.id === "master") openMap("master", {reload: true});
+          else syncLockBadge();
+        }),
+      };
+      box.textContent = "";
+      box.appendChild(acctRows.share.b); box.appendChild(acctRows.lock.b);
+    }
+    acctRows.share.set("Share everyone's maps", adminSettings.shareMaps ? "The team sees each other's maps, read-only" : "Only you see the team's maps", !!adminSettings.shareMaps);
+    acctRows.lock.set("Lock the master map", adminSettings.masterLocked ? "Nobody can change it, you included" : "Changes to the master save new versions", !!adminSettings.masterLocked);
   }
   function syncLockBadge() { $("#lockBadge").hidden = !(state.map.id === "master" && state.map.locked); }
   $("#acctBtn").addEventListener("click", () => { if (isAdmin) loadAdminSettings(); });
@@ -914,6 +975,7 @@ function start(me, overlay) {
   async function openMap(id, opts = {}) {
     if (state.loading) return;
     state.loading = true;
+    hideToast(); // an Undo toast belongs to the map it was made on, never to the one that opens now
     editor.cancelGesture(); cancelPlacing();
     $("#mapError").hidden = true;
     try {
@@ -1244,6 +1306,7 @@ function start(me, overlay) {
     if (m === "review" && !isAdmin) return;
     if (state.legacy && !legacyAllows(m)) { toast(LEGACY_BANNER.title); return; }
     const was = state.mode;
+    hideToast(); // an Undo offered before this belongs to the other mode's view
     editor.cancelGesture(); cancelPlacing(); editor.setShapeEdit(false);
     layers.close(false); addMenu.close(false); closeMore(); closePanelSheet();
     $("#palette").classList.remove("open"); $("#deptBtn").setAttribute("aria-expanded", "false");
@@ -1315,22 +1378,26 @@ function start(me, overlay) {
     morePop.appendChild(moreRow("Controls and help", "i-help", () => { closeMore(); help.open(moreBtn); }));
   }
   const moreOpen = () => !morePop.hidden;
-  function openMore() { renderMore(); morePop.hidden = false; moreBtn.setAttribute("aria-expanded", "true"); const f = morePop.querySelector("button"); if (f) f.focus(); }
+  function openMore() { renderMore(); morePop.hidden = false; moreBtn.setAttribute("aria-expanded", "true"); focusEl(morePop.querySelector("button")); }
   function closeMore() { if (!moreOpen()) return; morePop.hidden = true; moreBtn.setAttribute("aria-expanded", "false"); }
-  function syncMore() { if (moreOpen()) { const i = [...morePop.querySelectorAll("button")].indexOf(document.activeElement); renderMore(); const b = morePop.querySelectorAll("button")[i]; if (b) b.focus(); } }
+  function syncMore() { if (moreOpen()) { const i = [...morePop.querySelectorAll("button")].indexOf(document.activeElement); renderMore(); focusEl(morePop.querySelectorAll("button")[i]); } }
   moreBtn.addEventListener("click", () => (moreOpen() ? closeMore() : openMore()));
-  morePop.addEventListener("keydown", e => { if (e.key === "Escape") { closeMore(); moreBtn.focus(); } e.stopPropagation(); });
+  morePop.addEventListener("keydown", e => { if (e.key === "Escape") { closeMore(); focusEl(moreBtn, {reveal: false}); } e.stopPropagation(); });
   document.addEventListener("pointerdown", e => { if (moreOpen() && !morePop.contains(e.target) && !moreBtn.contains(e.target)) closeMore(); }, true);
 
   /* ================= keyboard ================= */
-  let pointerFocus = false, spacePan = false;
-  window.addEventListener("pointerdown", () => { pointerFocus = true; }, true);
+  let pointerFocus = false, spacePan = false, surfaceActive = false;
+  // where the last press was: Delete may remove the selection after a tap on the plan or 3D view (a touch screen gives them no focus)
+  window.addEventListener("pointerdown", e => { pointerFocus = true; surfaceActive = isSurface(e.target); }, true);
+  window.addEventListener("focusin", e => { if (!isSurface(e.target)) surfaceActive = false; }, true);
   window.addEventListener("keyup", e => { if (e.code === "Space" && spacePan) { spacePan = false; setTool(toolBefore || "select"); toolBefore = null; } });
   window.addEventListener("keydown", e => {
     if (e.key === "Tab") pointerFocus = false;
     if (help.isOpen) return;
     const t = e.target, onControl = t && t !== document.body && /^(BUTTON|INPUT|SELECT|TEXTAREA|A|SUMMARY)$/.test(t.tagName);
-    if (onControl && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+    // keys typed into a field, a menu or a dialog are never shortcuts, and neither are keys aimed at the bare page just after
+    // a field of the inspector committed (focus is between two fields then): core/keys.js
+    if (ignoreShortcut(e, t, {doc: document, lastCommitAt: fieldCommitAt, now: performance.now()})) return;
     const mod = e.ctrlKey || e.metaKey;
     if (mod && !e.altKey) {
       if (e.code === "KeyZ" && !e.shiftKey) { e.preventDefault(); if (canUndo()) { const r = session.undo(); if (r) announce(`Undid ${r.label || "the last change"}`); } return; }
@@ -1366,7 +1433,8 @@ function start(me, overlay) {
     if (e.code === "KeyG" && !e.shiftKey) { layers.toggle("grid"); return; }
     if (e.code === "Space" && planView() && !onControl) { e.preventDefault(); if (!spacePan && state.tool !== "pan") { spacePan = true; toolBefore = state.tool; setTool("pan"); } return; }
     if (hasSel && canEdit()) {
-      if (e.code === "Delete" || e.code === "Backspace") { if (!onControl) { e.preventDefault(); if (editor.shapeEdit && editor.cornerSel >= 0) { editor.removeCorner(); inspector.render(true); } else act.remove(); } return; }
+      // Delete / Backspace remove the selection only while the plan or the 3D view itself has focus (core/keys.js)
+      if (e.code === "Delete" || e.code === "Backspace") { if (!onControl && deleteAllowed(t, {doc: document, surfaceActive})) { e.preventDefault(); if (editor.shapeEdit && editor.cornerSel >= 0) { editor.removeCorner(); inspector.render(true); } else act.remove(); } return; }
       if (e.code === "KeyR") { act.rotate(e.shiftKey ? -90 : 90); return; }
       const step = e.shiftKey ? 5 : 0.5;
       const nd = {ArrowUp: [0, step], ArrowDown: [0, -step], ArrowLeft: [-step, 0], ArrowRight: [step, 0]}[e.code];

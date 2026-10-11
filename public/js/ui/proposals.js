@@ -2,7 +2,7 @@
  * phones) and the proposal dialog (submit with a note, the admin's answer, withdraw, submit
  * again). Notes and names come from people, so everything is set with textContent. The server checks every rule
  * again (docs/API.md Proposals). */
-import {h, icon, setIcon, clear, relTime, modal} from "./dom.js";
+import {h, icon, setIcon, clear, relTime, modal, focusEl} from "./dom.js";
 import {statusInfo, chipFor, proposalFor, decisionLine, reviewErrorText} from "../core/review.js";
 
 /**
@@ -92,7 +92,7 @@ export function createProposalControl(o) {
     err = ""; busy = false;
     dlgBox.open();
     render();
-    const f = body.querySelector("h2"); if (f) f.focus();
+    focusEl(body.querySelector("h2"), {reveal: false});
   }
   o.chip.addEventListener("click", open);
 

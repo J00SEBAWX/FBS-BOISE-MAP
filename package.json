@@ -10,6 +10,7 @@
     "check": "node scripts/check.mjs",
     "db:local": "wrangler d1 migrations apply fbs-boise-map --local",
     "test": "node --test test/*.test.mjs",
+    "test:browser": "node --test --test-concurrency=1 test/browser/*.browser.mjs",
     "setup-code": "node scripts/setup-code.mjs",
     "seed-master": "node scripts/seed-master.mjs"
   },

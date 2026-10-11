@@ -3,6 +3,13 @@
 (function () {
 "use strict";
 
+/* Reaching the sign-in page means nobody is signed in on this browser: whatever the last person left here (unsaved map drafts, the
+ * admin's "copied" marks) goes now, so the next person on a shared device never inherits it. Sign-out already does this; this covers a
+ * session that simply ended while the tab was closed. */
+try {
+  for (const k of Object.keys(localStorage)) if (k.startsWith("fbs-draft-v1:") || k === "fbs-admin-copied") localStorage.removeItem(k);
+} catch { /* no storage (private browsing): nothing was kept */ }
+
 const $ = s => document.querySelector(s);
 const params = new URLSearchParams(location.search);
 const mode = params.has("setup") ? "setup" : params.has("admin") ? "admin" : "code";

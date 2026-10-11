@@ -379,6 +379,12 @@ export function createPlanView(o) {
     }
     return null;
   }
+  /** Is this plan point inside the item's own outline (a department block's polygon included)? */
+  function contains(it, wx, wy) {
+    if (!it) return false;
+    if (it.type === "area") return it.shape === "poly" ? pointInPoly(wx, wy, blockOutline(it)) : inOutline(it, wx, wy, 0);
+    return inOutline(it, wx, wy, isPassage(it) || it.type === "wall" ? 4 / V.s : 0);
+  }
   /** Items whose outline lies inside a plan rectangle (marquee). Only movable kinds: never floors, zones or ceilings. */
   function itemsIn(x0, y0, x1, y1) {
     const layers = o.getLayers(), faint = o.getFaint ? o.getFaint() : false;
@@ -530,7 +536,7 @@ export function createPlanView(o) {
   }
 
   return {
-    V, canvas, resize, fit, fitTo, zoomAt, draw, keydown, hitItem, itemsIn, ensureVisible, revealAbove,
+    V, canvas, resize, fit, fitTo, zoomAt, draw, keydown, hitItem, contains, itemsIn, ensureVisible, revealAbove,
     /** The plan point in the middle of the view (where new items drop). */
     center: () => ({x: V.cx, y: V.cy}),
     toScreen: (x, y) => w2s(V, x, y),

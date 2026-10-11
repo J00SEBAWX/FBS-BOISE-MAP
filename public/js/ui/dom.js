@@ -50,6 +50,32 @@ export function icon(name, cls = "i") {
 /** Swaps the icon shown by an existing <svg class="i"><use/></svg>. */
 export function setIcon(svg, name) { const u = svg && svg.querySelector("use"); if (u) u.setAttribute("href", "/assets/icons.svg#" + name); }
 
+/**
+ * Moves keyboard focus to `el` WITHOUT letting the browser scroll anything: a plain focus() scrolls every scrollable
+ * ancestor to bring the element on screen, and a phone's bottom sheet is still translated below the screen when it
+ * opens, so that used to push the (overflow:hidden) stage up for good and the plan / 3D view disappeared. Instead
+ * the nearest scrolling box that really holds the element (a menu or a sheet) is nudged just enough to show it.
+ */
+export function focusEl(el, {reveal = true} = {}) {
+  if (!el || typeof el.focus !== "function") return;
+  el.focus({preventScroll: true});
+  if (reveal) revealIn(el);
+}
+/** Scrolls the nearest scrollable ancestor of el (below the stage) so el is inside it; nothing else moves. */
+export function revealIn(el) {
+  for (let p = el.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
+    if (p.id === "stage" || p.id === "stageMain" || p.id === "app") return;
+    if (p.scrollHeight <= p.clientHeight + 1) continue;
+    const oy = getComputedStyle(p).overflowY;
+    if (oy !== "auto" && oy !== "scroll") continue;
+    const r = el.getBoundingClientRect(), b = p.getBoundingClientRect();
+    if (!r.height || !b.height) return;
+    if (r.top < b.top) p.scrollTop -= b.top - r.top + 4;
+    else if (r.bottom > b.bottom) p.scrollTop += r.bottom - b.bottom + 4;
+    return;
+  }
+}
+
 /** Removes every child. */
 export function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); return el; }
 
@@ -70,10 +96,10 @@ export function menuKeys(menu, itemsOf, onEscape) {
   menu.addEventListener("keydown", e => {
     const list = itemsOf(), i = list.indexOf(document.activeElement);
     if (e.key === "Escape") { e.preventDefault(); onEscape(); }
-    else if (e.key === "ArrowDown") { e.preventDefault(); (list[(i + 1) % list.length] || list[0]).focus(); }
-    else if (e.key === "ArrowUp") { e.preventDefault(); (list[(i - 1 + list.length) % list.length] || list[0]).focus(); }
-    else if (e.key === "Home") { e.preventDefault(); list[0] && list[0].focus(); }
-    else if (e.key === "End") { e.preventDefault(); list[list.length - 1] && list[list.length - 1].focus(); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); focusEl(list[(i + 1) % list.length] || list[0]); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); focusEl(list[(i - 1 + list.length) % list.length] || list[0]); }
+    else if (e.key === "Home") { e.preventDefault(); focusEl(list[0]); }
+    else if (e.key === "End") { e.preventDefault(); focusEl(list[list.length - 1]); }
     else return;
     e.stopPropagation();
   });
@@ -81,20 +107,20 @@ export function menuKeys(menu, itemsOf, onEscape) {
 
 /**
  * A native <dialog> as a modal: opens with showModal(), traps focus, Esc closes, focus goes back to the opener.
- * The map's keys don't fire behind it (keydown stops at the dialog). Returns {open(focusEl), close(value), el}.
+ * The map's keys don't fire behind it (keydown stops at the dialog). Returns {open(first), close(value), el}.
  */
 export function modal(dlg, {onClose} = {}) {
   let opener = null;
   dlg.addEventListener("keydown", e => e.stopPropagation());
   dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close("cancel"); });
-  dlg.addEventListener("close", () => { if (onClose) onClose(dlg.returnValue); if (opener && opener.focus && document.contains(opener)) opener.focus(); opener = null; });
+  dlg.addEventListener("close", () => { if (onClose) onClose(dlg.returnValue); if (opener && opener.focus && document.contains(opener)) focusEl(opener, {reveal: false}); opener = null; });
   return {
     el: dlg,
-    open(focusEl) {
+    open(first) {
       opener = document.activeElement;
       dlg.returnValue = "";
       if (typeof dlg.showModal === "function") { if (!dlg.open) dlg.showModal(); } else dlg.setAttribute("open", "");
-      const f = focusEl || dlg.querySelector("input, select, textarea, button");
+      const f = first || dlg.querySelector("input, select, textarea, button");
       if (f) f.focus({preventScroll: true});
     },
     close(v = "cancel") { if (typeof dlg.close === "function") { if (dlg.open) dlg.close(v); } else dlg.removeAttribute("open"); },

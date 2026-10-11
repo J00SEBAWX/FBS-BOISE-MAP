@@ -51,22 +51,25 @@ nothing to install. It works on a computer, a tablet and a phone.
    blank store** (just the walls, doors, columns, floors and stairs) or **a
    copy of another map** you can see. Give it a name. Only you can change it,
    and it saves by itself ("Saved" at the top).
-2. **Switch to Area planning** (the third button at the top, or press **3**).
+2. **Switch to Area planning** (the third button at the top, the one with four squares, or press **3**; on a laptop the open mode keeps its name next to its icon).
    This is where you change things. On a phone the buttons are along the
    bottom of the screen: **Add** and **Departments**.
 3. **Place every department.** The **Departments** list (on the left on a
    computer, the **Departments** button on a phone) has all ten departments,
    plus any you add with **New category** (name, target size in square feet,
-   colour, and the products it holds). Tap a department and its block drops in
-   the middle of the view; drag it where it belongs and drag its corners to
-   resize it. The panel shows its square feet against the target and offers
+   colour, and the products it holds). Tap a department and its block goes in
+   the middle of the map you can see (on a phone, the part the list isn't
+   covering), inside the store and clear of what is already there, so
+   placing several in a row never stacks them; drag it where it belongs and
+   drag its corners to resize it. The panel shows its square feet against the target and offers
    **Size to target**. A block that sits on a wall, a column, the stairs, a
    desk, a doorway or another block turns red and says why; the red
    **warnings** note takes you to the first one.
 4. **Move, resize, rotate or delete anything.** Click (or tap) a shelf, rack,
    desk, display or department block, then drag it; the corner handles resize
    it and the round handle on top turns it. **Delete** (the button, or the
-   Delete key) removes it, and the message that appears has an **Undo**; you
+   Delete key while the plan or the 3D view is selected, never while you are
+   typing in a box) removes it, and the message that appears has an **Undo**; you
    can also press **Ctrl+Z** any time, and **Redo** if you change your mind.
    Walls, doors, columns, floors and stairs are locked so they don't move by
    accident: unlock the **Structure** (toolbar, or **More** on a phone) when
@@ -204,7 +207,7 @@ and the **display** (Shift+1 / 2 / 3): **Plan** (the floor from above), **3D** (
 | Shift+1 / 2 / 3 | Plan / 3D / Walk |
 | Click, Shift-click, drag on the floor (Plan) | Select, add to the selection, marquee select |
 | Arrows / Shift+arrows (something selected) | Nudge 6" / 5' |
-| Ctrl+Z / Ctrl+Shift+Z, Ctrl+D, Delete, R | Undo / redo, duplicate, delete, rotate 90° |
+| Ctrl+Z / Ctrl+Shift+Z, Ctrl+D, Delete, R | Undo / redo, duplicate, delete (only with the plan or 3D view focused, never from a field), rotate 90° |
 | V / H / M | Select / Pan / Measure tool |
 | Drag, right-drag, wheel (3D) | Turn around the store, move across it, zoom |
 | Arrow keys | Move the view (3D, Plan) |
@@ -310,6 +313,11 @@ http://localhost:8787/login?setup=1.
   with a fresh, fully set-up database, one with a database that is still
   missing the newest migration) and checks the sign-in rules, codes, maps,
   proposals, the master lock, removing people and the security settings.
+- `npm run test:browser` (optional) drives the real page in Chromium with
+  mouse, keyboard and touch (phone screens, the inspector's fields, placing
+  departments). It needs Playwright installed globally (`npm i -g playwright`
+  and `npx playwright install chromium`), which the site itself doesn't, so
+  `npm test` leaves it out and it skips itself when Playwright isn't there.
 
 ## How it gets published
 
@@ -370,7 +378,7 @@ once it has.)
 - `wrangler.jsonc` – the Worker and database settings for Cloudflare.
 - `scripts/` – `check.mjs` (`npm run check`), `setup-code.mjs` (`npm run
   setup-code`) and `seed-master.mjs` (`npm run seed-master`).
-- `test/` – the automatic checks behind `npm test`.
+- `test/` – the automatic checks behind `npm test` (and `test/browser/`, the optional real-browser ones behind `npm run test:browser`).
 - `docs/` – the UI design spec (`DESIGN.md`), the API (`API.md`), the steps for
   putting the maps release live (`DEPLOY-PHASE2.md`), the scan measurements
   (`measurements/`) and background notes from earlier work (`handoff/`).

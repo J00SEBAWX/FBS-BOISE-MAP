@@ -6,6 +6,7 @@
  * Keyboard: opening it moves focus to its first control you can see; Tab walks the rows (the Scan model is one
  * radio group: one Tab stop, arrow keys change it); Esc closes it and returns to the Layers button; it closes
  * when focus leaves it. */
+import {focusEl} from "./dom.js";
 const KEY = "fbs-layers-v2";
 const BOOLS = ["structure", "fixtures", "labels", "categories", "grid", "dimensions", "scanLines", "snap", "faint"];
 const DEFAULTS = {structure: true, fixtures: true, labels: true, categories: true, grid: true, dimensions: false, scanLines: false, snap: true, faint: false,
@@ -80,9 +81,9 @@ export function createLayers({btn, pop, onChange}) {
   function open() {
     sync(); pop.hidden = false; btn.setAttribute("aria-expanded", "true");
     const first = [...pop.querySelectorAll("button")].find(b => visible(b) && b.tabIndex >= 0);
-    if (first) first.focus();
+    focusEl(first);
   }
-  function close(refocus) { if (!isOpen()) return; pop.hidden = true; btn.setAttribute("aria-expanded", "false"); if (refocus) btn.focus(); }
+  function close(refocus) { if (!isOpen()) return; pop.hidden = true; btn.setAttribute("aria-expanded", "false"); if (refocus) focusEl(btn, {reveal: false}); }
   btn.addEventListener("click", () => (isOpen() ? close(false) : open()));
   for (const row of pop.querySelectorAll("[data-layer]")) row.addEventListener("click", () => toggle(row.dataset.layer));
   for (const b of radios()) b.addEventListener("click", () => set("scan", b.dataset.scan));
@@ -95,7 +96,7 @@ export function createLayers({btn, pop, onChange}) {
       const d = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
       if (!d) return;
       e.preventDefault(); e.stopPropagation();
-      const n = list[(i + d + list.length) % list.length]; pick(n); n.focus();
+      const n = list[(i + d + list.length) % list.length]; pick(n); focusEl(n);
     });
   }
   pop.addEventListener("keydown", e => { if (e.key === "Escape") { e.preventDefault(); close(true); } e.stopPropagation(); });

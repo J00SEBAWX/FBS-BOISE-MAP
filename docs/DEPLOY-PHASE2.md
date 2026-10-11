@@ -50,6 +50,11 @@ npx wrangler d1 migrations list fbs-boise-map --remote
 The last command should list `0005_maps.sql` as the only migration that is not applied yet (0001 to 0004 are
 live).
 
+**If it lists more than 0005** (for example 0002 to 0005, because an earlier migration was applied by hand with
+`d1 execute` instead of `d1 migrations apply`, so Cloudflare's own list of applied migrations lacks it), do **not**
+run `migrations apply`: it would try 0002 first and stop with "duplicate column name", and 0005 would never run.
+Go to step 1 and use the "by file" form there instead.
+
 ## 1. Apply the migration to the live database
 
 ```bash
@@ -59,6 +64,17 @@ npx wrangler d1 migrations apply fbs-boise-map --remote
 It is additive and safe to run more than once (`CREATE TABLE IF NOT EXISTS` only; no existing row is touched).
 Answer `y` when it lists `0005_maps.sql`. The site that is live now never reads these tables, so nothing changes
 for anyone.
+
+**By file, when step 0 listed more than 0005.** Run just this migration directly:
+
+```bash
+npx wrangler d1 execute fbs-boise-map --remote --file migrations/0005_maps.sql
+```
+
+`0005_maps.sql` only creates tables and indexes that are missing (`IF NOT EXISTS`), so it is safe whatever was applied
+before and whether it runs once or twice. Do not run 0002 or 0003 by file: they are not repeatable (0002 adds columns,
+0003 creates a unique index without `IF NOT EXISTS`), and production already has what they add. Then continue with
+step 2.
 
 ## 2. Seed master version 1
 
@@ -112,6 +128,9 @@ Then in a browser, signed in as the admin:
 
 ## If something is wrong
 
+- **`migrations apply` stops with "duplicate column name" (or "index ... already exists"):** an earlier migration was
+  applied by hand and Cloudflare's list does not know it. Nothing was damaged and 0005 was not applied: use the "by
+  file" command in step 1.
 - **A bad deploy:** in the Cloudflare dashboard (**Workers & Pages → fbs-boise-map → Deployments**) roll back to the
   previous deployment, or run `npx wrangler rollback`. The database changes are additive and harmless to the old
   code, so the rollback needs nothing else.

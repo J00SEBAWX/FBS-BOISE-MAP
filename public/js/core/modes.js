@@ -84,3 +84,8 @@ export function unlockHint({touch = false, plan = true} = {}) {
   if (!plan) return "Open the Plan and unlock Structure to add walls, doors, columns, openings or stairs.";
   return `Unlock Structure ${touch ? "in More" : "in the toolbar"} to add walls, doors, columns, openings or stairs.`;
 }
+/** What Delete says when everything selected is locked structure (a wall, door, column, floor or stairs): why nothing happened. */
+export function lockedDeleteHint({touch = false, plan = true} = {}) {
+  if (!plan) return "Structure is locked, so it can't be deleted. Open the Plan and unlock Structure first.";
+  return `Structure is locked, so it can't be deleted. Unlock Structure ${touch ? "in More" : "in the toolbar"} first.`;
+}

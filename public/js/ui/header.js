@@ -3,6 +3,7 @@
  * between the tabs, the URL hash reflects the display, the mode and the open map (core/route.js), and the last
  * display and mode are remembered on this device. */
 import {VIEWS, MODES, DEFAULT_MODE, parseHash, buildHash} from "../core/route.js";
+import {focusEl} from "./dom.js";
 export {VIEWS, MODES};
 const KEY = "fbs-view", MODE_KEY = "fbs-mode";
 
@@ -35,7 +36,7 @@ function tablist(all, attr, onSelect) {
       else if (e.key === "End") n = tabs[tabs.length - 1];
       if (!n) return;
       e.preventDefault(); e.stopPropagation();
-      n.focus(); onSelect(n.dataset[attr]);
+      focusEl(n, {reveal: false}); onSelect(n.dataset[attr]);
     });
   }
   return v => { for (const t of all) { const on = t.dataset[attr] === v; t.setAttribute("aria-selected", String(on)); t.tabIndex = on ? 0 : -1; } };
