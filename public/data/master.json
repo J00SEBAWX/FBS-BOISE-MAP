@@ -1,5 +1,5 @@
 {
- "version": "master-2026-10-09-blueprint-verified",
+ "version": "master-2026-10-10-owner-corrections",
  "building": {
   "length": 169,
   "width": 80
@@ -944,7 +944,8 @@
    "h": 6,
    "rot": 0,
    "color": "#1c1c1c",
-   "brand": "straps"
+   "brand": "straps",
+   "toConfirm": "Owner (10 Oct): this unit is supposed to face the front sales desk, on the west side of the cubicles. Left where the photo survey had it (at the east end of the cubicle panel line, facing north) until the exact spot is confirmed. Free space west of the cubicles is only about 2 ft between the sales desk back partition and the cubicles, too tight for a 1.8 ft deep unit plus an aisle. Length: 12 ft by its name, 5 ft by the survey."
   },
   {
    "id": "i67",
@@ -1328,32 +1329,6 @@
    "style": "apparel"
   },
   {
-   "id": "i98",
-   "type": "display",
-   "name": "PELLET GRILL",
-   "x": 63.3,
-   "y": 74.5,
-   "w": 3,
-   "d": 3,
-   "h": 4,
-   "rot": 0,
-   "color": "#23262a",
-   "style": "grill"
-  },
-  {
-   "id": "i99b",
-   "type": "display",
-   "name": "PELLET GRILL 2",
-   "x": 66.6,
-   "y": 74.5,
-   "w": 3,
-   "d": 3,
-   "h": 4,
-   "rot": 0,
-   "color": "#5a2c20",
-   "style": "grill"
-  },
-  {
    "id": "i101",
    "type": "gondola",
    "name": "HAND TOOL / HAMMER GONDOLA 24'",
@@ -1366,19 +1341,6 @@
    "color": "#c9ccce",
    "style": "woodtop",
    "brand2": "hammer"
-  },
-  {
-   "id": "i102",
-   "type": "wallunit",
-   "name": "DEWALT WAREHOUSE DISPLAY 12'",
-   "x": 44,
-   "y": 72,
-   "w": 12,
-   "d": 1.8,
-   "h": 8,
-   "rot": 90,
-   "color": "#1c1c1c",
-   "brand": "dewalt"
   },
   {
    "id": "i103",
@@ -1987,18 +1949,6 @@
    "color": "#efefec"
   },
   {
-   "id": "diablo_af",
-   "type": "display",
-   "name": "DIABLO BLADE A-FRAME",
-   "x": 89.5,
-   "y": 26,
-   "w": 2,
-   "d": 3,
-   "h": 5.5,
-   "rot": 0,
-   "color": "#e35205"
-  },
-  {
    "id": "spin_chk",
    "type": "display",
    "name": "CHECKOUT SPECIALS SPINNER",
@@ -2514,6 +2464,22 @@
       "why": "The two LASER DECK arrows land on the two hatched legs (W strip x 47.8-50.4, N strip y 39.3-42.2), which also fits \"laser deck = hatched L, Tom inside it\". Interpretation kept (owner box = laser deck, 2 steps up) but asked."
      }
     ]
+   }
+  },
+  "ownerCorrections": {
+   "date": "2026-10-10",
+   "removed": {
+    "i102": "DeWalt warehouse display (does not exist)",
+    "i98": "Pellet grill (not in the Milwaukee area; pellet grills stay as part of Decking & Outdoor Living)",
+    "i99b": "Pellet grill 2 (same)",
+    "diablo_af": "Diablo blade A-frame (not needed as a fixture; its stock counts under Bits, Blades & Cutting Accessories)"
+   },
+   "moved": {},
+   "kept": {
+    "grill_wh": "Pellet grill (demo) in the warehouse: not mentioned, kept; confirm"
+   },
+   "pending": {
+    "i66": "Strap isle: owner wants it facing the front sales desk on the west side of the cubicles; exact spot to be confirmed (left at the survey position for now)"
    }
   }
  }
