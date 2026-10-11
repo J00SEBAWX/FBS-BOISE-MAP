@@ -1,5 +1,5 @@
 {
- "version": "master-2026-10-11-owner-corrections-4",
+ "version": "master-2026-10-11-scan-columns-5",
  "building": {
   "length": 169,
   "width": 80
@@ -2340,6 +2340,51 @@
    "fixed": true,
    "src": "blueprint+scan(porch)",
    "toConfirm": "Outer porch pier on the old south-wall line at grid H (1990s plan symbol, calibrated x 169.35, y 0.8 +/-0.5). The scan confirms the 11 ft 4 in deep porch but did not see outside; size/height assumed."
+  },
+  {
+   "id": "scan_col_F2",
+   "type": "column",
+   "name": "Column (grid F)",
+   "x": 125.8,
+   "y": 20.9,
+   "w": 1.2,
+   "d": 1.2,
+   "h": 10,
+   "rot": 0,
+   "color": "#f1f1ee",
+   "fixed": true,
+   "src": "scan mesh 6 Oct (slices 5-12 ft) + 1990s plan grid F",
+   "toConfirm": "Seen in the 6 Oct LiDAR mesh as a free-standing upright about 2 ft across at 5, 7, 9.5 and 12 ft above the floor, at x 125.8 y 20.9 (+/-0.5 ft). Matches grid F / row 2 of the 1990s plan (x 125.1, y 20). Size 1.2 ft and height 10 ft (front room drop ceiling) assumed: tape it."
+  },
+  {
+   "id": "scan_col_F3",
+   "type": "column",
+   "name": "Column (grid F)",
+   "x": 125.5,
+   "y": 40.5,
+   "w": 1.2,
+   "d": 1.2,
+   "h": 10,
+   "rot": 0,
+   "color": "#f1f1ee",
+   "fixed": true,
+   "src": "scan mesh 6 Oct (slices 5-12 ft) + 1990s plan grid F",
+   "toConfirm": "Seen in the 6 Oct LiDAR mesh as an upright about 2.5 by 3.5 ft at 5, 7 and 9.5 ft above the floor (not at 12 ft) at x 125.5 y 40.5 (+/-0.5 ft), just east of the front sales desk, where the 1990s plan has grid F / row 3 (x 125.1, y 40). It may be boxed or carry a partition end: check it is a column and tape its size."
+  },
+  {
+   "id": "scan_col_F4",
+   "type": "column",
+   "name": "Column (grid F)",
+   "x": 125.2,
+   "y": 60.2,
+   "w": 1.2,
+   "d": 1.2,
+   "h": 10,
+   "rot": 0,
+   "color": "#f1f1ee",
+   "fixed": true,
+   "src": "scan mesh 6 Oct (slices 5-12 ft) + 1990s plan grid F",
+   "toConfirm": "Seen in the 6 Oct LiDAR mesh as an upright about 2 ft across at 5, 7 and 9.5 ft above the floor at x 125.2 y 60.2 (+/-0.5 ft), at the mezzanine edge, where the 1990s plan has grid F / row 4 (x 125.1, y 60). Could be a mezzanine post rather than a full-height column: check what it is and tape its size."
   }
  ],
  "audit": {
@@ -2516,6 +2561,30 @@
    "renamed": {
     "sdf_*": "The old 'SALES DESK' blocks (sdf_s, sdf_n, sdf_w, sdf_step, sdf_wall, sdf_fridge, sdf_nwall) were Felix's desk area, not the front sales desk; renamed and moved north to the arch wall corner (11 Oct)"
    }
+  },
+  "scanColumns": {
+   "date": "2026-10-11",
+   "source": "Owner-supplied Polycam LiDAR mesh of the 6 Oct scan (Remesh-Adaptive-45-8k.glb, kept private, not in the repo), placed with the existing scan-overlay.json glbToStore transform (arch wall landed at x 103.5, front wall at y 11.2-11.5, old north wall at y 69.8-70.5: within 0.5 ft).",
+   "method": "The mesh was sliced at 5, 7, 9.5 and 12 ft above the floor and rasterised on a 6 in grid; a small footprint (under 4 ft) present at 3 or more heights is an upright. Walls, racks, the stair core and the glass front mullions were set aside by hand.",
+   "added": {
+    "scan_col_F2": "grid F row 2 at 125.8, 20.9 (all four heights)",
+    "scan_col_F3": "grid F row 3 at 125.5, 40.5 (to 9.5 ft)",
+    "scan_col_F4": "grid F row 4 at 125.2, 60.2 (to 9.5 ft)"
+   },
+   "confirmed": {
+    "i46": "warehouse post seen at 23.5, 40.8",
+    "i43": "seen at 72.2, 20.6",
+    "i42": "seen at 54.4, 22.3 (2 ft north of the map)",
+    "i27": "arch wall pier at 102.7, 40 = the plan's E/3 column",
+    "i45": "something full height at the SDB column"
+   },
+   "notSeen": {
+    "grid G (x 147)": "the mesh has no points east of x 141 at these rows, so open",
+    "(98, 29) scan post": "no upright there in the mesh",
+    "i44 (80, 20)": "only low geometry, no upright to 9.5 ft: check",
+    "c_perg / c_pipe": "not separable from the arch wall and fixtures in the mesh"
+   },
+   "stillOpen": "docs/measurements/BLUEPRINT-RECON.md item 12: grid G columns, the D-line pair (71/80 vs 76.5), the pergola posts; a 9.5 ft upright at 90.4, 10.7 is probably a pergola post (not added)."
   }
  }
 }
