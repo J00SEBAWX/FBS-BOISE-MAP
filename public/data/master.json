@@ -1,5 +1,5 @@
 {
- "version": "master-2026-10-11-owner-corrections-3",
+ "version": "master-2026-10-11-owner-corrections-4",
  "building": {
   "length": 169,
   "width": 80
@@ -456,7 +456,7 @@
    "color": "#1c1c1c",
    "fixed": true,
    "src": "survey+docs+scan",
-   "toConfirm": "x from the photo survey and the layout notes (door x 112-118); y = recessed front wall (docs + scan); height 7.2 ft measured by the scan. Scan put the door at x 107-112.6; the 1990s drawing shows a pair of doors at about x 108-115 - tape check (arch-wall corner to the door's west edge)."
+   "toConfirm": "x from the photo survey and the layout notes (door x 112-118); y = recessed front wall (docs + scan); height 7.2 ft measured by the scan. Scan put the door at x 107-112.6; the 1990s drawing shows a pair of doors at about x 108-115 - tape check (arch-wall corner to the door's west edge). 11 Oct front-desk review, NOT moved: three sources put the door's middle at about x 110.5, not 115: the scan (door x 107.0-112.6), photo 9084ccc3 (door frame x 107.8-113.4) and photo 76e35a7c, whose camera fitted on three arch edges stands at x 109.2 in the doorway. The earlier audit kept 115. If the door moves, the soda coolers (i85) and the desk's place relative to the door change: the desk's middle (114.9) is then about 4 ft to the right of the door's middle. TAPE: arch-wall corner to the door's west edge."
   },
   {
    "id": "i31",
@@ -707,6 +707,33 @@
    "fixed": true
   },
   {
+   "id": "fd_front_desk",
+   "type": "ring",
+   "name": "FRONT SALES DESK (checkout counter)",
+   "x": 114.9,
+   "y": 33.3,
+   "w": 14.3,
+   "d": 9.8,
+   "h": 3.5,
+   "rot": 0,
+   "color": "#a3a6a8",
+   "top": "#c7bba9",
+   "shape": "oct",
+   "cham": 1.0,
+   "open": {
+    "sides": [
+     "E",
+     "W"
+    ],
+    "w": 3.5
+   },
+   "led": false,
+   "fixed": true,
+   "src": "owner photos + owner sketch 11 Oct; 2 blind fits reconciled",
+   "notes": "Customer checkout counter: the same octagon-with-staff-gaps ring family as the back desk (i47). SOUTH face (toward the front door) = grey pegboard + snack/candy racks, with the red LED START HERE sign hung over it. NORTH face = pegboard, with cedar on its east part and on the NE corner cut; the SE cut is pegboard with cards. Staff gaps at the east and west ends.",
+   "toConfirm": "ESTIMATED from photos + the owner's sketch, not measured. SOUTH face y 28.4 (+/-0.7: photos 4, C, 1, 2 and the owner's purple sketch agree), west end x 107.75, east end x 122.05 (+/-1; sketch 107.7-121.9). NORTH face and depth are only +/-2.5 ft: 38.2 / 9.8 ft come from the owner's sketch (37.5) and the edge of the scan's clerk table (38.3), but photos 5, 6 and 7 hint at a deeper desk. OPEN CONFLICT: in photo b542f728 (standing in the east gap, looking east) the open cubicle entrance with the dome-camera post is straight ahead of the gap, while the scan puts that entrance (y 34.6-39.3) 2-4 ft north of the gap drawn here (y 31.55-35.05). Either the desk is deeper than drawn, or the cubicle entrance is further south than the scan says, or the gap is not in the middle of the end. Owner questions 2 and 3 decide: entrance straight ahead AND desk 5+ steps deep -> set d 12.4-13.4 and y 34.6-35.1 (south face stays 28.4); straight ahead AND 4 steps deep -> keep this desk and move the post, strap rack and Buck stand about 3.5 ft south. Corner cuts: about 1.6 ft on the OUTSIDE (photos 1, 2, 4) = cham 1.0 (1.7 ft); the back desk i47 uses cham 1.75; the INSIDE corners look bigger (1.0-1.5 ft) than the model's constant band allows, so one value cannot match both. The EAST gap is seen in b542f728 (3.5 ft); the WEST gap is assumed (sketch + back desk). TAPE: (1) front-wall inside face straight north to the pegboard face (expect 17.1), (2) pegboard face end to end (14.3), (3) pegboard face to back face (9.8), (4) arch wall to the desk's west end (4.4), (5) middle of the east gap to the post at the cubicle entrance."
+  },
+  {
    "id": "i49",
    "type": "counter",
    "name": "TOM'S DESK (NORTH RETURN)",
@@ -939,16 +966,16 @@
    "id": "i66",
    "type": "wallunit",
    "name": "STRAP ISLE 12'",
-   "x": 127.1,
+   "x": 124.9,
    "y": 46.2,
-   "w": 5,
+   "w": 12.0,
    "d": 1.8,
    "h": 6,
    "rot": 90,
    "color": "#1c1c1c",
    "brand": "straps",
-   "toConfirm": "Owner (11 Oct, marked on the live map): the strap isle stands against the west edge of the cubicles at their north-west corner, running north-south from about y 42 to 50, with its face toward the west (toward the front sales desk). Length is still open: 5 ft by the survey, 12 ft by its name, about 7 ft as drawn (the owner's photos from the front sales desk show the strap rack hanging on the cubicle panels facing the desk, which fits the position and facing; the rack looks longer than 5 ft in them, perhaps 12 ft).",
-   "src": "owner 11 Oct 2026 (map mark + photos)"
+   "toConfirm": "12 ft long (owner-approved). Hangs on the WEST face of the grey cubicle panels, face toward the west (the front desk), as in photos ce86a14c, 0c5629c8, 97d63d69 and a84828ae: side, facing and length are solid. POSITION ALONG THE PANELS (y 40.2-52.2) IS ONLY +/-3 ft. It is centred on the owner's orange mark (y 42.3-49.9, centre 46.1) and starts at the timber post by the cubicle entrance, which the scan puts at y 39.3-39.7 (jamb 39.25). Photo b542f728, read against the desk as drawn, puts that same post about 3.5-4 ft further south (y about 36): see fd_front_desk and owner question 3. Y is HELD until the owner answers: if the post really stands at y 36, this rack would run y 36-48 (centre 42). The north end is not measured (photo 0c5629c8 shows another post at y about 52-55, +/-4). x 124.9: the scan puts the panel line at x 125.9 (back of the rack at 125.8, rack 1.8 ft deep); the master still draws the cubicle block from x 128 (see i86), so the rack sits 2.2 ft west of that edge on the map. TAPE: south post to the north end of the rack (expect 12); cubicle panel west face to the front of the lowest shelf (1.8).",
+   "src": "owner 11 Oct (12 ft, map mark) + photos + scan"
   },
   {
    "id": "i67",
@@ -1125,7 +1152,7 @@
    "color": "#202124",
    "style": "coolers",
    "src": "survey+docs",
-   "toConfirm": "Photo-survey size, order and orientation; moved north by the same 11.3 ft as the recessed front wall so it is not standing on the porch. TO CONFIRM with the porch depth."
+   "toConfirm": "Photo-survey size, order and orientation; moved north by the same 11.3 ft as the recessed front wall so it is not standing on the porch. TO CONFIRM with the porch depth. 11 Oct front-desk review, geometry NOT changed: the scan has ONE glass-door cooler in the corner of the arch wall and the front wall (scan fridge at 105.0, 13.45, 2.5 x 3.2 ft) and photo 9084ccc3 shows a glass-door cooler just west of the door, but this item is 6.1 ft wide and spans x 106.45-112.55, which is where the door really is if the door stands at x 107-112.6 (see i30). TAPE: arch wall to the east side of the cooler row, and how many coolers stand in the row."
   },
   {
    "id": "i86",
@@ -1138,20 +1165,8 @@
    "h": 5,
    "rot": 0,
    "color": "#cdbf9f",
-   "style": "cubicles"
-  },
-  {
-   "id": "i87",
-   "type": "counter",
-   "name": "Cedar desk by square arch",
-   "x": 108.5,
-   "y": 55,
-   "w": 10,
-   "d": 2.5,
-   "h": 3.75,
-   "rot": 0,
-   "color": "#8a5a34",
-   "top": "#d8d2c4"
+   "style": "cubicles",
+   "toConfirm": "11 Oct front-desk review, geometry NOT changed: the scan puts the cubicles' west panel line (and the south panel, scan L1/L24) at x 125.9, about 2 ft west of this block's edge (x 128.0); photos 97d63d69, b542f728 and ce86a14c show the panels and the timber posts on that line, with an entrance between the panels at y 34.6-39.3 by the scan (photo b542f728 shows it straight ahead of the desk's east gap, which the desk as drawn does not reproduce: see fd_front_desk). If the block is widened to x 125.9 the strap isle (i66) touches it again. TAPE: arch wall (x 103.4) to the first cubicle panel."
   },
   {
    "id": "i99",
@@ -1190,7 +1205,9 @@
    "rot": 90,
    "color": "#8a5a34",
    "top": "#d8d2c4",
-   "locked": false
+   "locked": false,
+   "src": "owner marker (kept)",
+   "toConfirm": "KEPT as it was (the owner's own 'cedar desk return'). Photos 6afa6e17 / aefebb5e show a back counter behind the east counter of Felix's desk, so it probably belongs to the east pod; its exact place is not measured (the scan did not see it). TAPE: TV wall to the return's south end."
   },
   {
    "id": "i88",
@@ -1422,14 +1439,16 @@
   {
    "id": "i109",
    "type": "display",
-   "name": "BUCK KNIVES CASE",
-   "x": 124.7,
-   "y": 38.6,
+   "name": "BUCK KNIVES DISPLAY (rolling stand + glass case)",
+   "x": 118.0,
+   "y": 43.9,
    "w": 2.5,
-   "d": 1,
-   "h": 4,
+   "d": 1.6,
+   "h": 5.5,
    "rot": 0,
-   "color": "#1a1a1a"
+   "color": "#1a1a1a",
+   "src": "owner photos ce86a14c + 7401aab7 (11 Oct) + scan",
+   "toConfirm": "MOVED from (124.7, 38.6); position only +/-5 ft. The red-wood Buck glass case on a black ROLLING stand (casters) stood about 7 ft north of the front desk's north face and about 3 ft west of its north-east corner on 11 Oct, logo side toward the NORTH (photos ce86a14c, 7401aab7; the 6 Oct scan has a 5 x 3 ft cabinet at 119.9, 42.2). The camera fit of 7401aab7 does not agree with the arch wall, so the stand may really be 4-5 ft further west, about (113-114, 45-46). The old spot (124.7, 38.6) is where a separate glass knife case stands on the cubicle panel end next to the timber post (photo b542f728, scan box at 125.4, 40.1). It moves around: confirm where it normally stands. Height about 5.5 ft with the case."
   },
   {
    "id": "c1",
@@ -1626,98 +1645,112 @@
   {
    "id": "sdf_s",
    "type": "counter",
-   "name": "SALES DESK (SOUTH POD)",
-   "x": 120.3,
-   "y": 24.9,
-   "w": 9,
-   "d": 7,
-   "h": 3.6,
+   "name": "FELIX'S DESK - WEST POD (wood-paneled)",
+   "x": 106.55,
+   "y": 54.22,
+   "w": 6.0,
+   "d": 3.36,
+   "h": 3.3,
    "rot": 0,
    "color": "#a46a3c",
    "top": "#aebfc6",
    "locked": true,
-   "fixed": true
+   "fixed": true,
+   "src": "6 Oct scan + owner photos 11 Oct",
+   "toConfirm": "MOVED from x 120, y 25 (that was the front sales desk's place). Felix's desk is NORTH of the front desk, against the arch wall (x 103.4): two wood-paneled counters with a raised walkway between them. This is the west counter as the scan measured it (RoomPlan table 6.25 x 3.4 at 106.4, 54.2, +/-0.5 ft). Only the front counter is drawn: behind it the pod has a work pocket and a cabinet along the arch wall (scan cabinet at 104.4, 57.6, 4.7 x 2.2) that are not drawn. TAPE: arch wall to the walkway side of this counter (expect 6.0)."
   },
   {
    "id": "sdf_n",
    "type": "counter",
-   "name": "SALES DESK (NORTH POD)",
-   "x": 120.3,
-   "y": 34.1,
-   "w": 9,
-   "d": 7,
-   "h": 3.6,
+   "name": "FELIX'S DESK - EAST POD (wood-paneled)",
+   "x": 114.07,
+   "y": 54.18,
+   "w": 4.91,
+   "d": 3.31,
+   "h": 3.2,
    "rot": 0,
    "color": "#a46a3c",
    "top": "#aebfc6",
    "locked": true,
-   "fixed": true
+   "fixed": true,
+   "src": "6 Oct scan + owner photos 11 Oct",
+   "toConfirm": "MOVED from x 120, y 34. East counter as the scan measured it (RoomPlan cabinet 4.9 x 3.3 at 114.1, 54.2, +/-0.5 ft). The back return of this pod is n10015m49. TAPE: walkway side of this counter to its east end (expect 4.9)."
   },
   {
    "id": "sdf_w",
    "type": "platform",
-   "name": "Desk walkway (raised)",
-   "x": 120.3,
-   "y": 29.5,
-   "w": 9,
-   "d": 2.2,
-   "h": 0.45,
+   "name": "Felix's walkway (raised, rubber mat, one step up)",
+   "x": 110.58,
+   "y": 56.15,
+   "w": 2.07,
+   "d": 7.3,
+   "h": 0.6,
    "rot": 0,
    "color": "#3a3d40",
-   "fixed": true
+   "fixed": true,
+   "src": "6 Oct scan + owner photos 11 Oct",
+   "toConfirm": "REAL (photos e00542bc, 6afa6e17, aefebb5e): a rubber-mat floor one step above the shop floor, running NORTH-SOUTH between the two counters from the step to the TV wall, about 7 ft long. MOVED from the old east-west spot at y 29.5. Width 2.07 ft = the gap between the two scan boxes (counter-top to counter-top); the mat itself looks 2.6-3 ft wide in the photos because the counter tops overhang. TAPE: step to the TV wall (expect 7.3) and mat width."
   },
   {
    "id": "sdf_step",
    "type": "stairs",
-   "name": "Walkway step",
-   "x": 114.9,
-   "y": 29.5,
-   "w": 1.8,
-   "d": 3,
-   "h": 0.45,
-   "rot": 0,
+   "name": "Felix's walkway step (1 step up, south end)",
+   "x": 110.58,
+   "y": 52.9,
+   "w": 0.8,
+   "d": 2.07,
+   "h": 0.6,
+   "rot": 90,
    "color": "#8a5a34",
-   "fixed": true
+   "fixed": true,
+   "src": "6 Oct scan + owner photos 11 Oct",
+   "toConfirm": "REAL: one wooden step at the SOUTH end of the walkway, its front flush with the front faces of the two counters (photos e00542bc, 6afa6e17). MOVED from x 114.9, y 29.5; turned so it rises toward the north. Step height about 6-7 in (assumed). KNOWN CONTRADICTION: the owner's raised-floor outline (bp_step_plat) starts at y 49.0, 3.5 ft south of this step (y 52.5), so on the map a 3.5 ft strip of 'raised floor' lies in front of the step, where the photos and the scan show plain floor. Owner question 5."
   },
   {
    "id": "sdf_wall",
    "type": "wall",
-   "name": "Desk back partition (mirror/TV)",
-   "x": 125.6,
-   "y": 29.5,
-   "w": 16.2,
-   "d": 0.7,
+   "name": "Felix's back wall: TV + mirror + Ladies Room sign (faces SOUTH)",
+   "x": 109.94,
+   "y": 59.76,
+   "w": 13.18,
+   "d": 0.08,
    "h": 9,
-   "rot": 90,
+   "rot": 0,
    "color": "#caa266",
    "wainscot": true,
-   "fixed": true
+   "fixed": true,
+   "src": "scan L17 + owner photos 11 Oct",
+   "toConfirm": "MOVED and turned. The TV + mirror partition faces SOUTH, at the north end of Felix's walkway (the mirror in e00542bc reflects the START HERE sign). It is the cedar skin on the south face of the stair-core wall bp_stair_s (scan wall L17: y 60.0, x 103.1-116.5; the photo shows the cedar wall from the arch wall to about x 116.5). This item is only the wood layer, bp_stair_s is the wall behind it. The old north-south wall at x 125.6 was not this partition: that line is the grey cubicle panels."
   },
   {
    "id": "sdf_fridge",
    "type": "display",
-   "name": "FBS MINI FRIDGE",
-   "x": 123.6,
-   "y": 29.5,
-   "w": 1.9,
-   "d": 1.9,
-   "h": 3,
+   "name": "FBS MINI FRIDGE (blue, Idaho logo; printer shelf above)",
+   "x": 110.58,
+   "y": 58.85,
+   "w": 1.55,
+   "d": 1.7,
+   "h": 2.8,
    "rot": 0,
-   "color": "#5b9fd6"
+   "color": "#5b9fd6",
+   "src": "6 Oct scan + owner photos 11 Oct",
+   "toConfirm": "MOVED from x 123.6, y 29.5 to the north end of Felix's walkway, against the TV wall (photos e00542bc, 6afa6e17, 0c5629c8). Size from the photos (about 18.5 in wide, 33 in tall)."
   },
   {
    "id": "sdf_nwall",
    "type": "wall",
-   "name": "Corridor wall (GOOD STUFF board)",
-   "x": 114.5,
-   "y": 43.8,
-   "w": 17,
-   "d": 0.6,
+   "name": "Felix's west wall: cedar + GOOD STUFF board (arch wall face)",
+   "x": 103.39,
+   "y": 52.75,
+   "w": 14.1,
+   "d": 0.08,
    "h": 9,
-   "rot": 0,
+   "rot": 90,
    "color": "#caa266",
    "wainscot": true,
-   "fixed": true
+   "fixed": true,
+   "src": "scan L41 + owner photo aefebb5e",
+   "toConfirm": "MOVED and turned. The old 'corridor wall' (east-west at y 43.8) does not exist (the scan sees no wall there, photos show open floor). In photo aefebb5e the GOOD STUFF board and the sunglass racks hang on the EAST face of the arch wall (x 103.4, y about 46-60), which is cedar-paneled there. This item is only that cedar layer; i28 is the wall behind it."
   },
   {
    "id": "stair_land",
@@ -1963,7 +1996,7 @@
    "rot": 0,
    "color": "#9aa0a4",
    "src": "survey+docs",
-   "toConfirm": "Not seen by the scan. Moved north by the 11.3 ft recess (it was standing on what is the porch). TO CONFIRM."
+   "toConfirm": "Not seen by the scan. Moved north by the 11.3 ft recess (it was standing on what is the porch). TO CONFIRM. 11 Oct front-desk review, NOT moved: photo 76e35a7c (from the front door) shows the candy spinner in front of the desk's south face. With the camera height fixed by the desk's own south face (28.4) its base is at about x 110, y 22.3 (+/-1.5); if the camera were 5.4 ft high it would be y 24.4. That is 1.5 ft east and 2 ft north of where it is drawn: inside the error, so it stays."
   },
   {
    "id": "ladder_wall",
@@ -2121,7 +2154,7 @@
      59.8
     ]
    ],
-   "toConfirm": "Owner outlined this area with '1 STEP' and an up-arrow (north). Calibrated outline x 103.4-117.7, y 49.0-59.8 (+/-1.3 ft), chamfered south-east corner (rectangle here, outline in 'poly'). Step height assumed 7 in. The cedar desk (i87) stands on it."
+   "toConfirm": "Owner outlined this area with '1 STEP' and an up-arrow (north). Calibrated outline x 103.4-117.7, y 49.0-59.8 (+/-1.3 ft), chamfered south-east corner (rectangle here, outline in 'poly'). Step height assumed 7 in. The cedar desk (i87) stands on it. 11 Oct front-desk review, NOT changed: the photos (e00542bc, 6afa6e17) and the scan show the step flush with the FRONT faces of Felix's two counters, y about 52.5, with plain floor in front of it; this outline starts at y 49.0, 3.5 ft further south (beyond the 2 ft sketch tolerance, so the owner's outline stays). QUESTION for the owner: does the raised floor start right at the counters' front ends?"
   },
   {
    "type": "wall",
@@ -2463,17 +2496,25 @@
     "i98": "Pellet grill (not in the Milwaukee area; pellet grills stay as part of Decking & Outdoor Living)",
     "i99b": "Pellet grill 2 (same)",
     "diablo_af": "Diablo blade A-frame (not needed as a fixture; its stock counts under Bits, Blades & Cutting Accessories)",
-    "grill_wh": "Pellet grill (demo) in the warehouse (owner marked it for removal, 11 Oct)"
+    "grill_wh": "Pellet grill (demo) in the warehouse (owner marked it for removal, 11 Oct)",
+    "i87": "Cedar desk by square arch (it was Felix's west counter, now drawn as sdf_s / sdf_n; 11 Oct)"
    },
    "moved": {
-    "i66": "Strap isle: now on the west side of the cubicles at their north-west corner, facing west (11 Oct)"
+    "i66": "Strap isle: on the west side of the cubicles, facing west (11 Oct); 12 ft long (owner, 11 Oct), hangs on the west face of the cubicle panels at x 124.9, y 40.2-52.2 (+/-3 ft along the panels)",
+    "i109": "Buck knives display (rolling stand): moved to where it stood on 11 Oct, about 7 ft north of the front desk, near its north-east corner (11 Oct, +/-5 ft)"
    },
    "changed": {
     "i36": "Milwaukee doorway removed: there is no door here, it is a drink storage closet (owner, 11 Oct); now a solid wall"
    },
    "kept": {},
    "pending": {
-    "i66": "length (5, 7 or 12 ft)"
+    "fd_front_desk": "north face / depth / east-gap line (+/-2.5 ft) and strap isle y (+/-3 ft): owner questions 2 and 3 (11 Oct front-desk review)"
+   },
+   "added": {
+    "fd_front_desk": "Front sales desk (the checkout counter by the front door): an octagon ring like the back desk i47, 14.3 x 9.8 ft at (114.9, 33.3), open at the east and west ends, customer face (pegboard, snack racks) toward the front door; north face, depth and the east-gap line are +/-2.5 ft (11 Oct, from the owner's photos and sketch)"
+   },
+   "renamed": {
+    "sdf_*": "The old 'SALES DESK' blocks (sdf_s, sdf_n, sdf_w, sdf_step, sdf_wall, sdf_fridge, sdf_nwall) were Felix's desk area, not the front sales desk; renamed and moved north to the arch wall corner (11 Oct)"
    }
   }
  }
