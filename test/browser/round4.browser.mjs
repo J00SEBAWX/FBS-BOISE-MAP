@@ -344,7 +344,8 @@ test("a department placed from the finder while in 3D goes inside the store, bes
   const { ctx, page } = await open(PHONE, `#3d&map=${id}`);
   try {
     await sleep(1500);
-    for (const k of ["hand_tools", "power_tools", "paint_finishing", "woodworking"]) { await page.evaluate((key) => window.__fbsMap.placeDepartment(key), k); await sleep(300); }
+    // (Power Tools is one brand's section: the brand is picked first, here Milwaukee)
+    for (const k of ["hand_tools", "power_tools", "paint_finishing", "woodworking"]) { await page.evaluate((key) => window.__fbsMap.placeDepartment(key, undefined, key === "power_tools" ? "milwaukee" : undefined), k); await sleep(300); }
     const bs = await blocks(page);
     assert.equal(bs.length, 4);
     for (const b of bs) assert.ok(b.x - b.w / 2 >= -0.01 && b.x + b.w / 2 <= 169.01 && b.y - b.d / 2 >= -0.01 && b.y + b.d / 2 <= 80.01, `${b.cat} is outside the store`);

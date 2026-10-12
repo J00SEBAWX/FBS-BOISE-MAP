@@ -2,18 +2,21 @@
  * default, editable) over their footprint (rectangle or polygon), a crisp edge outline, and a hanging sign with the
  * department's name as a DOM label (textContent) projected from the top of the block. Also: which block a pointer
  * ray hits (for selecting and dragging in the Orbit view) and a dashed ghost while placing one. Meshes are rebuilt
- * only for blocks whose geometry changed. */
+ * only for blocks whose geometry changed. Brand sections (core/brands.js) add their tiles, light and neon sign (brand-zones.js). */
 import {lin} from "./scene.js";
 import {outline, blockArea} from "../core/areas.js";
 import {rayPrism} from "../core/geometry.js";
 import {colourOf} from "../plan2d/blocks.js";
 import {formatSqft} from "../core/units.js";
 import {readableOn} from "../core/contrast.js";
+import {createBrandZones} from "./brand-zones.js";
+import {brandSuffix, brandOf} from "../core/brands.js";
 
 export function createBlocks3D(R, host) {
   const THREE = R.THREE;
   const group = new THREE.Group(); group.name = "blocks"; group.renderOrder = 6;
   R.scene.add(group);
+  const zones = createBrandZones(R); // brand sections: tiles, light and neon sign (shown and hidden with the blocks)
   const byId = new Map(); // id -> {sig, mesh, edges, label, item}
   const v = new THREE.Vector3();
   let shown = true, selected = new Set(), ghost = null, dark = false, issues = new Set(), issueColour = "#C42B2B";
@@ -53,18 +56,21 @@ export function createBlocks3D(R, host) {
       if (e && e.sig !== s) { dispose(e); e = null; }
       if (!e) { e = makeEntry(it, col); e.sig = s; byId.set(it.id, e); group.add(e.mesh, e.edges); }
       e.item = it; e.cat = cat;
-      e.label.firstChild.textContent = String((cat && cat.name) || it.name || "Department").toUpperCase();
+      const sfx = brandSuffix(it);
+      e.label.firstChild.textContent = String((cat && cat.name) || it.name || "Department").toUpperCase() + (sfx ? ` · ${sfx}` : "");
       e.label.lastChild.textContent = formatSqft(blockArea(it));
       e.top = new THREE.Vector3(it.x, (it.h || 8) + 0.6, -it.y);
     }
     for (const [id, e] of byId) if (!seen.has(id)) { dispose(e); byId.delete(id); }
+    zones.update(layout);
     applySelection();
     R.requestRender();
   }
   function applySelection() {
     for (const [id, e] of byId) {
       const on = selected.has(id), bad = issues.has(id);
-      e.mat.opacity = on ? 0.45 : 0.32;
+      // a brand section's tiles, light and sign stay readable through its block
+      e.mat.opacity = e.item && brandOf(e.item) ? (on ? 0.3 : 0.1) : on ? 0.45 : 0.32;
       // a block with a collision warning (OWNER RULES v3.1 rule 5) keeps a red edge even while selected
       e.edges.material.color.copy(lin(bad ? issueColour : on ? "#006CB4" : colourOf(e.cat, dark)));
       e.edges.material.opacity = on || bad ? 1 : 0.9;
@@ -130,8 +136,8 @@ export function createBlocks3D(R, host) {
   }
   return {
     group, update, setSelected, setIssues, setGhost, pick, updateLabels,
-    show(on) { shown = on; group.visible = on; if (!on) for (const e of byId.values()) e.label.hidden = true; R.requestRender(); },
+    show(on) { shown = on; group.visible = on; zones.show(on); if (!on) for (const e of byId.values()) e.label.hidden = true; R.requestRender(); },
     get ghost() { return ghost; },
-    dispose() { for (const e of byId.values()) dispose(e); byId.clear(); setGhost(null, new Map()); R.scene.remove(group); },
+    dispose() { for (const e of byId.values()) dispose(e); byId.clear(); setGhost(null, new Map()); zones.dispose(); R.scene.remove(group); },
   };
 }

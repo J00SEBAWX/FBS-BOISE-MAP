@@ -1,4 +1,4 @@
-// FBS Boise default catalog: the 10 departments (OWNER RULES v3.1 names and keys), their subcategories,
+// FBS Boise default catalog: the 11 departments (OWNER RULES v3.1 names and keys, plus Simpson Strong-Tie, owner Oct 12), their subcategories,
 // colours, starting sizes, adjacency, entry anchors and thresholds, plus the product -> department map.
 // GENERATED from the verified catalog (catalog.verified.json + product-map.verified.json, catalog-2026-10-09-reviewed).
 // Pure ES module, no imports. The Worker uses src/shared/catalog.js; the browser loads public/js/shared/catalog.js.
@@ -211,15 +211,16 @@ export const CATALOG = deepFreeze({
       "colorDark": "#5ADDC7",
       "token": "cat-05",
       "size": [
-        25,
-        18
+        20,
+        15
       ],
-      "targetSqft": 450,
+      "targetSqft": 300,
       "sqft": [
-        250,
-        700
+        180,
+        500
       ],
       "adjacency": [
+        "simpson_strongtie",
         "decking_outdoor",
         "pneumatic_air",
         "woodworking"
@@ -227,9 +228,6 @@ export const CATALOG = deepFreeze({
       "entry": "none",
       "placement": "central",
       "subcats": [
-        "Simpson Strong-Tie screws (Simpson screw wall)",
-        "Simpson Outdoor Accents decorative connectors and screws",
-        "Simpson Strong-Tie connectors, hangers and post bases (typical - confirm)",
         "Deck and exterior wood screws (DeckFast tubs on the decking wall)",
         "Misc. screws",
         "Wood, drywall and sheathing screws (typical - confirm)",
@@ -247,16 +245,15 @@ export const CATALOG = deepFreeze({
         "Destination aisle: keep it deep in the store so fastener trips walk past other departments.",
         "Bulk and pallet fasteners stay in the warehouse (W24-W26); the showroom carries boxed and packaged.",
         "Gun nails and staples go to Pneumatic & Air Systems; pocket screws go to Woodworking with Kreg.",
-        "Deck screws stay here (the email says so); a small duplicate facing on the decking wall is optional."
+        "Deck screws stay here (the email says so); a small duplicate facing on the decking wall is optional.",
+        "Simpson Strong-Tie screws and connectors are their own branded department next door (owner, Oct 12); general and other-brand fasteners stay here."
       ],
-      "notes": "Today: the nail/screw gondola (aisle 3A), the Simpson screw wall and the 6 ft Simpson Strong-Tie Fastening Systems unit beside it (it was 'Simpson Ornamental 13'9\"' by the pergola on Oct 1; the Outdoor Accents boxes now appear on the pergola display's shelving).",
+      "notes": "Today: the nail/screw gondola (aisle 3A). The Simpson screw wall and the 6 ft Simpson Strong-Tie Fastening Systems unit beside it are now their own department, Simpson Strong-Tie (owner, Oct 12).",
       "groups": [],
       "fixtures": [
-        "i57",
-        "i62",
-        "i64"
+        "i57"
       ],
-      "fixtureSqft": 141
+      "fixtureSqft": 93
     },
     {
       "key": "pneumatic_air",
@@ -447,17 +444,18 @@ export const CATALOG = deepFreeze({
       "colorDark": "#FE9EAD",
       "token": "cat-10",
       "size": [
-        30,
-        15
+        25,
+        12
       ],
-      "targetSqft": 450,
+      "targetSqft": 300,
       "sqft": [
-        250,
-        700
+        180,
+        500
       ],
       "adjacency": [
         "paint_finishing",
-        "hardware_fasteners"
+        "hardware_fasteners",
+        "simpson_strongtie"
       ],
       "entry": "yard_doors",
       "placement": "perimeter",
@@ -472,7 +470,6 @@ export const CATALOG = deepFreeze({
         "Pellet grills (the owner's 'grilles'): floor models and the warehouse demo",
         "Grill pellets (bulk pallets best kept by the warehouse roll-up)",
         "Grill and decking accessories (the email's 'Accessories')",
-        "Simpson Outdoor Accents pergola display (outdoor living vignette)",
         "Post caps and deck/fence accents (typical - confirm)",
         "FBS logo drinkware: tumblers, can coolers, pint glasses (mug wall)"
       ],
@@ -481,18 +478,17 @@ export const CATALOG = deepFreeze({
         "Bulky stock (pellet pallets, boxed grills) goes by the yard doors / warehouse roll-up (owner advisor rule; email: \"pellets and grills are heavy\"). The decking wall's samples can stay at the front as a second block (Split into two).",
         "Penofin stays in Paint (email) but faces this area; deck screws stay in Hardware (email)."
       ],
-      "notes": "The owner's word is \"grilles\"; the store sells pellet grills (owner rules v3.1), so the open question is closed. Today: the decking wall (decking samples below, siding/trim samples above, DeckFast tubs) and the Simpson pergola display near the front; the pergola's footprint also holds the broom wall, the maple workbench and the FBS mug wall. Two pellet grills stand by the PACKOUT wall and a demo grill is in the warehouse.",
+      "notes": "The owner's word is \"grilles\"; the store sells pellet grills (owner rules v3.1), so the open question is closed. Today: the decking wall (decking samples below, siding/trim samples above, DeckFast tubs) near the front; the broom wall, the maple workbench and the FBS mug wall stand inside the Simpson pergola display's footprint (the pergola is now part of Simpson Strong-Tie). Two pellet grills stand by the PACKOUT wall and a demo grill is in the warehouse.",
       "groups": [],
       "fixtures": [
         "i63",
-        "i78",
         "i98",
         "i99b",
         "grill_wh",
         "i79",
         "i65"
       ],
-      "fixtureSqft": 325
+      "fixtureSqft": 71
     },
     {
       "key": "woodworking",
@@ -604,6 +600,57 @@ export const CATALOG = deepFreeze({
         "diablo_af"
       ],
       "fixtureSqft": 106
+    },
+    {
+      "key": "simpson_strongtie",
+      "order": 11,
+      "name": "Simpson Strong-Tie",
+      "family": "building",
+      "color": "#714725",
+      "colorDark": "#AE815D",
+      "token": "cat-11",
+      "size": [
+        25,
+        16
+      ],
+      "targetSqft": 400,
+      "sqft": [
+        250,
+        600
+      ],
+      "adjacency": [
+        "hardware_fasteners",
+        "decking_outdoor"
+      ],
+      "entry": "none",
+      "placement": "perimeter",
+      "subcats": [
+        "Simpson Strong-Tie screws (Simpson screw wall)",
+        "Simpson Strong-Tie Fastening Systems (6 ft unit beside the screw wall)",
+        "Strong-Drive structural wood screws: SDWS, SDS, SDWC (typical - confirm)",
+        "Deck-Drive deck and exterior screws (typical - confirm)",
+        "Joist hangers and beam hangers (typical - confirm)",
+        "Hurricane ties, straps and angles (typical - confirm)",
+        "Post bases, post caps and column bases (typical - confirm)",
+        "Concrete anchors: Titen HD, Strong-Bolt (typical - confirm)",
+        "Anchoring adhesives (typical - confirm)",
+        "Simpson Outdoor Accents decorative connectors and screws",
+        "Simpson Outdoor Accents pergola display (outdoor living vignette)"
+      ],
+      "rules": [
+        "Its own branded department (owner, Oct 12): Simpson's floor tiles, lighting and sign go with it.",
+        "Keep it next to Hardware & Fasteners: a builder buying screws and connectors finds both in one trip.",
+        "Keep it close to Decking & Outdoor Living: the pergola display shows Outdoor Accents hardware in use on a deck.",
+        "Deck screws in DeckFast tubs stay in Hardware & Fasteners (email)."
+      ],
+      "notes": "Today: the Simpson screw wall (19'10\"), the 6 ft Strong-Tie Fastening Systems unit beside it, and the Simpson pergola display near the front (its footprint also holds the broom wall, the maple workbench and the FBS mug wall, which belong to other departments).",
+      "groups": [],
+      "fixtures": [
+        "i62",
+        "i64",
+        "i78"
+      ],
+      "fixtureSqft": 301
     }
   ],
   "adjacency": [
@@ -662,6 +709,14 @@ export const CATALOG = deepFreeze({
     [
       "bits_blades",
       "woodworking"
+    ],
+    [
+      "hardware_fasteners",
+      "simpson_strongtie"
+    ],
+    [
+      "decking_outdoor",
+      "simpson_strongtie"
     ]
   ],
   "entryAnchors": {
@@ -793,7 +848,7 @@ export const CATALOG = deepFreeze({
       "frontRoomEast_i5_mostlyOffices": 2940,
       "warehouse_i1": 2925
     },
-    "totalTargetSqft": 3800
+    "totalTargetSqft": 3900
   }
 });
 
@@ -999,7 +1054,7 @@ export const PRODUCTS = deepFreeze([
  {
   "item": "SIMPSON SCREW WALL 19'10\"",
   "kind": "fixture",
-  "department": "hardware_fasteners",
+  "department": "simpson_strongtie",
   "group": null,
   "why": "Simpson screws are on the email's Hardware list.",
   "surveyIds": [
@@ -1010,7 +1065,7 @@ export const PRODUCTS = deepFreeze([
  {
   "item": "SIMPSON STRONG-TIE FASTENING SYSTEMS",
   "kind": "fixture",
-  "department": "hardware_fasteners",
+  "department": "simpson_strongtie",
   "group": null,
   "why": "6 ft Simpson Strong-Tie fastening unit beside the Simpson screw wall (renamed from 'SIMPSON ORNAMENTAL 13'9\"' by the pergola on Oct 1; brand key still simpson_orn). Simpson is a Hardware line in the email.",
   "surveyIds": [
@@ -1087,7 +1142,7 @@ export const PRODUCTS = deepFreeze([
  {
   "item": "Simpson pergola display",
   "kind": "fixture",
-  "department": "decking_outdoor",
+  "department": "simpson_strongtie",
   "group": null,
   "why": "Outdoor living vignette by the decking wall (Outdoor Accents hardware shown in use; the boxes appear on its shelving). Its footprint also holds the broom wall, the maple workbench and the mug wall.",
   "surveyIds": [
@@ -1806,9 +1861,9 @@ export const PRODUCTS = deepFreeze([
  {
   "item": "Simpson screws",
   "kind": "email",
-  "department": "hardware_fasteners",
+  "department": "simpson_strongtie",
   "group": null,
-  "why": "Email: Hardware.",
+  "why": "Email: Hardware; Simpson Strong-Tie is its own branded department now (owner, Oct 12).",
   "surveyIds": [
    "i62"
   ],
@@ -1817,9 +1872,9 @@ export const PRODUCTS = deepFreeze([
  {
   "item": "Simpson Outdoor Accents",
   "kind": "email",
-  "department": "hardware_fasteners",
+  "department": "simpson_strongtie",
   "group": null,
-  "why": "Email: Hardware.",
+  "why": "Email: Hardware; Simpson Strong-Tie is its own branded department now (owner, Oct 12).",
   "surveyIds": [
    "i64"
   ],
@@ -2456,9 +2511,9 @@ export const PRODUCTS = deepFreeze([
  {
   "item": "Simpson Strong-Tie (screws, connectors)",
   "kind": "brand",
-  "department": "hardware_fasteners",
+  "department": "simpson_strongtie",
   "group": null,
-  "why": "Email: Hardware.",
+  "why": "Email: Hardware; Simpson Strong-Tie is its own branded department now (owner, Oct 12).",
   "surveyIds": [
    "i62"
   ],
@@ -2467,9 +2522,9 @@ export const PRODUCTS = deepFreeze([
  {
   "item": "Simpson Strong-Tie Outdoor Accents",
   "kind": "brand",
-  "department": "hardware_fasteners",
+  "department": "simpson_strongtie",
   "group": null,
-  "why": "Email: Hardware. The Outdoor Accents boxes appear on the pergola display's shelving in the photos; stock them with the Simpson line and keep a demo on the pergola.",
+  "why": "Email: Hardware; Simpson Strong-Tie is its own branded department now (owner, Oct 12). The Outdoor Accents boxes appear on the pergola display's shelving in the photos; stock them with the Simpson line and keep a demo on the pergola.",
   "surveyIds": [
    "i64",
    "i78"
@@ -2709,7 +2764,7 @@ export const PRODUCTS = deepFreeze([
  }
 ]);
 
-/** The 10 default department keys, in the owner's order. */
+/** The 11 default department keys, in the owner's order. */
 export const DEFAULT_KEYS = Object.freeze(CATALOG.areas.map((a) => a.key));
 const DEFAULT_SET = new Set(DEFAULT_KEYS);
 /** Family keys a category may use ("custom" included). */
@@ -2735,7 +2790,7 @@ export function sizeForSqft(sqft) {
 }
 
 /**
- * The categories a map actually uses: the 10 defaults (with the map's overrides applied) followed by the map's
+ * The categories a map actually uses: the 11 defaults (with the map's overrides applied) followed by the map's
  * custom categories. mapCategories is the map's validated "categories" array (CategoryDef[]); defaults is
  * normally CATALOG.areas. Each result has isDefault / custom / overridden flags. New objects; inputs untouched.
  */

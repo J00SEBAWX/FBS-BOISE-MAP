@@ -58,7 +58,7 @@ nothing to install. It works on a computer, a tablet and a phone.
    This is where you change things. On a phone the buttons are along the
    bottom of the screen: **Add** and **Departments**.
 3. **Place every department.** The **Departments** list (on the left on a
-   computer, the **Departments** button on a phone) has all ten departments,
+   computer, the **Departments** button on a phone) has all eleven departments,
    plus any you add with **New category** (name, target size in square feet,
    colour, and the products it holds). Press **Place** next to a department, then tap the
    floor where it goes: it lands at its usual size there. (If you drag on
@@ -68,6 +68,13 @@ nothing to install. It works on a computer, a tablet and a phone.
    **Size to target**. A block that sits on a wall, a column, the stairs, a
    desk, a doorway or another block turns red and says why; the red
    **warnings** note takes you to the first one.
+   **Brand sections:** Power Tools is placed one brand at a time. **Place**
+   asks *Which brand is this section?* (Milwaukee, DeWalt or Makita), and the
+   section starts at that brand's share of Power Tools (45%, 30%, 25%).
+   **Simpson Strong-Tie** is its own department. Every brand section gets the
+   brand's 12" x 12" floor tiles on the plan and in 3D, plus a soft light in
+   its colour and a neon sign with its name and logo in 3D (logos and their
+   sources: `public/assets/brands/README.md`).
 4. **Move, resize, rotate or delete anything.** Click (or tap) a shelf, rack,
    desk, display or department block, then drag it; the corner handles resize
    it and the round handle on top turns it. **Delete** (the button, or the

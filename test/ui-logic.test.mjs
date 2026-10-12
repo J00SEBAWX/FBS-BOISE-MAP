@@ -301,7 +301,7 @@ describe("session: doc, layout, selection, history, lock", () => {
     s.load(store());
     assert.equal(s.layout.items.length, 7);
     assert.equal(s.building.L, 60);
-    assert.equal(s.categories.length, 10);
+    assert.equal(s.categories.length, 11);
     assert.deepEqual(events, ["load"]);
     s.select("g1");
     assert.deepEqual(s.selection, ["g1"]);

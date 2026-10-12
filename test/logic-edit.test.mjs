@@ -632,12 +632,12 @@ describe("areas: categories, progress, summary", () => {
   test("progress counts visible categories with a block", () => {
     let doc = smallStore();
     for (const k of DEFAULT_KEYS.slice(0, 7)) doc = A.createBlock(doc, k, { x: 30, y: 20 }).doc;
-    assert.equal(A.progress(doc).text, "7 of 10 departments placed");
+    assert.equal(A.progress(doc).text, "7 of 11 departments placed");
     doc = A.setCategoryHidden(doc, DEFAULT_KEYS[9], true).doc;
-    assert.equal(A.progress(doc).text, "7 of 9 departments placed");
+    assert.equal(A.progress(doc).text, "7 of 10 departments placed");
     doc = A.addCategory(doc, { name: "Garden", color: "#336699" }).doc;
     const p = A.progress(doc);
-    assert.equal(p.text, "7 of 10 departments placed");
+    assert.equal(p.text, "7 of 11 departments placed");
     assert.ok(p.missing.includes("c_garden"));
   });
 
@@ -652,9 +652,9 @@ describe("areas: categories, progress, summary", () => {
     assert.equal(row("hand_tools").status, "under");
     close(row("hand_tools").sqft, 100, 0.01);
     assert.equal(row("woodworking").status, "none");
-    assert.equal(s.totals.progressText, "2 of 10 departments placed");
+    assert.equal(s.totals.progressText, "2 of 11 departments placed");
     close(s.totals.plannedSqft, 800, 0.01);
-    assert.equal(s.totals.targetSqft, 3800);
+    assert.equal(s.totals.targetSqft, 3900);
     // master floors with kind "showroom": sales floor i3, front room i4, front room east i5
     assert.deepEqual(s.totals.floors.map((f) => f.id).sort(), ["i3", "i4", "i5"]);
     close(s.totals.availableSqft, 53 * 80 + 24 * 68.7 + 42 * 58.7, 0.01);

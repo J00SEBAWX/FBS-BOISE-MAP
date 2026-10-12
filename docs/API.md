@@ -64,7 +64,9 @@ server, so always render it with `textContent`.
 `shape` `rect`|`poly`, `pts` (3-24 `[x, y]` corners, LOCAL coordinates relative to the item centre, unrotated,
 |x|,|y| ≤ 200; required for `poly`; for `poly`, `w`/`d` are the bounding box), `lockArea` (boolean),
 `groups` (≤ 6 `{label ≤ 40, share 0..1}`, e.g. Milwaukee / DeWalt / Makita). `cat`, `pts`, `lockArea` and
-`groups` are dropped from other item types.
+`groups` are dropped from other item types. A Power Tools block also carries `brand`: `milwaukee`|`dewalt`|`makita`
+(one brand's section, picked before it is placed; `public/js/core/brands.js`). Simpson Strong-Tie
+(`simpson_strongtie`, the 11th default department) is Simpson's section without a `brand` field.
 
 **CategoryDef** (custom categories and overrides of the 10 defaults; same key = override):
 `key` (`/^[a-z0-9_]{1,32}$/`; a default key, or a custom key starting with `c_`), `name` ≤ 40, `color` `#rrggbb`,

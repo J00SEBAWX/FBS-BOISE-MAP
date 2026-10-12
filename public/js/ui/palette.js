@@ -8,6 +8,7 @@ import {CATALOG} from "../shared/catalog.js";
 import {find} from "../core/finder.js";
 import {colourOf} from "../plan2d/blocks.js";
 import {formatSqft} from "../core/units.js";
+import {POWER_TOOLS, POWER_BRANDS} from "../core/brands.js";
 
 const FIXTURES = ["gondola", "wallunit", "rack", "counter", "table", "display", "tower", "platform", "zone"];
 const STRUCTURE = ["wall", "column", "door", "opening", "stairs"];
@@ -125,15 +126,18 @@ export function createDeptPalette(o) {
       const col = colourOf(cat, o.isDark());
       const selected = r.blocks.some(id => selIds.has(id));
       const placing = placingKey === r.key;
-      const meta = placing ? "Tap the floor where it goes" : !r.placed ? "Not placed yet" : `${r.blocks.length > 1 ? `${r.blocks.length} spots · ` : ""}${formatSqft(r.sqft)}${r.targetSqft > 0 ? ` of ${formatSqft(r.targetSqft).replace(" sq ft", "")}` : ""}${r.status === "under" ? " · under" : r.status === "over" ? " · over" : ""}`;
+      // Power Tools is one section per brand (core/brands.js): it keeps its Place button until all three brands are down
+      const brands = r.key === POWER_TOOLS ? new Set(r.blocks.map(id => (session.layout.byId.get(id) || {}).brand).filter(b => POWER_BRANDS.includes(b))) : null;
+      const morePlaces = !!brands && r.placed && brands.size < POWER_BRANDS.length;
+      const meta = placing ? "Tap the floor where it goes" : !r.placed ? "Not placed yet" : `${brands ? `${brands.size} of ${POWER_BRANDS.length} brands · ` : r.blocks.length > 1 ? `${r.blocks.length} spots · ` : ""}${formatSqft(r.sqft)}${r.targetSqft > 0 ? ` of ${formatSqft(r.targetSqft).replace(" sq ft", "")}` : ""}${r.status === "under" ? " · under" : r.status === "over" ? " · over" : ""}`;
       // a placed department can still get another spot (Shift-click, or its Place again button): the main button selects it
       const row = h("div", {class: "pal-row" + (selected ? " selected" : "") + (placing ? " placing" : ""), role: "listitem"},
-        h("button", {type: "button", class: "pal-main", aria: {label: `${cat.name}: ${meta}. ${placing ? "Tap again to cancel" : r.placed ? "Select it on the plan" : "Place it"}`, pressed: placing || undefined},
-          onclick: () => (r.placed && !placing ? o.onSelectBlock(r.blocks[0]) : (o.canEdit() ? o.onPlace(r.key) : o.toast && o.toast("This map is view only. Make your own copy to place departments.")))},
+        h("button", {type: "button", class: "pal-main", aria: {label: `${cat.name}: ${meta}. ${placing ? "Tap again to cancel" : morePlaces && o.canEdit() ? "Place the next brand" : r.placed ? "Select it on the plan" : "Place it"}`, pressed: placing || undefined},
+          onclick: () => (r.placed && !placing && !(morePlaces && o.canEdit()) ? o.onSelectBlock(r.blocks[0]) : (o.canEdit() ? o.onPlace(r.key) : o.toast && o.toast("This map is view only. Make your own copy to place departments.")))},
           h("span", {class: "swatch-sm", style: {"--c": col}, aria: {hidden: true}}),
           h("span", {class: "pal-text"}, h("b", {text: cat.name}), h("span", {class: "pal-meta" + (placing ? " placing" : r.status === "under" || r.status === "over" ? " warn" : ""), text: meta})),
           placing ? h("span", {class: "pal-place on", aria: {hidden: true}}, icon("i-close", "i i-sm"), h("span", {class: "pal-place-t", text: "Cancel"}))
-            : r.placed ? h("span", {class: "pal-ok"}, icon("i-check"), h("span", {class: "sr-only", text: "Placed"})) : (o.canEdit() ? h("span", {class: "pal-place", aria: {hidden: true}}, icon("i-add", "i i-sm"), h("span", {class: "pal-place-t", text: "Place"})) : null)),
+            : r.placed && !(morePlaces && o.canEdit()) ? h("span", {class: "pal-ok"}, icon("i-check"), h("span", {class: "sr-only", text: "Placed"})) : (o.canEdit() ? h("span", {class: "pal-place", aria: {hidden: true}}, icon("i-add", "i i-sm"), h("span", {class: "pal-place-t", text: "Place"})) : null)),
         h("button", {type: "button", class: "pal-edit", aria: {label: `Edit category ${cat.name}`}, title: "Edit category", onclick: () => o.onEdit(r.key)}, icon("i-pencil")));
       list.appendChild(row);
     }
