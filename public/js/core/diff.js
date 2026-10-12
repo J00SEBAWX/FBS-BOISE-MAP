@@ -59,7 +59,7 @@ const FIELD_WORDS = {
   notes: "notes", top: "top colour", cat: "department", lockArea: "area lock", status: "status", fixed: "fixed",
   locked: "lock", brand: "brand", brand2: "second brand", kind: "kind", finish: "floor finish", style: "style",
   open: "desk openings", groups: "brand groups", ceil: "ceiling height", cham: "corner cut", lights: "lights",
-  header: "header", trimTex: "trim", wainscot: "wainscot", clerestory: "clerestory", solid: "solid", led: "LED",
+  header: "header", trimTex: "trim", wainscot: "wainscot", clerestory: "clerestory", glass: "glass", sill: "sill height", ledge: "ledge height", solid: "solid", led: "LED",
   brandfloor: "brand floor", sky: "skylights", fans: "fans", fasciaN: "north fascia", fasciaE: "east fascia",
   fasciaTo: "fascia height", toConfirm: "open question", src: "source", poly: "outline", type: "type",
 };

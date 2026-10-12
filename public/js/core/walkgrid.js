@@ -37,8 +37,8 @@ export const WALK_LABELS = Object.freeze({
 });
 
 const PASSAGES = new Set(["door", "opening", "arch"]);
-const NOT_OBSTACLE = new Set(["floor", "zone", "ceiling", "area", "door", "opening", "arch", "platform"]);
-const STRUCTURAL = new Set(["wall", "column", "stairs", "door", "opening", "arch", "floor", "zone", "ceiling"]);
+const NOT_OBSTACLE = new Set(["floor", "zone", "ceiling", "area", "door", "opening", "arch", "platform", "window"]);
+const STRUCTURAL = new Set(["wall", "column", "stairs", "door", "opening", "arch", "floor", "zone", "ceiling", "window"]);
 const num = (v, d) => (typeof v === "number" && Number.isFinite(v) ? v : d);
 
 /** A map item -> plain geometry (finite numbers, a height), or null when it can't be used. */

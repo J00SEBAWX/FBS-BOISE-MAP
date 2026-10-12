@@ -25,12 +25,12 @@ export const LIMITS = Object.freeze({
 /** Every item type a map may hold (public/js/core/model.js TYPES uses the same list). */
 export const ITEM_TYPES = Object.freeze([
   "floor", "zone", "ceiling", "wall", "door", "opening", "arch", "column", "stairs", "ring", "counter", "gondola",
-  "wallunit", "rack", "pallet", "platform", "tower", "display", "table", "area",
+  "wallunit", "rack", "pallet", "platform", "tower", "display", "table", "area", "window",
 ]);
 const TYPE_SET = new Set(ITEM_TYPES);
 
 /** Structure: the building itself. A "blank store" keeps only these, plus anything marked fixed:true. */
-export const STRUCTURE_TYPES = Object.freeze(["floor", "zone", "wall", "door", "opening", "arch", "column", "ceiling", "stairs"]);
+export const STRUCTURE_TYPES = Object.freeze(["floor", "zone", "wall", "door", "opening", "arch", "column", "ceiling", "stairs", "window"]);
 const STRUCT_SET = new Set(STRUCTURE_TYPES);
 export const isStructure = (it) => !!it && (STRUCT_SET.has(it.type) || it.fixed === true);
 
@@ -97,6 +97,8 @@ const ITEM_FIELDS = new Map([
   ["ceil", NUM(0, 60)],
   ["cham", NUM(0, 20)],
   ["fasciaTo", NUM(0, 60)],
+  ["sill", NUM(0, 60)], // a high window's bottom edge, ft (its top is h)
+  ["ledge", NUM(0, 60)], // a wall's ledge (a shelf along its face), the top's height, ft
   ["sky", { kind: "int", min: 0, max: 20 }],
   ["fans", { kind: "int", min: 0, max: 20 }],
   ["name", { kind: "text", max: 80 }],
@@ -117,6 +119,7 @@ const ITEM_FIELDS = new Map([
   ["fixed", { kind: "bool" }],
   ["wainscot", { kind: "bool" }],
   ["clerestory", { kind: "bool" }],
+  ["glass", { kind: "bool" }], // a high window with glass (else an open opening)
   ["solid", { kind: "bool" }],
   ["locked", { kind: "bool" }],
   ["led", { kind: "bool" }],

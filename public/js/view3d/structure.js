@@ -3,7 +3,7 @@
  * Ported from the v2 store renderer. Plan feet map to three.js as (x, height, -y).
  * Returns four groups so the Layers menu can hide each one: floors, structure, fixtures, ceiling. */
 import {rad, toWorld, toLocal} from "../core/geometry.js";
-import {PAL, BRAND_FLOOR, ATLAS, isStructure, isFloorAt, heightToCeiling, passageTop, baseOf} from "../core/model.js";
+import {PAL, BRAND_FLOOR, ATLAS, TYPES, isStructure, isFloorAt, ceilingAt, heightToCeiling, passageTop, baseOf} from "../core/model.js";
 import {ringOf, bandPoly} from "../core/ring.js";
 import {lin} from "./scene.js";
 
@@ -54,6 +54,16 @@ export function createStoreBuilder(R) {
     for (let k = 0; k < 2600; k++) { const x = r() * n, y = r() * n, rd = 2 + r() * 26, a = r() * 0.05; c.fillStyle = `rgba(${r() < 0.5 ? "70,60,50" : "255,255,255"},${a})`; c.beginPath(); c.arc(x, y, rd, 0, Math.PI * 2); c.fill(); }
     for (let k = 0; k < 9000; k++) { c.fillStyle = `rgba(0,0,0,${0.03 + r() * 0.05})`; c.fillRect(r() * n, r() * n, 1, 1); }
     c.fillStyle = "rgba(40,36,32,.28)"; c.fillRect(0, 0, n, 2); c.fillRect(0, 0, 2, n);
+  };
+  // an FBS bucket's side (wraps round the bucket): white plastic, the navy FBS label twice so it shows from anywhere
+  const bucketLabel = (c, w, h) => {
+    c.fillStyle = "#f3f3ef"; c.fillRect(0, 0, w, h);
+    c.fillStyle = "rgba(0,0,0,.08)"; c.fillRect(0, 0, w, 10); c.fillRect(0, 22, w, 3);
+    for (const x of [18, 146]) {
+      c.fillStyle = "#1d3f8f"; c.fillRect(x, 44, 92, 48);
+      c.fillStyle = "#c8202a"; c.fillRect(x, 92, 92, 7);
+      c.fillStyle = "#ffffff"; c.font = "bold 30px Arial, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("FBS", x + 46, 69);
+    }
   };
   function floorMat(col, w, d) {
     const key = "floor" + col + w.toFixed(1) + d.toFixed(1);
@@ -146,7 +156,8 @@ export function createStoreBuilder(R) {
       }
       case "wall": {
         const top = heightToCeiling(layout, it); // carried up to the ceiling over either side (no gaps)
-        pbox(g, -w / 2, w / 2, -d / 2, d / 2, 0, top, col);
+        holeyBox(g, -w / 2, w / 2, -d / 2, d / 2, 0, top, col, undefined, itemHoles(layout, it)); // high windows cut it
+        if (it.ledge > 0 && it.ledge < top - 0.5) buildLedge(g, it, layout);
         // wainscot (knotty pine panelling) only on the side(s) with a floor: never on the outside of the building
         if (it.wainscot) for (const s of [-1, 1]) { const [px, py] = toWorld(it, 0, s * (d / 2 + 0.6)); if (isFloorAt(layout, px, py)) pbox(g, -w / 2, w / 2, s * d / 2, s * (d / 2 + 0.04), 0, 3.6, "#b98a58", {roughness: 0.6}); }
         if (it.clerestory && top > 13) {
@@ -163,7 +174,7 @@ export function createStoreBuilder(R) {
       case "door": case "opening": {
         const fh = h || 8, jt = it.type === "door" ? 0.3 : 0.45, fc = col;
         pbox(g, -w / 2, -w / 2 + jt, -d / 2 - 0.1, d / 2 + 0.1, 0, fh, fc); pbox(g, w / 2 - jt, w / 2, -d / 2 - 0.1, d / 2 + 0.1, 0, fh, fc); pbox(g, -w / 2, w / 2, -d / 2 - 0.1, d / 2 + 0.1, fh - jt, fh, fc);
-        pbox(g, -w / 2, w / 2, -d / 2, d / 2, fh, Math.max(fh, passageTop(layout, it)), "#ddd5c4");
+        holeyBox(g, -w / 2, w / 2, -d / 2, d / 2, fh, Math.max(fh, passageTop(layout, it)), "#ddd5c4", undefined, itemHoles(layout, it));
         if (it.type === "door") {
           if (it.solid) { pbox(g, -w / 2 + jt, w / 2 - jt, -0.06, 0.06, 0, fh - jt, col); pbox(g, w / 2 - jt - 0.55, w / 2 - jt - 0.2, -0.3, 0.3, 3.3, 3.45, "#9aa0a4"); }
           else {
@@ -175,7 +186,11 @@ export function createStoreBuilder(R) {
         break;
       }
       case "arch": {
-        const spring = Math.max(0.5, (h || 10.5) - w / 2), top = Math.max((h || 10.5) + 0.6, passageTop(layout, it)), r = w / 2, RR = r + 0.02;
+        const spring = Math.max(0.5, (h || 10.5) - w / 2), full = Math.max((h || 10.5) + 0.6, passageTop(layout, it)), r = w / 2, RR = r + 0.02;
+        // a high opening over the arch: the arch's own piece stops at its sill, the wall above is cut around it
+        const holes = itemHoles(layout, it), sills = holes.filter(q => q[1] > -RR && q[0] < RR).map(q => q[2]);
+        const top = sills.length ? Math.min(full, Math.max((h || 10.5) + 0.6, Math.min(...sills))) : full;
+        if (top < full) holeyBox(g, -RR, RR, -d / 2, d / 2, top, full, "#e6dcc6", undefined, holes);
         const sh = new THREE.Shape(); sh.moveTo(-RR, 0); sh.lineTo(-RR, top); sh.lineTo(RR, top); sh.lineTo(RR, 0); sh.lineTo(r, 0); sh.lineTo(r, spring); sh.absarc(0, spring, r, 0, Math.PI, false); sh.lineTo(-r, 0); sh.lineTo(-RR, 0);
         const geo = new THREE.ExtrudeGeometry(sh, {depth: d, bevelEnabled: false, curveSegments: 24}); K.extraGeo.push(geo);
         const m = new THREE.Mesh(geo, mat("#e6dcc6")); m.position.z = -d / 2; g.add(m);
@@ -262,8 +277,107 @@ export function createStoreBuilder(R) {
         break;
       }
       case "tower": { pbox(g, -w / 2, w / 2, -d / 2, d / 2, 0, h, col); for (let k = 0; k < 7; k++) for (const s of [-1, 1]) P(s * (w / 2 + 0.3), 1.2 + k * 0.82 + 0.22, 0, 0.62, 0.44, 0.62, ["#f2d21a", "#f2f2f2", "#1f5fd1", "#e8431a", "#239a3a", "#ee7aa8"][Math.floor(rnd() * 6)], true); break; }
+      case "window": buildWindow(g, it, layout); break;
       case "display": default: buildDisplay(g, it, rnd, P, pick); break;
     }
+  }
+
+  /* ---------- high windows and openings ("window" items) ---------- */
+  // The holes [t0, t1, z0, z1] that high windows cut in an upright slab of thickness `thick` running from a to b (plan
+  // feet), t measured along it from a. A window cuts every slab it lies along: walls, arches, door headers, a drop
+  // ceiling's fascia and the band that closes a step between two ceilings.
+  function holesAlong(layout, ax, ay, bx, by, thick) {
+    const L = Math.hypot(bx - ax, by - ay), out = [];
+    if (L < 0.01) return out;
+    const ux = (bx - ax) / L, uy = (by - ay) / L;
+    for (const wn of layout.items) {
+      if (wn.type !== "window" || !(wn.h > (wn.sill || 0))) continue;
+      const r = rad(wn.rot || 0);
+      if (Math.abs(Math.cos(r) * uy - Math.sin(r) * ux) > 0.02) continue; // not along this slab
+      if (Math.abs((wn.x - ax) * uy - (wn.y - ay) * ux) > thick / 2 + wn.d / 2 + 0.05) continue; // beside it, not in it
+      const tc = (wn.x - ax) * ux + (wn.y - ay) * uy, t0 = Math.max(0, tc - wn.w / 2), t1 = Math.min(L, tc + wn.w / 2);
+      if (t1 - t0 > 0.05) out.push([t0, t1, wn.sill || 0, wn.h]);
+    }
+    return out;
+  }
+  // an item's own holes, in its frame (u along its length, centred)
+  const itemHoles = (layout, it) => holesAlong(layout, ...toWorld(it, -it.w / 2, 0), ...toWorld(it, it.w / 2, 0), it.d).map(q => [q[0] - it.w / 2, q[1] - it.w / 2, q[2], q[3]]);
+  // pbox with rectangular holes [u0, u1, z0, z1]: the solid pieces around them
+  function holeyBox(parent, u0, u1, v0, v1, z0, z1, color, o, holes) {
+    const hs = (holes || []).filter(q => q[1] > u0 && q[0] < u1 && q[3] > z0 && q[2] < z1);
+    if (!hs.length) { pbox(parent, u0, u1, v0, v1, z0, z1, color, o); return; }
+    const cuts = [...new Set([u0, u1, ...hs.flatMap(q => [q[0], q[1]]).filter(u => u > u0 && u < u1)])].sort((a, b) => a - b);
+    for (let i = 0; i + 1 < cuts.length; i++) {
+      const a = cuts[i], b = cuts[i + 1], m = (a + b) / 2;
+      let zs = [[z0, z1]];
+      for (const q of hs) if (q[0] < m && q[1] > m) zs = zs.flatMap(([p, t]) => [[p, Math.min(t, q[2])], [Math.max(p, q[3]), t]]).filter(([p, t]) => t - p > 0.01);
+      for (const [p, t] of zs) pbox(parent, a, b, v0, v1, p, t, color, o);
+    }
+  }
+  // an upright slab from a to b (plan feet, world), cut by the windows along it
+  function slab(layout, parent, ax, ay, bx, by, thick, z0, z1, color) {
+    const L = Math.hypot(bx - ax, by - ay);
+    if (L < 0.01 || z1 - z0 < 0.01) return;
+    const g = new THREE.Group(); g.position.set((ax + bx) / 2, 0, -(ay + by) / 2); g.rotation.y = Math.atan2(by - ay, bx - ax); parent.add(g);
+    holeyBox(g, -L / 2, L / 2, -thick / 2, thick / 2, z0, z1, color, undefined, holesAlong(layout, ax, ay, bx, by, thick).map(q => [q[0] - L / 2, q[1] - L / 2, q[2], q[3]]));
+  }
+  // The window itself: a wood sill (open) or a wood frame with frosted glass, and, on the side whose ceiling is below
+  // it (the offices over the front room, the space over a drop ceiling), a lit room to look into instead of the void.
+  function buildWindow(g, it, layout) {
+    const w = it.w, d = it.d, z0 = it.sill || 0, z1 = it.h || TYPES.window.h;
+    if (!(z1 > z0)) return;
+    if (it.glass) {
+      const fc = "#c9a77a", t = 0.22, v = d / 2 + 0.06;
+      pbox(g, -w / 2 - t, w / 2 + t, -v, v, z0 - t, z0, fc); pbox(g, -w / 2 - t, w / 2 + t, -v, v, z1, z1 + t, fc);
+      pbox(g, -w / 2 - t, -w / 2, -v, v, z0, z1, fc); pbox(g, w / 2, w / 2 + t, -v, v, z0, z1, fc);
+      pbox(g, -w / 2, w / 2, -0.03, 0.03, z0, z1, "#dfe9ee", {transparent: true, opacity: 0.5, emissive: new THREE.Color("#d6e4ec"), emissiveIntensity: 0.4});
+    } else {
+      pbox(g, -w / 2 - 0.12, w / 2 + 0.12, -d / 2 - 0.16, d / 2 + 0.16, z0 - 0.12, z0 + 0.02, "#8a5a34", {roughness: 0.6}); // the wood sill
+    }
+    // which side the room is on: where the ceiling is below the window (none when both sides are tall rooms)
+    const lowSide = [-1, 1].map(s => { const [x, y] = toWorld(it, 0, s * (d / 2 + 2)); return {s, c: ceilingAt(layout, x, y)}; }).filter(q => q.c < z0).sort((a, b) => a.c - b.c)[0];
+    if (!lowSide) return;
+    // one room behind a run of openings along the same wall (gaps under 3 ft): built by the first of them
+    const run = layout.items.filter(o => o.type === "window" && o.h > (o.sill || 0) && Math.abs(Math.sin(rad((o.rot || 0) - (it.rot || 0)))) < 0.02 && Math.abs(toLocal(it, o.x, o.y)[1]) < 0.5)
+      .map(o => { const c = toLocal(it, o.x, o.y)[0]; return {o, u0: c - o.w / 2, u1: c + o.w / 2}; }).sort((a, b) => a.u0 - b.u0);
+    let span = null;
+    for (const r of run) {
+      if (span && r.u0 - span.u1 < 3) { span.u1 = Math.max(span.u1, r.u1); span.top = Math.max(span.top, r.o.h); span.list.push(r.o); continue; }
+      if (span && span.list.includes(it)) break;
+      span = {u0: r.u0, u1: r.u1, top: r.o.h, first: r.o, list: [r.o]};
+    }
+    if (!span || span.first !== it) return;
+    const s = lowSide.s, D = 9, floor = Math.max(lowSide.c + 0.6, z0 - 3.6), roof = span.top + 0.5, U0 = span.u0 - 0.6, U1 = span.u1 + 0.6;
+    const BS = THREE.BackSide, wall = mat("#e6dfd2", {side: BS}), geo = new THREE.BoxGeometry(U1 - U0, roof - floor, D); K.extraGeo.push(geo);
+    // BoxGeometry faces: +x, -x, +y (ceiling), -y (floor), +z, -z; seen from inside only, so the face at the opening never shows
+    const room = new THREE.Mesh(geo, [wall, wall, mat("#efeeea", {side: BS}), mat("#76716a", {side: BS, roughness: 0.95}), wall, wall]);
+    room.position.set((U0 + U1) / 2, (floor + roof) / 2, -s * (d / 2 + D / 2)); g.add(room);
+    // office lights and a few desks against the back wall
+    for (let u = U0 + 2; u < U1 - 1.5; u += 6) pbox(g, u - 1, u + 1, s * (d / 2 + 2.5), s * (d / 2 + 6.5), roof - 0.06, roof - 0.01, "#ffffff", {emissive: new THREE.Color("#fff4e2"), emissiveIntensity: 1});
+    for (let u = U0 + 2.5; u < U1 - 2.5; u += 7) {
+      pbox(g, u - 2, u + 2, s * (d / 2 + D - 2.6), s * (d / 2 + D - 0.2), floor + 2.35, floor + 2.5, "#9a7650");
+      pbox(g, u - 0.7, u + 0.7, s * (d / 2 + D - 1.2), s * (d / 2 + D - 1.1), floor + 2.6, floor + 3.5, "#1d1f22");
+    }
+  }
+  // A wall's ledge (the high shelf the FBS buckets stand on): on the side facing the taller room, a cap 1.4 ft deep at
+  // the ledge height, and a row of white FBS buckets along it.
+  function buildLedge(g, it, layout) {
+    const w = it.w, d = it.d, L = it.ledge;
+    const s = [-1, 1].map(q => { const [x, y] = toWorld(it, 0, q * (d / 2 + 2)); return {q, c: ceilingAt(layout, x, y)}; }).sort((a, b) => b.c - a.c)[0].q;
+    const u0 = -w / 2 + 0.4, u1 = w / 2 - 0.4;
+    pbox(g, u0, u1, s * d / 2, s * (d / 2 + 1.4), L - 0.4, L, it.color || "#ecebe6");
+    pbox(g, u0, u1, s * (d / 2 + 1.35), s * (d / 2 + 1.45), L - 0.55, L + 0.04, "#d8d4ca"); // its front edge
+    const n = Math.floor((u1 - u0 - 0.4) / 1.15);
+    if (n < 1) return;
+    const geo = new THREE.CylinderGeometry(0.5, 0.45, 1.2, 20); K.extraGeo.push(geo);
+    if (!K.mats.has("fbsBucket")) K.mats.set("fbsBucket", new THREE.MeshStandardMaterial({color: 0xffffff, map: canvasTex("fbsBucket", 256, 128, bucketLabel), roughness: 0.5}));
+    const m = new THREE.InstancedMesh(geo, K.mats.get("fbsBucket"), n);
+    const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(1, 1, 1), up = new THREE.Vector3(0, 1, 0);
+    for (let k = 0; k < n; k++) {
+      const u = u0 + 0.6 + k * (u1 - u0 - 1.2) / Math.max(1, n - 1);
+      M.compose(new THREE.Vector3(n > 1 ? u : 0, L + 0.6, -s * (d / 2 + 0.7)), Q.setFromAxisAngle(up, (k * 2.4) % (Math.PI * 2)), S); m.setMatrixAt(k, M);
+    }
+    m.instanceMatrix.needsUpdate = true; g.add(m);
   }
   // the brand's floor tiles around its fixture ("brandfloor" in the survey)
   function brandFloor(g, it) {
@@ -383,11 +497,11 @@ export function createStoreBuilder(R) {
       for (let k = 0; k < (c.fans | 0); k++) { const t = -L / 2 + L * (k + 0.5) / c.fans, [u, v] = along ? [t, -d * 0.18] : [-w * 0.18, t]; fan(g, u, v, h); }
       // fascia: the vertical face from a drop ceiling up to the higher ceiling next to it
       if (c.fasciaTo > h) {
-        const z0 = h, z1 = c.fasciaTo, col = "#e4e2dc";
-        if (c.fasciaN) pbox(g, -w / 2, w / 2, d / 2 - 0.15, d / 2 + 0.15, z0, z1, col);
-        if (c.fasciaS) pbox(g, -w / 2, w / 2, -d / 2 - 0.15, -d / 2 + 0.15, z0, z1, col);
-        if (c.fasciaE) pbox(g, w / 2 - 0.15, w / 2 + 0.15, -d / 2, d / 2, z0, z1, col);
-        if (c.fasciaW) pbox(g, -w / 2 - 0.15, -w / 2 + 0.15, -d / 2, d / 2, z0, z1, col);
+        const z0 = h, z1 = c.fasciaTo, col = "#e4e2dc", at = (u, v) => toWorld(c, u, v);
+        if (c.fasciaN) slab(layout, cg, ...at(-w / 2, d / 2), ...at(w / 2, d / 2), 0.3, z0, z1, col);
+        if (c.fasciaS) slab(layout, cg, ...at(-w / 2, -d / 2), ...at(w / 2, -d / 2), 0.3, z0, z1, col);
+        if (c.fasciaE) slab(layout, cg, ...at(w / 2, -d / 2), ...at(w / 2, d / 2), 0.3, z0, z1, col);
+        if (c.fasciaW) slab(layout, cg, ...at(-w / 2, -d / 2), ...at(-w / 2, d / 2), 0.3, z0, z1, col);
       }
     }
     closeCeilingSteps(layout, list, cg);
@@ -414,8 +528,8 @@ export function createStoreBuilder(R) {
       for (const b of flat) {
         if (a.h <= b.h) continue; // a is the higher one
         const B = edges(b), lo = b.h, hi = a.h;
-        if (near(A.x1, B.x0) || near(A.x0, B.x1)) { const ex = near(A.x1, B.x0) ? A.x1 : A.x0, y0 = Math.max(A.y0, B.y0), y1 = Math.min(A.y1, B.y1); if (y1 - y0 > 0.1) box(cg, 0.3, hi - lo, y1 - y0, ex, (lo + hi) / 2, -(y0 + y1) / 2, col); }
-        if (near(A.y1, B.y0) || near(A.y0, B.y1)) { const ey = near(A.y1, B.y0) ? A.y1 : A.y0, x0 = Math.max(A.x0, B.x0), x1 = Math.min(A.x1, B.x1); if (x1 - x0 > 0.1) box(cg, x1 - x0, hi - lo, 0.3, (x0 + x1) / 2, (lo + hi) / 2, -ey, col); }
+        if (near(A.x1, B.x0) || near(A.x0, B.x1)) { const ex = near(A.x1, B.x0) ? A.x1 : A.x0, y0 = Math.max(A.y0, B.y0), y1 = Math.min(A.y1, B.y1); if (y1 - y0 > 0.1) slab(layout, cg, ex, y0, ex, y1, 0.3, lo, hi, col); }
+        if (near(A.y1, B.y0) || near(A.y0, B.y1)) { const ey = near(A.y1, B.y0) ? A.y1 : A.y0, x0 = Math.max(A.x0, B.x0), x1 = Math.min(A.x1, B.x1); if (x1 - x0 > 0.1) slab(layout, cg, x0, ey, x1, ey, 0.3, lo, hi, col); }
       }
     }
     const {L, W} = layout.building, top = Math.max(...list.map(f => f.h), 12);

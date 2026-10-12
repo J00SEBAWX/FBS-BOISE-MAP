@@ -25,11 +25,12 @@ export const TYPES = Object.freeze({
   display:  {label: "Display",        blocks: true,  h: 6},
   table:    {label: "Table",          blocks: true,  h: 3},
   area:     {label: "Department",     blocks: false, h: 8},
+  window:   {label: "High window",    blocks: false, h: 18},
 });
 export const ITEM_TYPES = Object.freeze(Object.keys(TYPES));
 
 /** Structure (SPEC-v3-API): building parts, plus anything marked fixed (sales desks, Tom's desk, fixed platforms). */
-export const STRUCTURE_TYPES = Object.freeze(["floor", "zone", "wall", "door", "opening", "arch", "column", "ceiling", "stairs"]);
+export const STRUCTURE_TYPES = Object.freeze(["floor", "zone", "wall", "door", "opening", "arch", "column", "ceiling", "stairs", "window"]);
 const STRUCT_SET = new Set(STRUCTURE_TYPES);
 export const isStructure = it => STRUCT_SET.has(it.type) || it.fixed === true;
 /** Walls, doors, openings and arches: the things a plan draws as building lines. */
