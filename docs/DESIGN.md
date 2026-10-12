@@ -396,6 +396,14 @@ the right. Grid: `var(--palette-w) minmax(0,1fr) var(--inspector-w)`.
   "Show fixtures faintly" draws them at `--plan-faint`. Department blocks on top (4.4 step 5), labelled with the
   department name (Barlow Condensed 700 12px UPPERCASE, first word only when the full name does not fit) and the
   area ("613 sq ft", Plex 500 10px), both with the halo.
+- Brand sections (`core/brands.js`): **Place** on Power Tools first asks "Which brand is this section?" (a dialog
+  with three logo buttons: Milwaukee, DeWalt, Makita; Cancel places nothing). The block keeps `brand`, starts at the
+  brand's share of the target (the catalog's groups: 45 / 30 / 25%), is labelled "POWER TOOLS · MILWAUKEE" and is
+  measured against its share. The row keeps its Place button ("2 of 3 brands") until all three are down. Simpson
+  Strong-Tie is its own department. A brand section is floored with the brand's 12" x 12" tiles (a checkerboard of
+  its colour and #1C1C1C on the store's 1 ft grid) on the plan and in 3D; in 3D it also gets a soft PointLight in the
+  brand's light colour, an LED cove line at 8' 9" and a two-sided neon sign at the back of the section (logo on a
+  backlit panel, the name in neon). Colours: Milwaukee #DB011C, DeWalt #FEBD17, Makita #008290, Simpson #FF5308.
 - Toolbar: the Add button becomes "+ Department" (opens the same list as the palette); Structure toggle hidden
   (structure is never editable here); Snap and Layers stay.
 - **Overlap check on the plan**: the shared rectangle of two overlapping blocks is hatched (45°, 2.5px

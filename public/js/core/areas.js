@@ -149,18 +149,43 @@ export function startSize(cat) {
   return Math.abs(s - 1) < 1e-9 ? [size[0], size[1]] : [r4(size[0] * s), r4(size[1] * s)];
 }
 
+/**
+ * The starting size of one brand's section of a department: its share of the target (the catalog's brand groups,
+ * e.g. Milwaukee 45% of Power Tools), same proportions as the department's block. Without a share: startSize(cat).
+ */
+/** A brand's share of a department's target (0..1), from the catalog's brand groups, or null. */
+export function brandShare(cat, brand) {
+  const g = brand && Array.isArray(cat && cat.groups) ? cat.groups.find(x => String(x.label).toLowerCase() === brand) : null;
+  return g && g.share > 0 && g.share < 1 ? g.share : null;
+}
+
+/** The target of one block: its brand's share of the department's target (a brand section), else the department's. */
+export function blockTarget(cat, it) {
+  const t = num(cat && cat.targetSqft, 0), s = brandShare(cat, it && it.brand);
+  return s ? Math.round(t * s) : t;
+}
+
+export function brandStartSize(cat, brand) {
+  const share = brandShare(cat, brand);
+  const [w, d] = startSize(cat);
+  if (!share) return [w, d];
+  const s = Math.sqrt(share);
+  return [Math.round(w * s * 2) / 2, Math.round(d * s * 2) / 2];
+}
+
 /** The smallest block a person can draw on the floor (ft on each side): anything smaller is taken as a tap. */
 export const MIN_DRAWN = 2;
 
 /**
  * Drops a block for category key centred at {x, y}: catalog/target size, the category's name and colour,
  * height 8 ft, rectangle, rotation opts.rot (default 0). opts.size = [w, d] (ft) uses that size instead of the
- * catalog's: what the person drew on the floor. Returns {doc, patch, inverse, id}.
+ * catalog's: what the person drew on the floor. opts.brand: the brand of a Power Tools section (core/brands.js).
+ * Returns {doc, patch, inverse, id}.
  */
 export function createBlock(doc, key, at = {}, opts = {}) {
   const cat = categoryFor(doc, key);
   if (!cat) return refuseEdit(doc, "That category isn't on this map.");
-  let [w, d] = startSize(cat);
+  let [w, d] = opts.brand ? brandStartSize(cat, opts.brand) : startSize(cat);
   if (Array.isArray(opts.size) && num(opts.size[0], 0) >= MIN_DRAWN && num(opts.size[1], 0) >= MIN_DRAWN) [w, d] = [r4(opts.size[0]), r4(opts.size[1])];
   const id = newId(doc, "a");
   const g = opts.grid > 0 ? opts.grid : 0, snap = v => (g ? Math.round(v / g) * g : v);
@@ -168,6 +193,8 @@ export function createBlock(doc, key, at = {}, opts = {}) {
     id, type: "area", name: String(cat.name).slice(0, 80), cat: key, shape: "rect",
     x: snap(num(at.x, 0)), y: snap(num(at.y, 0)), w, d, h: BLOCK_HEIGHT, rot: num(opts.rot, 0), color: String(cat.color).toLowerCase(),
   });
+  // a Power Tools block is one brand's section (core/brands.js); the brand is picked before it is placed
+  if (typeof opts.brand === "string" && /^[a-z][a-z0-9_]{0,30}$/.test(opts.brand)) it.brand = opts.brand;
   return {...commit(doc, [{id, to: it}]), id};
 }
 
@@ -199,7 +226,7 @@ function scaled(it, sx, sy) {
 export function sizeToTarget(doc, id, target) {
   const it = blockOr(doc, id);
   if (!it) return refuseEdit(doc, "That block is no longer on the map.");
-  const t = target ?? (categoryFor(doc, it.cat) || {}).targetSqft;
+  const t = target ?? blockTarget(categoryFor(doc, it.cat), it); // a brand section: its share of the target
   if (!(t > 0)) return refuseEdit(doc, "Set a target size first.");
   const s = Math.sqrt(t / blockArea(it));
   return {...commit(doc, [{id, to: scaled(it, s, s)}]), id};

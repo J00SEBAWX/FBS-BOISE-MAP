@@ -281,7 +281,8 @@ export function find(query, catalog = CATALOG, categories = null, {limit = 8} = 
     if (r.score > cur.score) { r.product = r.product || cur.product; r.why = r.why || cur.why; r.rule = r.rule || cur.rule; r.fixtures = r.fixtures.length ? r.fixtures : cur.fixtures; merged.set(id, r); }
     else { cur.product = cur.product || r.product; cur.why = cur.why || r.why; if (!cur.fixtures.length) cur.fixtures = r.fixtures; }
   }
-  let ranked = [...merged.values()].sort((a, b) => b.score - a.score);
+  // the merchandising rules lead (a strong text match can score a little over a rule's 100), then the best text matches
+  let ranked = [...merged.values()].sort((a, b) => (b.rule ? 1 : 0) - (a.rule ? 1 : 0) || b.score - a.score);
   // a text match far weaker than the best text match is noise (a word they happen to share), not an answer; the merchandising rules always stay
   // (a weak line in a department that has a strong answer stays: "Ladders (ladder wall rack)" next to "Step ladders" is the same place)
   const bestText = Math.max(0, ...ranked.filter(r => !r.rule).map(r => r.score));

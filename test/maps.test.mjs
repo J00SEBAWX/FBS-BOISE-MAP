@@ -141,12 +141,12 @@ test("the master layout validates losslessly; schema types match the core model"
   assert.deepStrictEqual(validateMapData(r.data).data, r.data);
 });
 
-test("catalog: the 10 departments with the owner's exact names and keys; helpers", () => {
+test("catalog: the 11 departments with the owner's exact names and keys; helpers", () => {
   const want = [
     ["hand_tools", "Hand Tools & Measuring"], ["safety_workwear", "Safety & Workwear"], ["access_jobsite", "Access & Jobsite Equipment"],
     ["hardware_fasteners", "Hardware & Fasteners"], ["pneumatic_air", "Pneumatic & Air Systems"], ["power_tools", "Power Tools"],
     ["paint_finishing", "Paint, Stain & Finishing"], ["decking_outdoor", "Decking & Outdoor Living"], ["woodworking", "Woodworking & Specialty Wood"],
-    ["bits_blades", "Bits, Blades & Cutting Accessories"],
+    ["bits_blades", "Bits, Blades & Cutting Accessories"], ["simpson_strongtie", "Simpson Strong-Tie"],
   ];
   assert.deepEqual(CATALOG.areas.map((a) => [a.key, a.name]), want);
   assert.deepEqual([...DEFAULT_KEYS], want.map((w) => w[0]));
@@ -158,7 +158,7 @@ test("catalog: the 10 departments with the owner's exact names and keys; helpers
     assert.ok(a.subcats.length >= 10 && a.targetSqft > 0 && a.size[0] * a.size[1] === a.targetSqft, a.key);
   }
   const merged = mergeCategories(CATALOG.areas, [{ key: "power_tools", color: "#123456", hidden: true }, { key: "c_lumber", name: "Lumber", color: "#445566", targetSqft: 300 }]);
-  assert.equal(merged.length, 11);
+  assert.equal(merged.length, 12);
   const pt = merged.find((c) => c.key === "power_tools");
   assert.deepEqual([pt.color, pt.hidden, pt.overridden, pt.isDefault, pt.name], ["#123456", true, true, true, "Power Tools"]);
   const lum = merged.at(-1);
@@ -903,7 +903,7 @@ test("a database without migration 0005 fails closed (503); sign-in, the dashboa
     assert.deepEqual(r.data, { error: "The site isn't set up yet." });
   }
   assert.equal(ok(await A.get("/api/me")).id, "u_alice");
-  assert.equal(ok(await A.get("/api/catalog")).areas.length, 10);
+  assert.equal(ok(await A.get("/api/catalog")).areas.length, 11);
   const o = ok(await admin.get("/api/admin/overview"));
   assert.ok(o.people.length > 0 && o.people.every((p) => p.mapCount === null));
   ok(await admin.del("/api/admin/people/u_dan"));

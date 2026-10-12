@@ -282,7 +282,7 @@ describe("finder: honest answers", () => {
   test("the good answers of the review still land where they should", () => {
     const expect = {
       "M18 battery": "power_tools", "Diablo blade": "bits_blades", "ladder": "access_jobsite", "hard hat": "safety_workwear",
-      "air compressor": "pneumatic_air", "pellet grill": "decking_outdoor", "Kreg": "woodworking", "Simpson Strong-Tie": "hardware_fasteners",
+      "air compressor": "pneumatic_air", "pellet grill": "decking_outdoor", "Kreg": "woodworking", "Simpson Strong-Tie": "simpson_strongtie",
       "tape measure": "hand_tools", "deck screws": "hardware_fasteners", "caulk": "paint_finishing", "sandpaper": "bits_blades",
       "nail gun": "pneumatic_air", "Trex": "decking_outdoor", "work gloves": "safety_workwear", "extension cord": "access_jobsite",
       "wood glue": "woodworking", "paint brush": "paint_finishing", "utility knife": "hand_tools", "drill bit": "bits_blades",

@@ -13,7 +13,8 @@
 import {h, icon, clear, relTime, focusEl} from "./dom.js";
 import {formatFtIn, formatSqft} from "../core/units.js";
 import {TYPES, BRAND_NAMES, displayName, categoryOf, isStructure} from "../core/model.js";
-import {blockArea, categoryFor} from "../core/areas.js";
+import {blockArea, categoryFor, blockTarget, brandShare} from "../core/areas.js";
+import {BRANDS, POWER_BRANDS, POWER_TOOLS, missingBrand, brandOf} from "../core/brands.js";
 import {checkItem} from "../core/collisions.js";
 import {ITEM_STATUSES} from "../shared/schema.js";
 
@@ -130,7 +131,7 @@ export function createInspector(o) {
   function headTexts(items) {
     if (items.length > 1) return {name: items.map(displayName).slice(0, 3).join(", ") + (items.length > 3 ? "…" : ""), meta: items.some(it => session.isLocked(it)) ? "Locked structure in the selection stays put." : ""};
     const it = items[0];
-    if (it.type === "area") { const cat = categoryFor(session.doc, it.cat, session.categories); return {name: (cat && cat.name) || it.name || "Department", meta: it.status ? STATUS_LABEL[it.status] : ""}; }
+    if (it.type === "area") { const cat = categoryFor(session.doc, it.cat, session.categories), b = brandOf(it); return {name: ((cat && cat.name) || it.name || "Department") + (b && it.cat === POWER_TOOLS ? ` · ${b.name}` : ""), meta: it.status ? STATUS_LABEL[it.status] : ""}; }
     const typeLabel = (TYPES[it.type] || {}).label || it.type;
     return {name: displayName(it), meta: categoryOf(it) !== typeLabel ? categoryOf(it) : ""};
   }
@@ -175,12 +176,12 @@ export function createInspector(o) {
   const targetOf = cat => (cat ? cat.targetSqft || 0 : 0);
   /** The area readout of a block: the big sq ft figure, how it compares with the target, the suggested size. Rebuilt in place. */
   function areaReadout(it, cat) {
-    const area = blockArea(it), target = targetOf(cat);
+    const area = blockArea(it), target = blockTarget(cat, it), share = brandShare(cat, it.brand), b = brandOf(it);
     const range = cat && Array.isArray(cat.sqft) && cat.sqft[0] > 0 ? `Suggested size for this department: ${cat.sqft[0].toLocaleString("en-US")} to ${cat.sqft[1].toLocaleString("en-US")} sq ft` : "";
     const over = target > 0 ? (area > target * 1.1 ? "Over the target" : area < target * 0.9 ? "Under the target" : "On target") : "";
     return [
       h("div", {class: "area-big"}, h("b", {text: formatSqft(area)}), h("span", {text: `${formatFtIn(it.w)} × ${formatFtIn(it.d)}${it.shape === "poly" ? ` · ${(it.pts || []).length} corners` : ""}`})),
-      target > 0 ? h("p", {class: "area-target", text: `Target ${formatSqft(target)} · ${over}`}) : h("p", {class: "area-target", text: "No target set for this department."}),
+      target > 0 ? h("p", {class: "area-target", text: `Target ${formatSqft(target)}${share && b ? ` (${b.name}'s ${Math.round(share * 100)}% of ${(cat && cat.name) || "the department"})` : ""} · ${over}`}) : h("p", {class: "area-target", text: "No target set for this department."}),
       range ? h("p", {class: "insp-hint", text: range}) : null,
     ];
   }
@@ -206,9 +207,11 @@ export function createInspector(o) {
     const cat = categoryFor(session.doc, it.cat, session.categories);
     const name = (cat && cat.name) || it.name || "Department";
     const family = cat && cat.family ? (cat.family === "custom" ? "custom" : cat.family) : "";
-    const target = targetOf(cat);
+    const target = blockTarget(cat, it), deptTarget = targetOf(cat); // a brand section's own share; the department's target
     const ht = headTexts([it]);
     const kids = [header(`DEPARTMENT${family ? " · " + family.toUpperCase() : ""}`, ht.name, ht.meta, false)];
+    // a Power Tools block is one brand's section (core/brands.js): say so when nobody has picked the brand yet
+    if (missingBrand(it)) kids.push(h("div", {class: "notice warn insp-notice"}, h("p", {text: editable ? "Pick this section's brand (Milwaukee, DeWalt or Makita) under Department below. Its floor tiles, lights and sign follow the brand." : "This Power Tools section has no brand picked yet."})));
     // area
     kids.push(section("Area",
       h("div", {class: "area-live"}, ...areaReadout(it, cat)),
@@ -222,13 +225,15 @@ export function createInspector(o) {
       editable && o.editor.shapeEdit ? h("p", {class: "insp-hint", text: "Drag a corner to move it. Tap + on an edge to add a corner. Tap a corner, then Remove corner."}) : null));
     // category + target
     const catOpts = session.categories.filter(c => !c.hidden || c.key === it.cat).map(c => [c.key, c.name]);
-    const targetIn = h("input", {class: "input f-in", id: "f-target", type: "number", min: 0, max: 20000, step: 10, inputmode: "numeric", value: target ? String(Math.round(target)) : ""});
+    const targetIn = h("input", {class: "input f-in", id: "f-target", type: "number", min: 0, max: 20000, step: 10, inputmode: "numeric", value: deptTarget ? String(Math.round(deptTarget)) : ""});
     targetIn.addEventListener("change", () => { const v = Number(targetIn.value); if (cat) { committed(); const err = o.act.setTarget(cat.key, Number.isFinite(v) ? v : 0); if (err && o.toast) o.toast(err); } });
     targetIn.addEventListener("keydown", e => e.stopPropagation());
     kids.push(section("Department", grid(
       editable ? catField(it, catOpts) : h("div", {class: "field ro"}, h("span", {class: "f-label", text: "Department"}), h("span", {class: "f-value", text: name})),
-      editable ? h("div", {class: "field"}, h("label", {class: "f-label", for: "f-target", text: "Target sq ft"}), targetIn) : h("div", {class: "field ro"}, h("span", {class: "f-label", text: "Target sq ft"}), h("span", {class: "f-value", text: target ? String(Math.round(target)) : "–"})),
-      statusField(ids, it, editable)),
+      editable ? h("div", {class: "field"}, h("label", {class: "f-label", for: "f-target", text: "Target sq ft"}), targetIn) : h("div", {class: "field ro"}, h("span", {class: "f-label", text: "Target sq ft"}), h("span", {class: "f-value", text: deptTarget ? String(Math.round(deptTarget)) : "–"})),
+      statusField(ids, it, editable),
+      it.cat === POWER_TOOLS ? selectField(ids, "brand", "Brand", POWER_BRANDS.includes(it.brand) ? it.brand : "",
+        [...(POWER_BRANDS.includes(it.brand) ? [] : [["", "Pick a brand…"]]), ...POWER_BRANDS.map(k => [k, BRANDS[k].name])], {editable}) : null),
       cat ? h("div", {class: "btn-row"}, btn(canEdit() ? "Edit category…" : "Category details", "i-pencil", () => o.act.editCategory(cat.key), "btn small", {data: {fk: "editcat"}})) : null));
     // checks
     const ck = checkRows(it, cat);
@@ -393,7 +398,7 @@ export function createInspector(o) {
     }
   }
   function liveBlock(it) {
-    const cat = categoryFor(session.doc, it.cat, session.categories), target = targetOf(cat);
+    const cat = categoryFor(session.doc, it.cat, session.categories), target = blockTarget(cat, it);
     const live = el.querySelector(".area-live");
     if (live) { clear(live); for (const n of areaReadout(it, cat)) if (n) live.appendChild(n); }
     const size = el.querySelector('[data-live="size"]');

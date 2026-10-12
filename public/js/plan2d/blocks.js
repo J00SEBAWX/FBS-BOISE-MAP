@@ -1,7 +1,9 @@
 /* Department blocks on the plan (docs/DESIGN.md 4.4 step 5 and section 5): translucent coloured footprints
  * (rectangles or polygons) with a two-line label (NAME / "612 sq ft / 600"), drawn in the category's colour
- * (light or dark value) at --cat-fill-alpha. Pure canvas drawing; no DOM. */
-import {outline, blockArea} from "../core/areas.js";
+ * (light or dark value) at --cat-fill-alpha. A brand section (core/brands.js: a Power Tools block's brand, the
+ * Simpson Strong-Tie department) is floored with the brand's 12" x 12" tiles instead. Pure canvas drawing; no DOM. */
+import {outline, blockArea, blockTarget} from "../core/areas.js";
+import {brandOf, brandSuffix} from "../core/brands.js";
 import {w2s} from "./plan.js";
 
 /** The colour a category draws in for this theme (custom categories have one colour). */
@@ -19,6 +21,29 @@ function pathOutline(ctx, v, pts) {
 }
 
 /**
+ * The brand's 12" x 12" floor tiles inside a block: a checkerboard of its two tile colours on the store's 1 ft grid
+ * (the way the tiles are laid in the store), clipped to the block. Zoomed far out (tiles under 4 px) it is an even
+ * wash of the brand colour instead.
+ */
+function drawTiles(ctx, v, it, pts, brand, alpha) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [x, y] of pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  ctx.save();
+  ctx.beginPath(); pathOutline(ctx, v, pts); ctx.clip();
+  ctx.globalAlpha = alpha;
+  if (v.s < 4) { ctx.fillStyle = brand.tiles[0]; ctx.fill(); ctx.restore(); return; }
+  const [a, b] = brand.tiles, s = v.s;
+  for (let gx = Math.floor(x0); gx < x1; gx++) {
+    for (let gy = Math.floor(y0); gy < y1; gy++) {
+      const [sx, sy] = w2s(v, gx, gy);
+      ctx.fillStyle = (gx + gy) % 2 === 0 ? a : b;
+      ctx.fillRect(sx, sy, s + 0.5, s + 0.5);
+    }
+  }
+  ctx.restore();
+}
+
+/**
  * Draws every block: fill at --cat-fill-alpha, 2px stroke. opts: {dark, cats (Map key -> category), alpha (override),
  * selIds (Set: selected blocks get a selection stroke instead of the fill), ghost (an item drawn dashed)}.
  */
@@ -30,10 +55,11 @@ export function drawBlocks(ctx, v, layout, tok, opts = {}) {
   for (const it of layout.items) {
     if (it.type !== "area") continue;
     const col = colourOf(cats.get(it.cat), opts.dark);
-    const pts = outline(it);
+    const pts = outline(it), brand = brandOf(it);
+    if (brand) drawTiles(ctx, v, it, pts, brand, Math.min(0.85, alpha * 1.9));
     ctx.beginPath(); pathOutline(ctx, v, pts);
-    ctx.globalAlpha = alpha; ctx.fillStyle = col; ctx.fill();
-    ctx.globalAlpha = 1; ctx.lineWidth = 2; ctx.strokeStyle = col; ctx.stroke();
+    if (!brand) { ctx.globalAlpha = alpha; ctx.fillStyle = col; ctx.fill(); }
+    ctx.globalAlpha = 1; ctx.lineWidth = brand ? 3 : 2; ctx.strokeStyle = brand ? brand.primary : col; ctx.stroke();
   }
   if (opts.ghost) {
     const g = opts.ghost, col = colourOf(cats.get(g.cat), opts.dark);
@@ -44,11 +70,13 @@ export function drawBlocks(ctx, v, layout, tok, opts = {}) {
   ctx.restore();
 }
 
-/** The label lines for a block: [NAME, "612 sq ft / 600"]. */
+/** The label lines for a block: [NAME, "612 sq ft / 600"] ("POWER TOOLS · MILWAUKEE" for a brand section). */
 export function blockLines(it, cat) {
-  const name = String((cat && cat.name) || it.name || "Department").toUpperCase();
+  const sfx = brandSuffix(it);
+  const name = String((cat && cat.name) || it.name || "Department").toUpperCase() + (sfx ? ` · ${sfx}` : "");
   const a = Math.round(blockArea(it)).toLocaleString("en-US");
-  const t = cat && cat.targetSqft > 0 ? ` / ${Math.round(cat.targetSqft).toLocaleString("en-US")}` : "";
+  const tg = cat ? blockTarget(cat, it) : 0; // a brand section: its share of the department's target
+  const t = tg > 0 ? ` / ${Math.round(tg).toLocaleString("en-US")}` : "";
   return [name, `${a} sq ft${t}`];
 }
 
@@ -75,7 +103,8 @@ export function drawBlockLabels(ctx, v, layout, tok, opts = {}) {
     if ("letterSpacing" in ctx) ctx.letterSpacing = "0.6px";
     ctx.font = `700 ${nameSize}px ${tok.fontDisplay}`;
     let n = name;
-    if (ctx.measureText(n).width > wpx - 8) n = name.split(/\s+/)[0];
+    // too long: the brand alone ("MILWAUKEE") for a brand section, else the first word
+    if (ctx.measureText(n).width > wpx - 8) n = name.includes(" · ") ? name.split(" · ").pop() : name.split(/\s+/)[0];
     if (ctx.measureText(n).width > wpx - 8) continue;
     if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
     ctx.font = `500 ${areaSize}px ${tok.fontBody}`;
