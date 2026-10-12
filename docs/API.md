@@ -41,17 +41,17 @@ category rejects the whole save with `400 {error, field, itemId}`. Limits: 1,500
 | field | rule |
 |---|---|
 | `id` (required) | `/^[A-Za-z0-9_-]{1,40}$/`, unique in the map |
-| `type` (required) | `floor zone ceiling wall door opening arch column stairs ring counter gondola wallunit rack pallet platform tower display table area` |
+| `type` (required) | `floor zone ceiling wall door opening arch column stairs ring counter gondola wallunit rack pallet platform tower display table area window` (`window`: a high window or opening in a wall or a fascia, from `sill` up to `h`; open unless `glass`) |
 | `x`, `y` (required) | -100 to 400 |
 | `w`, `d` (required) | over 0, up to 400 |
 | `h` | 0 to 60 (department blocks default to 8) |
 | `rot` | any finite angle within ±3600, stored normalised to [0, 360) |
-| `ceil`, `fasciaTo` | 0 to 60; `cham` 0 to 20; `sky`, `fans` whole numbers 0 to 20 |
+| `ceil`, `fasciaTo`, `sill`, `ledge` | 0 to 60 (`ledge`: the top of a wall's high shelf, e.g. the FBS bucket ledge); `cham` 0 to 20; `sky`, `fans` whole numbers 0 to 20 |
 | `name` | text ≤ 80; `src` text ≤ 80 (where a value came from); `notes` text ≤ 500 (newlines kept); `toConfirm` text ≤ 2000 (open question for AJ) |
 | `color`, `top` | `#rrggbb` |
 | `kind finish header trimTex style lights brand brand2` | `/^[a-z0-9_]{1,24}$/` |
 | `shape` | department blocks: `rect` (default) or `poly`; other items: `/^[a-z0-9_]{1,24}$/` (e.g. `oct`) |
-| `fixed wainscot clerestory solid locked led brandfloor fasciaN fasciaE` | booleans |
+| `fixed wainscot clerestory glass solid locked led brandfloor fasciaN fasciaE` | booleans |
 | `status` | `proposed`, `confirmed` or `needs_review` (any item) |
 | `open` | `{sides: some of ["N","S","E","W"], w: over 0 up to 20}` |
 | `poly` | 3-64 `[x, y]` points in store coordinates (-100 to 400), e.g. a chamfered platform outline |

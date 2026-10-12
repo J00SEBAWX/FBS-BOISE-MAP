@@ -8,7 +8,7 @@
  *  - anything standing on a raised floor starts on top of it.
  * The scan model is never picked. */
 import {rayItemBox, rayPrism, rayPlaneZ, inItem} from "./geometry.js";
-import {heightToCeiling, isStructure, passageTop, baseOf} from "./model.js";
+import {TYPES, heightToCeiling, isStructure, passageTop, baseOf} from "./model.js";
 
 const NEVER = new Set(["floor", "ceiling", "area"]);
 
@@ -26,6 +26,8 @@ export function buildPickBoxes(layout) {
       z1 = heightToCeiling(layout, it);
     } else if (it.type === "door") {
       z1 = Math.max(it.h || 8, passageTop(layout, it));
+    } else if (it.type === "window") { // a high window or opening: only the hole itself
+      z0 = it.sill || 0; z1 = it.h || TYPES.window.h;
     } else if (it.type === "opening" || it.type === "arch") {
       z0 = it.h || 8;
       z1 = Math.max(it.type === "arch" ? z0 + 0.6 : z0, passageTop(layout, it));

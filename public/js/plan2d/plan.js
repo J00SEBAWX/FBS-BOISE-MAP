@@ -91,7 +91,7 @@ export function drawPlan(ctx, v, layout, tok, opts = {}) {
   // 6. fixtures (and fixed desks / platforms / stairs)
   const faintFixtures = !!opts.faint;
   if (layers.fixtures !== false || layers.structure !== false || faintFixtures) {
-    const list = items.filter(it => !STRUCT_DRAW.has(it.type) && !isPassage(it) && it.type !== "floor" && it.type !== "zone" && it.type !== "ceiling" && it.type !== "area")
+    const list = items.filter(it => !STRUCT_DRAW.has(it.type) && !isPassage(it) && it.type !== "floor" && it.type !== "zone" && it.type !== "ceiling" && it.type !== "window" && it.type !== "area")
       .filter(it => (isStructureLike(it) ? layers.structure !== false : layers.fixtures !== false || faintFixtures))
       .sort((a, b) => (FIXTURE_ORDER[a.type] ?? 5) - (FIXTURE_ORDER[b.type] ?? 5));
     for (const it of list) {
@@ -110,6 +110,14 @@ export function drawPlan(ctx, v, layout, tok, opts = {}) {
       if (Math.min(it.w, it.d) * v.s < 2) ctx.stroke(); // at least ~2px on screen
     }
     for (const it of items) if (isPassage(it)) drawPassage(ctx, v, it, tok, opts.mini);
+    // high windows and openings (above head height): a dashed line along the wall, as plans draw things overhead
+    ctx.save(); ctx.strokeStyle = tok.planDoor; ctx.lineWidth = 1.5; ctx.setLineDash([2, 3]);
+    for (const it of items) {
+      if (it.type !== "window") continue;
+      const a = w2s(v, ...toWorld(it, -it.w / 2, 0)), b = w2s(v, ...toWorld(it, it.w / 2, 0));
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+    }
+    ctx.restore();
   }
   // 8. scan lines
   if (layers.scanLines && opts.overlay) drawScanLines(ctx, v, opts.overlay, tok, w2s);
@@ -122,10 +130,10 @@ export function drawPlan(ctx, v, layout, tok, opts = {}) {
     const shown = it => shownBy(it, layers) && !(faintFixtures && layers.fixtures === false && !isStructureLike(it) && !STRUCT_DRAW.has(it.type) && !isPassage(it));
     if (blocksOn && layers.labels !== false) drawBlockLabels(ctx, v, layout, tok, {cats: opts.cats, placed, small: v.W < 500});
     if (layers.labels !== false) {
-      const list = items.filter(it => !["floor", "wall", "ceiling", "area"].includes(it.type) && !isPassage(it) && shown(it)).sort((a, b) => b.w * b.d - a.w * a.d);
+      const list = items.filter(it => !["floor", "wall", "ceiling", "window", "area"].includes(it.type) && !isPassage(it) && shown(it)).sort((a, b) => b.w * b.d - a.w * a.d);
       for (const it of list) drawLabel(ctx, v, it, tok, placed);
     }
-    const blockers = items.filter(it => !["floor", "zone", "ceiling", "area"].includes(it.type) && shown(it)).map(it => screenBox(v, it));
+    const blockers = items.filter(it => !["floor", "zone", "ceiling", "window", "area"].includes(it.type) && shown(it)).map(it => screenBox(v, it));
     drawRoomNames(ctx, v, floors, tok, placed, blockers);
     if (layers.labels !== false) for (const it of items) if (isPassage(it) && shown(it)) drawLabel(ctx, v, it, tok, placed);
   }
@@ -360,7 +368,7 @@ export function createPlanView(o) {
     if (fixturesOn || layers.structure !== false) {
       for (let i = items.length - 1; i >= 0; i--) {
         const it = items[i];
-        if (["floor", "zone", "ceiling", "wall", "area"].includes(it.type)) continue;
+        if (["floor", "zone", "ceiling", "window", "wall", "area"].includes(it.type)) continue;
         if (!(isStructureLike(it) || isPassage(it) ? layers.structure !== false : fixturesOn)) continue;
         const tol = isPassage(it) ? 4 / V.s : 0;
         if (inOutline(it, wx, wy, tol)) return it;
@@ -390,7 +398,7 @@ export function createPlanView(o) {
     const layers = o.getLayers(), faint = o.getFaint ? o.getFaint() : false;
     const lo = [Math.min(x0, x1), Math.min(y0, y1)], hi = [Math.max(x0, x1), Math.max(y0, y1)];
     return layout.items.filter(it => {
-      if (["floor", "zone", "ceiling"].includes(it.type)) return false;
+      if (["floor", "zone", "ceiling", "window"].includes(it.type)) return false;
       if (it.type === "area" ? layers.categories === false : !(isStructureLike(it) || STRUCT_DRAW.has(it.type) || isPassage(it) ? layers.structure !== false : layers.fixtures !== false && !faint)) return false;
       return shapeOf(it).every(([x, y]) => x >= lo[0] && x <= hi[0] && y >= lo[1] && y <= hi[1]);
     });
@@ -500,7 +508,7 @@ export function createPlanView(o) {
   /* ---------- keyboard (while the plan is open) ---------- */
   const pickable = () => {
     const layers = o.getLayers();
-    return layout.items.filter(it => !["floor", "zone", "ceiling"].includes(it.type) && (it.type === "area" ? layers.categories !== false : it.type === "wall" ? layers.structure !== false : shownBy(it, layers)))
+    return layout.items.filter(it => !["floor", "zone", "ceiling", "window"].includes(it.type) && (it.type === "area" ? layers.categories !== false : it.type === "wall" ? layers.structure !== false : shownBy(it, layers)))
       .sort((a, b) => displayName(a).localeCompare(displayName(b)));
   };
   function step(dir) {
